@@ -1,15 +1,17 @@
 .card {
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background: var(--nba-bg-card, #ffffff);
+    border-radius: var(--nba-radius-lg, 12px);
+    border: 1px solid var(--nba-border, #e2e8f0);
+    box-shadow: var(--nba-shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
     padding: 20px;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
 }
 
 .card-title {
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: #374151;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--nba-text-400, #94a3b8);
     text-transform: uppercase;
     margin-bottom: 16px;
 }
@@ -37,7 +39,7 @@
 .icon-circle {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
+    border-radius: var(--nba-radius, 8px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -45,15 +47,15 @@
 }
 
 .icon-blue {
-    background: #EFF6FF;
+    background: var(--nba-blue-50, #eff6ff);
 }
 
 .icon-purple {
-    background: #F5F3FF;
+    background: var(--nba-purple-50, #faf5ff);
 }
 
 .icon-green {
-    background: #ECFDF5;
+    background: var(--nba-emerald-50, #ecfdf5);
 }
 
 .status-info {
@@ -63,43 +65,44 @@
 }
 
 .status-label {
-    font-size: 11px;
-    color: #6B7280;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--nba-text-400, #94a3b8);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
 }
 
 .status-value {
     font-size: 14px;
     font-weight: 600;
-    color: #111827;
+    color: var(--nba-text-900, #0f172a);
 }
 
 .badge {
     display: inline-block;
     padding: 3px 10px;
-    border-radius: 9999px;
+    border-radius: var(--nba-radius-full, 9999px);
     font-size: 12px;
     font-weight: 600;
     width: fit-content;
 }
 
 .badge-green {
-    background: #ECFDF5;
-    color: #059669;
+    background: var(--nba-emerald-50, #ecfdf5);
+    color: var(--nba-emerald-600, #059669);
 }
 
 .badge-yellow {
-    background: #FFFBEB;
+    background: var(--nba-amber-50, #fffbeb);
     color: #D97706;
 }
 
 .badge-red {
-    background: #FEF2F2;
-    color: #DC2626;
+    background: var(--nba-red-50, #fef2f2);
+    color: var(--nba-red-600, #dc2626);
 }
 
 .badge-gray {
-    background: #F3F4F6;
-    color: #6B7280;
+    background: var(--nba-bg-hover, #f1f5f9);
+    color: var(--nba-text-500, #64748b);
 }

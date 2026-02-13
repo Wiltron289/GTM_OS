@@ -16,11 +16,15 @@
             </span>
         </div>
         <div class="header-right">
-            <button class="email-now-btn" onclick={handleEmailNow}>
-                <lightning-icon icon-name="utility:email" size="xx-small" class="email-icon"></lightning-icon>
-                Email Now
-                <lightning-icon icon-name="utility:chevrondown" size="xx-small" class="chevron-icon"></lightning-icon>
-            </button>
+            <div class="email-btn-group">
+                <button class="email-now-btn" onclick={handleEmailNow}>
+                    <lightning-icon icon-name="utility:email" size="xx-small" class="email-icon"></lightning-icon>
+                    Email Now
+                </button>
+                <button class="email-chevron-btn" onclick={handleEmailDropdown}>
+                    <lightning-icon icon-name="utility:chevrondown" size="xx-small"></lightning-icon>
+                </button>
+            </div>
             <button class="snooze-btn" onclick={handleSnooze}>
                 <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>
                 Snooze

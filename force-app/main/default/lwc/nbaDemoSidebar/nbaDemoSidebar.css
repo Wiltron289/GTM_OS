@@ -1,8 +1,8 @@
 .sidebar-container {
-    background: white;
-    border-left: 1px solid #E5E7EB;
+    background: var(--nba-bg-card, #ffffff);
     height: 100%;
     padding: 0;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
 }
 
 .sidebar-header {
@@ -10,13 +10,13 @@
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
-    border-bottom: 1px solid #E5E7EB;
+    border-bottom: 1px solid var(--nba-border, #e2e8f0);
 }
 
 .sidebar-title {
     font-size: 16px;
     font-weight: 700;
-    color: #111827;
+    color: var(--nba-text-900, #0f172a);
     margin: 0;
 }
 
@@ -24,12 +24,16 @@
     background: none;
     border: none;
     cursor: pointer;
-    color: #6B7280;
+    color: var(--nba-text-500, #64748b);
 }
 
+/* Pill-style segmented control */
 .sidebar-tabs {
     display: flex;
-    border-bottom: 1px solid #E5E7EB;
+    background: var(--nba-bg-hover, #f1f5f9);
+    border-radius: var(--nba-radius-full, 9999px);
+    margin: 12px 20px;
+    padding: 4px;
 }
 
 .sidebar-tab {
@@ -38,29 +42,33 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 12px;
+    padding: 8px 16px;
     border: none;
     background: none;
     font-size: 13px;
-    color: #6B7280;
+    color: var(--nba-text-500, #64748b);
     cursor: pointer;
-    border-bottom: 2px solid transparent;
+    border-radius: var(--nba-radius-full, 9999px);
+    transition: all 0.15s ease;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
 }
 
 .sidebar-tab.active {
-    color: #111827;
+    color: var(--nba-text-900, #0f172a);
     font-weight: 600;
-    border-bottom-color: #3B82F6;
+    background: var(--nba-bg-card, #ffffff);
+    box-shadow: var(--nba-shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
 }
 
 .add-note-btn {
     background: none;
     border: none;
-    color: #3B82F6;
+    color: var(--nba-blue-600, #2563eb);
     font-size: 13px;
     cursor: pointer;
     padding: 12px 20px;
     font-weight: 500;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
 }
 
 .add-note-form {
@@ -68,29 +76,34 @@
 }
 
 .save-note-btn {
-    background: #3B82F6;
+    background: var(--nba-blue-600, #2563eb);
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--nba-radius-sm, 6px);
     padding: 6px 16px;
     cursor: pointer;
     margin-top: 8px;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
 }
 
 .notes-list {
     padding: 0 20px;
 }
 
+/* Note left border accent */
 .note-item {
-    padding: 16px 0;
-    border-bottom: 1px solid #F3F4F6;
+    padding: 16px 0 16px 12px;
+    border-bottom: 1px solid var(--nba-border-light, #f1f5f9);
+    border-left: 3px solid var(--nba-blue-600, #2563eb);
 }
 
+/* AI note: purple accent */
 .ai-note {
-    background: #F5F3FF;
-    border-radius: 8px;
+    background: var(--nba-purple-50, #faf5ff);
+    border-radius: var(--nba-radius, 8px);
     padding: 12px;
     margin-bottom: 8px;
+    border-left: 3px solid var(--nba-purple-600, #9333ea);
 }
 
 .note-header {
@@ -102,17 +115,17 @@
 .note-author {
     font-size: 12px;
     font-weight: 600;
-    color: #374151;
+    color: var(--nba-text-700, #334155);
 }
 
 .note-date {
     font-size: 11px;
-    color: #9CA3AF;
+    color: var(--nba-text-400, #94a3b8);
 }
 
 .note-body {
     font-size: 13px;
-    color: #374151;
+    color: var(--nba-text-700, #334155);
     line-height: 1.6;
     margin-top: 6px;
 }
@@ -125,14 +138,14 @@
     display: flex;
     gap: 12px;
     padding: 12px 0;
-    border-bottom: 1px solid #F3F4F6;
+    border-bottom: 1px solid var(--nba-border-light, #f1f5f9);
 }
 
 .timeline-dot {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: #EEF2FF;
+    background: var(--nba-indigo-50, #eef2ff);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -148,26 +161,26 @@
 .activity-label {
     font-size: 13px;
     font-weight: 600;
-    color: #111827;
+    color: var(--nba-text-900, #0f172a);
 }
 
 .activity-meta {
     font-size: 12px;
-    color: #6B7280;
+    color: var(--nba-text-500, #64748b);
 }
 
 .activity-date {
     font-size: 12px;
-    color: #6B7280;
+    color: var(--nba-text-500, #64748b);
 }
 
 .activity-contact {
     font-size: 12px;
-    color: #6B7280;
+    color: var(--nba-text-500, #64748b);
 }
 
 .empty-text {
-    color: #9CA3AF;
+    color: var(--nba-text-400, #94a3b8);
     font-size: 13px;
     padding: 20px;
     text-align: center;

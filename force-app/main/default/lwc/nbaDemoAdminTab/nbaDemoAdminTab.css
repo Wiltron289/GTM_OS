@@ -1,5 +1,6 @@
 .admin-container {
     padding: 4px;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
 }
 
 .section {
@@ -7,11 +8,13 @@
 }
 
 .section-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #374151;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--nba-text-400, #94a3b8);
+    text-transform: uppercase;
     padding-bottom: 8px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--nba-border, #e2e8f0);
     margin-bottom: 12px;
 }
 
@@ -36,17 +39,19 @@
 }
 
 .field-label {
-    font-size: 11px;
-    color: #6b7280;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--nba-text-400, #94a3b8);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     display: block;
 }
 
 .field-value {
     font-size: 14px;
-    color: #111827;
+    color: var(--nba-text-900, #0f172a);
     font-weight: 500;
 }
-
 
 .sla-grid {
     display: flex;
@@ -58,22 +63,22 @@
     grid-template-columns: 1fr auto 1fr auto;
     gap: 12px;
     padding: 8px 0;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--nba-border-light, #f1f5f9);
     align-items: center;
 }
 
 .sla-label {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--nba-text-500, #64748b);
 }
 
 .sla-value {
     font-size: 13px;
-    color: #111827;
+    color: var(--nba-text-900, #0f172a);
 }
 
 .empty-section {
-    color: #9ca3af;
+    color: var(--nba-text-400, #94a3b8);
     font-size: 13px;
     font-style: italic;
 }
