@@ -141,7 +141,7 @@ nbaDemoWorkspace (parent - manages layout, data, tabs)
 ├── nbaDemoUpdatesTab (embeds Opportunity_Stage_Progression_Screen_Flow)
 ├── nbaDemoPayrollTab (payroll readiness, progression, check info)
 ├── nbaDemoProductsTab (product table + Product Wizard flow embed)
-├── nbaDemoContactsTab (contact cards from OpportunityContactRole)
+├── nbaDemoContactsTab (contact cards from OpportunityContactRole + Account Contacts)
 ├── nbaDemoAdminTab (field updates, SLA, history)
 ├── nbaDemoSidebar (notes & activity panel)
 ├── nbaDemoEmailModal (custom email composer)
@@ -152,7 +152,7 @@ nbaDemoWorkspace (parent - manages layout, data, tabs)
 - Single Apex call `getPageData(oppId)` returns `PageDataWrapper` with ALL data
 - Parent `nbaDemoWorkspace` loads data via `@wire`, passes to children via `@api` properties
 - Child components are pure display - zero Apex calls
-- 7 SOQL queries total (Opp+Account, Account_Scoring__c, Contacts, Products, Events, Tasks, Aggregate)
+- 8 SOQL queries total (Opp+Account, Account_Scoring__c, OCR Contacts, Account Contacts, Products, Events, Tasks, Aggregate)
 
 **Key Architecture Decisions:**
 - **Single parent LWC** over multiple FlexiPage components: full control over two-column layout
@@ -195,10 +195,102 @@ nbaDemoWorkspace (parent - manages layout, data, tabs)
 - **Contacts query only hit OpportunityContactRole**: Now also queries all Account contacts (deduped by ContactId), so Contact tab shows both OCR contacts and Account contacts
 - **Payroll tab layout restructured**: Changed from 4-column grid to 2-pair label-value layout matching prototype, added Admin Link and Check Console Link to Progression section
 
-**Pending actions / Next steps:**
-1. **Visual verification & refinement** - Compare rendered components against prototype screenshots, fix any styling/layout issues
-2. **Assign NBA_V2_Demo FlexiPage** - Currently unassigned; activate via Setup > Object Manager > Opportunity > Lightning Record Pages > NBA V2 Demo > Activation
-3. **Not connected to NBA Queue** - This is standalone record page UX, not wired to an action queue yet
+**Pending actions / Next steps (Sprint 2 - UX Refinement):**
+
+#### Issue 1: Notes Not Showing in Sidebar
+- **Problem**: Notes tab shows "No notes yet" even after creating notes. The `saveNote()` method creates `ContentNote` (ContentDocument) records, but `buildSidebar()` only queries Tasks with `Subject.startsWithIgnoreCase('Note')` — it never queries actual ContentNote records.
+- **Root Cause**: Mismatch between write path (ContentNote) and read path (Task-based "notes")
+- **Fix Plan**:
+  1. In `NbaDemoController.buildSidebar()`, add a SOQL query for `ContentDocumentLink WHERE LinkedEntityId = :oppId` joined to `ContentDocument` to get `ContentNote` records
+  2. Map `ContentNote.Title`, `ContentNote.Content`, `ContentNote.CreatedDate`, `ContentNote.CreatedBy.Name` into `NoteData` wrapper objects
+  3. Merge ContentNote-based notes with any Task-based notes, sort by date descending
+  4. After `saveNote()` succeeds in the sidebar JS, call `refreshApex` or imperative reload to re-fetch data so the new note appears immediately
+- **Files**: `NbaDemoController.cls` (buildSidebar), `nbaDemoSidebar.js` (refresh after save), `NbaDemoControllerTest.cls` (verify ContentNote in tests)
+
+#### Issue 2: Products Tab Redundant Header
+- **Problem**: "Current Opportunity Details" header/description/amounts appear twice — once from the LWC HTML and again from the embedded screen flow `Opportunity_Screen_Flow_Opportunity_Product_Wizard` which renders its own header
+- **Root Cause**: The LWC template has a static "Current Opportunity Details" section AND the flow also renders one
+- **Also**: `productsData` has the same `.products` access bug as contacts — workspace passes `data.products` (already an array) but the products tab accesses `this.productsData?.products` (returns undefined). The static LWC amounts show $0.00 because `currentAmount` and `attainedAmount` don't exist on the array.
+- **Fix Plan**:
+  1. Remove the static LWC "Current Opportunity Details" header, description, and amount row from `nbaDemoProductsTab.html` — let the flow handle that display
+  2. Fix the products data access: change `this.productsData?.products` to just `this.productsData` (same pattern as contacts fix)
+  3. Keep the products table from the LWC (above the flow) so users see products without starting the flow
+  4. Pass `Amount` and `Attained_Amount__c` from Apex in a products wrapper if needed, OR just remove the amounts section since the flow shows it
+- **Files**: `nbaDemoProductsTab.html`, `nbaDemoProductsTab.js`
+
+#### Issue 3: Email Modal — Template Picker
+- **Problem**: No way to select/insert an email template when composing email
+- **Fix Plan**:
+  1. Add new Apex method `getEmailTemplates()` that queries `EmailTemplate WHERE IsActive = true` (or a filtered set for NBA templates)
+  2. Add a `lightning-combobox` for template selection above the Subject field in `nbaDemoEmailModal.html`
+  3. When a template is selected, populate Subject and Body from the template (or pass `templateId` to the existing `sendEmail` method which already accepts it)
+  4. Add "None" as default template option
+- **Files**: `NbaDemoController.cls` (new method), `nbaDemoEmailModal.js`, `nbaDemoEmailModal.html`
+
+#### Issue 4: Email Modal — Larger Body Section
+- **Problem**: Email body textarea is too small by default
+- **Root Cause**: `style="min-height: 200px;"` on `lightning-textarea` doesn't work reliably in LWC — inline styles on standard base components are limited
+- **Fix Plan**:
+  1. Add CSS in `nbaDemoEmailModal.css` targeting the textarea: `.email-body-area { --slds-c-textarea-sizing-min-height: 300px; }` or use a wrapper class with min-height
+  2. Alternatively, use a plain `<textarea>` HTML element instead of `lightning-textarea` for full styling control
+- **Files**: `nbaDemoEmailModal.css`, `nbaDemoEmailModal.html`
+
+#### Issue 5: Email Modal — Contacts Not in To Dropdown
+- **Problem**: "To" combobox shows no contact options
+- **Root Cause**: Same array-vs-wrapper bug. Workspace passes `contacts={contactsData}` where `contactsData` is already the contacts array. But `nbaDemoEmailModal.js` accesses `this.contacts?.contacts?.length` and `this.contacts.contacts.map(...)` — `.contacts` on an array is `undefined`.
+- **Fix Plan**:
+  1. In `nbaDemoEmailModal.js`, change `this.contacts?.contacts` to just `this.contacts` (or `Array.isArray(this.contacts) ? this.contacts : []`)
+  2. Update `connectedCallback`, `contactOptions` getter, and `selectedContactName` getter accordingly
+- **Files**: `nbaDemoEmailModal.js`
+
+#### Issue 6: Admin Tab — "Same Lane" Badge Should Not Show
+- **Problem**: Admin tab always shows "Same Lane ✓" badge next to the owner name. This was a misread of the prototype — the prototype owner was named "Sierra Lane", not a badge.
+- **Root Cause**: `nbaDemoAdminTab.js` has `get isSameLane() { return true; // demo placeholder }` which is always true
+- **Fix Plan**:
+  1. Remove the `isSameLane` getter from `nbaDemoAdminTab.js`
+  2. Remove the `<template if:true={isSameLane}><span class="same-lane-badge">Same Lane ✓</span></template>` from `nbaDemoAdminTab.html`
+  3. Remove `.same-lane-badge` CSS from `nbaDemoAdminTab.css`
+- **Files**: `nbaDemoAdminTab.js`, `nbaDemoAdminTab.html`, `nbaDemoAdminTab.css`
+
+#### Issue 7: MRR Badge Should Show Opp Amount
+- **Problem**: Header badge shows "$0 MRR" because `MRR__c` is a formula field that's null for this Opp. Should display Opp Amount instead.
+- **Fix Plan**:
+  1. In `NbaDemoController.buildHeader()`, change: `h.mrr = opp.Amount != null ? opp.Amount : (opp.MRR__c != null ? opp.MRR__c : 0);` — use Amount as primary, MRR as fallback
+  2. In `nbaDemoHeader.js`, update `formattedMrr` to display as `$X,XXX MRR` with proper number formatting (toLocaleString)
+- **Files**: `NbaDemoController.cls` (buildHeader), `nbaDemoHeader.js`
+
+#### Issue 8: Collapsible Section Headers
+- **Problem**: All section headers should be collapsible (click to expand/collapse content)
+- **Scope**: Affects Account Details, Payroll Status, Quota Progress, Sales Engagement, Payroll tab sections (Current Next Step, Progression, Check Info, Activity), Admin tab sections (Field Updates, SLA Info, History, Audit), Insights panel, and Sidebar sections
+- **Fix Plan**:
+  1. Create a reusable pattern: `@track` boolean per section, toggle on header click
+  2. Add chevron icon (▸/▾) to each section header that rotates on toggle
+  3. Wrap section content in `<template if:true={sectionExpanded}>` for show/hide
+  4. Default all sections to expanded (`true`) so nothing changes on first load
+  5. Components to update:
+     - `nbaDemoAccountDetails` — wrap metrics grid
+     - `nbaDemoPayrollStatus` — wrap status list
+     - `nbaDemoQuotaProgress` — wrap quota content
+     - `nbaDemoSalesEngagement` — wrap metrics + AI insight
+     - `nbaDemoPayrollTab` — each section (Current Next Step, Progression, Check Info, Activity)
+     - `nbaDemoAdminTab` — each section (Field Updates, SLA Info, History, Audit)
+     - `nbaDemoInsightsPanel` — already has expand/collapse behavior, verify it works
+  6. Add shared CSS classes for the collapsible pattern: `.section-header-collapsible`, `.chevron`, `.chevron-expanded`
+- **Files**: All overview card components JS/HTML, `nbaDemoPayrollTab`, `nbaDemoAdminTab`, shared CSS patterns
+
+#### Priority Order for Implementation:
+1. **Issue 5** (Email contacts dropdown) — quick fix, same pattern as contacts tab fix
+2. **Issue 6** (Remove Same Lane badge) — quick delete
+3. **Issue 7** (MRR → Amount) — quick Apex + JS fix
+4. **Issue 2** (Products redundancy + data access) — moderate, remove HTML + fix JS
+5. **Issue 4** (Email body size) — quick CSS
+6. **Issue 1** (Notes) — moderate, new SOQL + refresh logic
+7. **Issue 3** (Email templates) — moderate, new Apex method + UI
+8. **Issue 8** (Collapsible headers) — largest scope, touches many components
+
+#### Additional Items (from previous sprint):
+- **Assign NBA_V2_Demo FlexiPage** — Currently unassigned; activate via Setup > Object Manager > Opportunity > Lightning Record Pages > NBA V2 Demo > Activation
+- **Not connected to NBA Queue** — This is standalone record page UX, not wired to an action queue yet
 
 ### LWC Repo Structure Convention
 
