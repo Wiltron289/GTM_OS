@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/metadata">
+    <fullName>Entity_ID__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description>Mirrors Account.Entity_ID__c (company_uuid). External upsert key for daily scoring pipeline. Uniqueness constraint enforces one scoring record per Account.</description>
+    <externalId>true</externalId>
+    <label>Entity ID</label>
+    <length>36</length>
+    <required>true</required>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

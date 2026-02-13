@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/metadata">
+    <fullName>Prob_Tier_Upgrade__c</fullName>
+    <description>ML-predicted probability of tier upgrade (0-100%). Source value (0-1 decimal) is converted to percent format by the pipeline before load. Input to NBA V2 Impact layer.</description>
+    <externalId>false</externalId>
+    <label>Prob Tier Upgrade</label>
+    <precision>5</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackTrending>false</trackTrending>
+    <type>Percent</type>
+</CustomField>

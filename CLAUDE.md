@@ -65,9 +65,43 @@ This creates a living knowledge base that prevents repeating past mistakes and h
 
 **Last Updated**: 2026-02-13
 
+### NBA V2 - Next Best Action System
+
+**Project purpose**: Deterministic sales workflow orchestration system for Account Executives. Evaluates CRM context, generates candidate actions, and serves a prioritized "Next Best Action" in a guided flow.
+
+### Feature 1: Account Scoring Data Layer ✅ (metadata complete, pending deploy)
+
+**Branch**: `feature/account-scoring-data-layer`
+
+**What was built:**
+- Custom object `Account_Scoring__c` - stores latest ML scoring output per Account (1 record per Account)
+- 6 custom fields: Account lookup, Entity_ID (external key), 2 Percent scores, 2 LongTextArea drivers
+- 3 validation rules: Entity ID match (defense-in-depth), 2 percent range validators
+- 2 surfacing fields on Account: `Account_Prob_Payroll_Conversion__c`, `Account_Prob_Tier_Upgrade__c`
+- Custom tab for Account_Scoring__c
+- 2 permission sets: `NBA_Account_Scoring_Admin` (CRUD), `NBA_Account_Scoring_Read` (read-only)
+  - Both include full FLS, object permissions, and tab visibility
+
+**Architecture decisions:**
+- **Lookup(Account)** over Master-Detail: merge safety, pipeline flexibility, no cascade-delete risk
+- **1:1 enforced via Entity_ID__c uniqueness**: mirrors Account.Entity_ID__c (External ID + Unique)
+- **Account surfacing via Percent fields** (not formula): SF formula fields cannot traverse to child records. Sync via Record-Triggered Flow (recommended) or pipeline-side Account update.
+- **deleteConstraint=Restrict**: prevents Account deletion while scoring record exists (no orphans)
+
+**Pending actions:**
+- Deploy to vscodeOrg
+- Build Account-to-Scoring sync mechanism (Record-Triggered Flow recommended)
+- Share data contract with Data Engineering for pipeline implementation
+
+**Data contract key points:**
+- Upsert key: `Account_Scoring__c.Entity_ID__c`
+- Pipeline converts probabilities from 0-1 to 0-100 before load
+- Pipeline populates `Account__c` by matching `company_uuid` to `Account.Entity_ID__c`
+- No orphan records: skip rows where Account match fails
+
 ### Setup Complete ✅
 
-All project infrastructure and tooling has been configured and is ready for feature development.
+All project infrastructure and tooling has been configured.
 
 **Completed Setup:**
 - ✅ Git repository initialized and pushed to GitHub (https://github.com/Wiltron289/GTM_OS)
@@ -80,19 +114,25 @@ All project infrastructure and tooling has been configured and is ready for feat
 - ✅ All documentation complete and committed
 
 **Current State:**
-- **Branch**: master
-- **Latest Commit**: MCP server configuration
+- **Active Branch**: `feature/account-scoring-data-layer`
 - **Deployment Target**: vscodeOrg (Homebase UAT sandbox)
-- **Status**: Ready for feature development
+- **Status**: Feature 1 metadata complete, ready for deploy
 
-**Next Steps:**
-- Start building first feature
-- Follow branching strategy (create feature branch)
-- Use MCP tools to query metadata before writing Salesforce code
-- Maintain test coverage (75%+ Apex, 80%+ LWC)
+**Next Steps (after Feature 1 deploy):**
+- Build Account Scoring sync flow (stamps scores onto Account fields)
+- Start Feature 2: NBA Action object + engines
+- Implement configurable cadence logic (Custom Metadata Types)
+- Begin LWC UI based on Figma designs
+
+### LWC Repo Structure Convention
+
+For future LWC development, use this naming convention:
+- `lwc/nba*` - Production NBA components (e.g., `nbaActionCard`, `nbaWorkspace`)
+- `lwc/nbaDemo*` - Demo/prototype components (e.g., `nbaDemoActionCard`)
+- This keeps demo UX and production components clearly separated in the repo.
 
 **Note for New Agents:**
-If you're a new agent picking up this project, all context is preserved in this file. Review the Working Rules and Development Best Practices sections above before starting work.
+If you're a new agent picking up this project, all context is preserved in this file. Review the Working Rules, Development Best Practices, and Feature 1 architecture decisions above before starting work.
 
 ## Development Best Practices
 

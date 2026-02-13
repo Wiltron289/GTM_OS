@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/metadata">
+    <fullName>Account__c</fullName>
+    <deleteConstraint>Restrict</deleteConstraint>
+    <description>Parent Account for this scoring record. Populated by external pipeline during daily upsert. 1:1 enforced via Entity_ID__c uniqueness. Restrict-on-delete prevents orphan scoring records.</description>
+    <externalId>false</externalId>
+    <label>Account</label>
+    <referenceTo>Account</referenceTo>
+    <relationshipLabel>Account Scorings</relationshipLabel>
+    <relationshipName>Account_Scorings</relationshipName>
+    <required>true</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

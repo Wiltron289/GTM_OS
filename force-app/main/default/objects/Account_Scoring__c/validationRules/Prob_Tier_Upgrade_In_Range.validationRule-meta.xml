@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/metadata">
+    <fullName>Prob_Tier_Upgrade_In_Range</fullName>
+    <active>true</active>
+    <description>Validates tier upgrade probability is within 0-100% range when populated.</description>
+    <errorConditionFormula>AND(
+    NOT(ISBLANK(Prob_Tier_Upgrade__c)),
+    OR(
+        Prob_Tier_Upgrade__c &lt; 0,
+        Prob_Tier_Upgrade__c &gt; 100
+    )
+)</errorConditionFormula>
+    <errorDisplayField>Prob_Tier_Upgrade__c</errorDisplayField>
+    <errorMessage>Probability of Tier Upgrade must be between 0% and 100%.</errorMessage>
+</ValidationRule>

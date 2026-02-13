@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/metadata">
+    <fullName>Prob_Payroll_In_Range</fullName>
+    <active>true</active>
+    <description>Validates payroll conversion probability is within 0-100% range when populated.</description>
+    <errorConditionFormula>AND(
+    NOT(ISBLANK(Prob_Payroll_Conversion__c)),
+    OR(
+        Prob_Payroll_Conversion__c &lt; 0,
+        Prob_Payroll_Conversion__c &gt; 100
+    )
+)</errorConditionFormula>
+    <errorDisplayField>Prob_Payroll_Conversion__c</errorDisplayField>
+    <errorMessage>Probability of Payroll Conversion must be between 0% and 100%.</errorMessage>
+</ValidationRule>
