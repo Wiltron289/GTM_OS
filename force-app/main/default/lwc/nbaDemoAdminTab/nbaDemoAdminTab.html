@@ -1,0 +1,132 @@
+<template>
+    <div class="admin-container">
+        <!-- Field Updates -->
+        <div class="section">
+            <h3 class="section-title">Field Updates</h3>
+            <div class="field-grid-3">
+                <div class="field-item">
+                    <span class="field-label">Stage</span>
+                    <span class="field-value">{adminData.stageName}</span>
+                </div>
+                <div class="field-item">
+                    <span class="field-label"
+                        >Opportunity Product Families</span
+                    >
+                    <span class="field-value"
+                        >{adminData.oppProductFamilies}</span
+                    >
+                </div>
+                <div class="field-item">
+                    <span class="field-label">Opportunity Owner</span>
+                    <div class="owner-row">
+                        <span class="field-value">{ownerDisplay}</span>
+                        <template if:true={isSameLane}>
+                            <span class="same-lane-badge">Same Lane &#x2713;</span>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLA Info -->
+        <div class="section">
+            <h3 class="section-title">SLA Info</h3>
+            <div class="sla-grid">
+                <div class="sla-row">
+                    <span class="sla-label">Days Since Last Call</span>
+                    <span class="sla-value"
+                        >{adminData.daysSinceLastCall}</span
+                    >
+                    <span class="sla-label"
+                        >Last Meaningful Connection</span
+                    >
+                    <span class="sla-value"
+                        >{formattedLastCallDateTime}</span
+                    >
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label">Days Since Last Meeting</span>
+                    <span class="sla-value"
+                        >{adminData.daysSinceLastMeeting}</span
+                    >
+                    <span class="sla-label">Last Call Date/Time</span>
+                    <span class="sla-value"
+                        >{formattedLastCallDateTime}</span
+                    >
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label"
+                        >Days Since Last Interaction</span
+                    >
+                    <span class="sla-value"
+                        >{adminData.daysSinceLastInteraction}</span
+                    >
+                    <span class="sla-label">Last Meeting Date</span>
+                    <span class="sla-value"
+                        >{formattedLastMeetingDate}</span
+                    >
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label">Hours Since Assignment</span>
+                    <span class="sla-value"
+                        >{adminData.hoursSinceAssignment}</span
+                    >
+                    <span class="sla-label">Next Scheduled Meeting</span>
+                    <span class="sla-value">{formattedNextMeeting}</span>
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label">Days Since Creation</span>
+                    <span class="sla-value"
+                        >{adminData.daysSinceCreation}</span
+                    >
+                    <span class="sla-label"
+                        >First Assignment Date/Time</span
+                    >
+                    <span class="sla-value"
+                        >{formattedFirstAssignment}</span
+                    >
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label">Kubaru Workload Status</span>
+                    <span class="sla-value"
+                        >{adminData.kubaruWorkload}</span
+                    >
+                    <span class="sla-label"
+                        >Is Within 1 Hour of First Assignment</span
+                    >
+                    <span class="sla-value"
+                        >{adminData.isWithin1Hour}</span
+                    >
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label"></span>
+                    <span class="sla-value"></span>
+                    <span class="sla-label"
+                        >Last Assignment Date/Time</span
+                    >
+                    <span class="sla-value"
+                        >{formattedLastAssignment}</span
+                    >
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label"></span>
+                    <span class="sla-value"></span>
+                    <span class="sla-label">Created Date/Time</span>
+                    <span class="sla-value">{formattedCreatedDate}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="section">
+            <h3 class="section-title">History</h3>
+            <p class="empty-section">No history available</p>
+        </div>
+
+        <!-- Audit -->
+        <div class="section">
+            <h3 class="section-title">Audit</h3>
+            <p class="empty-section">No audit logs available</p>
+        </div>
+    </div>
+</template>

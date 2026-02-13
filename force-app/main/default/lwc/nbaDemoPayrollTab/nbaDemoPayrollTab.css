@@ -1,0 +1,116 @@
+.payroll-container {
+    padding: 4px;
+}
+
+/* Ready Banner */
+.ready-banner {
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ready-banner.ready {
+    background: #ecfdf5;
+    border-left: 4px solid #10b981;
+}
+
+.ready-banner.not-ready {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+}
+
+.ready-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.ready-subtext {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+/* Summary Row */
+.summary-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 16px;
+    padding: 16px 0;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Section Headers */
+.section {
+    margin-bottom: 20px;
+}
+
+.section-header {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #374151;
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 8px;
+}
+
+/* Field Rows */
+.field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.field-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Field Labels & Values */
+.field-label {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.field-value {
+    font-size: 13px;
+    color: #111827;
+}
+
+/* Risk Badges */
+.risk-badge {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    width: fit-content;
+}
+
+.risk-high {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.risk-medium {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.risk-low {
+    background: #ecfdf5;
+    color: #059669;
+}

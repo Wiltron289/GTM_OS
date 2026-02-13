@@ -1,0 +1,97 @@
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    background: white;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.breadcrumb-prefix {
+    color: #6B7280;
+    font-size: 14px;
+}
+
+.breadcrumb-sep {
+    color: #6B7280;
+    font-size: 14px;
+}
+
+.breadcrumb-account {
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid #E5E7EB;
+    background: white;
+}
+
+.mrr-badge {
+    color: #059669;
+}
+
+.close-badge {
+    color: #6B7280;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.email-now-btn {
+    background: #059669;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+}
+
+.email-now-btn:hover {
+    background: #047857;
+}
+
+.snooze-btn {
+    background: white;
+    color: #374151;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+}
+
+.snooze-btn:hover {
+    background: #F9FAFB;
+}

@@ -1,0 +1,24 @@
+.updates-container {
+    padding: 4px;
+}
+
+.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 4px;
+}
+
+.section-subtitle {
+    font-size: 11px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+}
+
+.flow-container {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+}

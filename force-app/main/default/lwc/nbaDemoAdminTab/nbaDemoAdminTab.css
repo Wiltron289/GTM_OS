@@ -1,0 +1,84 @@
+.admin-container {
+    padding: 4px;
+}
+
+.section {
+    margin-bottom: 20px;
+}
+
+.section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 12px;
+}
+
+.field-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+}
+
+.field-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.field-label {
+    font-size: 11px;
+    color: #6b7280;
+    display: block;
+}
+
+.field-value {
+    font-size: 14px;
+    color: #111827;
+    font-weight: 500;
+}
+
+.owner-row {
+    display: flex;
+    align-items: center;
+}
+
+.same-lane-badge {
+    background: #ecfdf5;
+    color: #059669;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-left: 8px;
+}
+
+.sla-grid {
+    display: flex;
+    flex-direction: column;
+}
+
+.sla-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+    align-items: center;
+}
+
+.sla-label {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.sla-value {
+    font-size: 13px;
+    color: #111827;
+}
+
+.empty-section {
+    color: #9ca3af;
+    font-size: 13px;
+    font-style: italic;
+}

@@ -1,0 +1,33 @@
+<template>
+    <div class="insights-container">
+        <div class="insights-header" onclick={toggleExpand}>
+            <div class="insights-header-left">
+                <div class="lightbulb-icon">
+                    <lightning-icon icon-name="utility:light_bulb" size="small" variant="inverse"></lightning-icon>
+                </div>
+                <span class="insights-title">Why This Account</span>
+            </div>
+            <div class="insights-header-right">
+                <span class="insights-count">{insightCountLabel}</span>
+                <lightning-icon icon-name={expandIcon} size="xx-small"></lightning-icon>
+            </div>
+        </div>
+        <template if:true={isExpanded}>
+            <div class="insights-body">
+                <ul class="insights-list">
+                    <template for:each={insightsData.drivers} for:item="driver">
+                        <li key={driver} class="insight-item">
+                            <lightning-icon icon-name="utility:chevronright" size="xx-small"></lightning-icon>
+                            {driver}
+                        </li>
+                    </template>
+                </ul>
+                <div class="insights-tags">
+                    <template for:each={computedTags} for:item="tag">
+                        <span key={tag.label} class={tag.cssClass}>{tag.label}</span>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>

@@ -1,0 +1,93 @@
+<template>
+    <div class="contacts-container">
+        <template if:true={hasContacts}>
+            <div class="contacts-grid">
+                <template for:each={computedContacts} for:item="contact">
+                    <div key={contact.key} class={contact.cardClass}>
+                        <div class="contact-header">
+                            <div
+                                class="avatar"
+                                style="background-color: #3B82F6"
+                            >
+                                <span class="avatar-initials"
+                                    >{contact.initials}</span
+                                >
+                            </div>
+                            <div class="contact-info">
+                                <div class="contact-name-row">
+                                    <span class="contact-name"
+                                        >{contact.name}</span
+                                    >
+                                    <template if:true={contact.isPrimary}>
+                                        <span class="primary-badge"
+                                            >Primary</span
+                                        >
+                                    </template>
+                                </div>
+                                <span class="contact-title"
+                                    >{contact.title}</span
+                                >
+                            </div>
+                            <button class="more-btn">&#x22EF;</button>
+                        </div>
+                        <div class="contact-activity">
+                            <span class="activity-label">LAST ACTIVITY</span>
+                            <template if:true={contact.hasLastActivity}>
+                                <div class="activity-detail">
+                                    <lightning-icon
+                                        icon-name={contact.activityIconName}
+                                        size="xx-small"
+                                    ></lightning-icon>
+                                    <span class="activity-text"
+                                        >{contact.lastActivityLabel}</span
+                                    >
+                                </div>
+                                <div class="activity-date">
+                                    <lightning-icon
+                                        icon-name="utility:date_input"
+                                        size="xx-small"
+                                    ></lightning-icon>
+                                    <span>{contact.lastActivityDate}</span>
+                                </div>
+                            </template>
+                            <template if:false={contact.hasLastActivity}>
+                                <span class="no-activity"
+                                    >No activity recorded</span
+                                >
+                            </template>
+                        </div>
+                        <div class="contact-actions">
+                            <button
+                                class="action-btn"
+                                data-contact-id={contact.contactId}
+                                onclick={handleEmail}
+                            >
+                                <lightning-icon
+                                    icon-name="utility:email"
+                                    size="xx-small"
+                                ></lightning-icon>
+                                Email
+                            </button>
+                            <button
+                                class="action-btn"
+                                data-phone={contact.phone}
+                                onclick={handleCall}
+                            >
+                                <lightning-icon
+                                    icon-name="utility:call"
+                                    size="xx-small"
+                                ></lightning-icon>
+                                Call
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+        <template if:false={hasContacts}>
+            <div class="empty-state">
+                <p>No contacts associated with this opportunity.</p>
+            </div>
+        </template>
+    </div>
+</template>

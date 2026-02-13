@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>65.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>NBA Demo Sales Engagement</masterLabel>
+    <description>Displays sales engagement metrics (Last Contact, Touch Frequency, Close Potential, Days in Stage) with an AI Insight banner for the NBA V2 demo Overview tab.</description>
+    <targets>
+        <target>lightning__AppPage</target>
+        <target>lightning__RecordPage</target>
+        <target>lightning__HomePage</target>
+    </targets>
+</LightningComponentBundle>

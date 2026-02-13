@@ -1,0 +1,151 @@
+/* ============================================================
+   nbaDemoWorkspace - Main container / layout styles
+   ============================================================ */
+
+:host {
+    display: block;
+    background-color: #f4f6f9;
+    min-height: 100vh;
+    font-family: 'Salesforce Sans', Arial, sans-serif;
+}
+
+/* ── Loading state ────────────────────────────── */
+
+.loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    background-color: #f4f6f9;
+}
+
+/* ── Two-column body layout (tabs + sidebar) ──── */
+
+.workspace-body {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 16px;
+    padding: 0 16px 16px;
+    max-width: 100%;
+    align-items: start;
+}
+
+.workspace-main {
+    min-width: 0; /* prevent grid blowout */
+}
+
+.workspace-sidebar {
+    position: sticky;
+    top: 16px;
+    min-width: 0;
+}
+
+/* ── Tab Bar ──────────────────────────────────── */
+
+.tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background-color: #ffffff;
+    border-bottom: 2px solid #e5e5e5;
+    border-radius: 8px 8px 0 0;
+    padding: 0 8px;
+    overflow-x: auto;
+}
+
+.tab-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: #706e6b;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s ease, border-color 0.15s ease;
+    position: relative;
+    margin-bottom: -2px;
+}
+
+.tab-button:hover {
+    color: #0070d2;
+    background-color: #f3f3f3;
+}
+
+.tab-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #0070d2 inset;
+    border-radius: 4px 4px 0 0;
+}
+
+.tab-active {
+    color: #0070d2;
+    border-bottom-color: #0070d2;
+}
+
+.tab-active:hover {
+    background-color: transparent;
+}
+
+/* Icon inside tab buttons */
+.tab-button lightning-icon {
+    --sds-c-icon-color-foreground-default: currentColor;
+    flex-shrink: 0;
+}
+
+/* ── Tab Content Area ─────────────────────────── */
+
+.tab-content {
+    background-color: transparent;
+    padding: 16px 0;
+}
+
+/* ── Overview Tab: 3-card grid ────────────────── */
+
+.overview-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+/* ── Responsive breakpoints ───────────────────── */
+
+/* Tablet: sidebar below main, overview cards stack to 2 cols */
+@media (max-width: 1200px) {
+    .workspace-body {
+        grid-template-columns: 1fr;
+    }
+
+    .workspace-sidebar {
+        position: static;
+    }
+
+    .overview-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Mobile: single column everything */
+@media (max-width: 768px) {
+    .workspace-body {
+        padding: 0 8px 8px;
+    }
+
+    .overview-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .tab-bar {
+        padding: 0 4px;
+    }
+
+    .tab-button {
+        padding: 10px 10px;
+        font-size: 12px;
+    }
+}

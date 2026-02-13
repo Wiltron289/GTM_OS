@@ -1,0 +1,138 @@
+.engagement-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.engagement-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.engagement-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.card-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #374151;
+    text-transform: uppercase;
+}
+
+.stage-badge {
+    background: #EEF2FF;
+    color: #4F46E5;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.metrics-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    border-top: 1px solid #E5E7EB;
+    padding-top: 16px;
+}
+
+.metric {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.metric-label {
+    font-size: 10px;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.metric-value-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.metric-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.metric-value-bold {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.metric-sub {
+    font-size: 12px;
+    color: #9CA3AF;
+}
+
+.close-high {
+    color: #059669;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.close-medium {
+    color: #D97706;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.close-low {
+    color: #DC2626;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.ai-insight {
+    background: #F5F3FF;
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.ai-icon {
+    width: 28px;
+    height: 28px;
+    background: #7C3AED;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.ai-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.ai-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #7C3AED;
+    letter-spacing: 0.05em;
+}
+
+.ai-text {
+    font-size: 13px;
+    color: #4C1D95;
+    margin-top: 4px;
+    line-height: 1.5;
+    margin-bottom: 0;
+}

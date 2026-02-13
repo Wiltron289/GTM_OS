@@ -1,0 +1,174 @@
+.sidebar-container {
+    background: white;
+    border-left: 1px solid #E5E7EB;
+    height: 100%;
+    padding: 0;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+.sidebar-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.search-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6B7280;
+}
+
+.sidebar-tabs {
+    display: flex;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+.sidebar-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px;
+    border: none;
+    background: none;
+    font-size: 13px;
+    color: #6B7280;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+
+.sidebar-tab.active {
+    color: #111827;
+    font-weight: 600;
+    border-bottom-color: #3B82F6;
+}
+
+.add-note-btn {
+    background: none;
+    border: none;
+    color: #3B82F6;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 12px 20px;
+    font-weight: 500;
+}
+
+.add-note-form {
+    padding: 0 20px 16px;
+}
+
+.save-note-btn {
+    background: #3B82F6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 16px;
+    cursor: pointer;
+    margin-top: 8px;
+}
+
+.notes-list {
+    padding: 0 20px;
+}
+
+.note-item {
+    padding: 16px 0;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.ai-note {
+    background: #F5F3FF;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+
+.note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.note-author {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.note-date {
+    font-size: 11px;
+    color: #9CA3AF;
+}
+
+.note-body {
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.6;
+    margin-top: 6px;
+}
+
+.activity-timeline {
+    padding: 0 20px;
+}
+
+.activity-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.timeline-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #EEF2FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.activity-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.activity-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.activity-meta {
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.activity-date {
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.activity-contact {
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.empty-text {
+    color: #9CA3AF;
+    font-size: 13px;
+    padding: 20px;
+    text-align: center;
+}

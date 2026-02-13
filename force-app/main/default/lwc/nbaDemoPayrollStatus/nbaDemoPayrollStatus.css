@@ -1,0 +1,97 @@
+.card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.card-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #374151;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+}
+
+.status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.icon-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.icon-blue {
+    background: #EFF6FF;
+}
+
+.icon-purple {
+    background: #F5F3FF;
+}
+
+.icon-green {
+    background: #ECFDF5;
+}
+
+.status-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.status-label {
+    font-size: 11px;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    width: fit-content;
+}
+
+.badge-green {
+    background: #ECFDF5;
+    color: #059669;
+}
+
+.badge-yellow {
+    background: #FFFBEB;
+    color: #D97706;
+}
+
+.badge-red {
+    background: #FEF2F2;
+    color: #DC2626;
+}
+
+.badge-gray {
+    background: #F3F4F6;
+    color: #6B7280;
+}

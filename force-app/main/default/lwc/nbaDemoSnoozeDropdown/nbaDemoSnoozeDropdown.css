@@ -1,0 +1,40 @@
+.snooze-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9998;
+}
+
+.snooze-dropdown {
+    position: absolute;
+    top: 60px;
+    right: 100px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 8px 0;
+    min-width: 200px;
+    z-index: 9999;
+}
+
+.snooze-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: #374151;
+}
+
+.snooze-option:hover {
+    background: #F3F4F6;
+}
+
+.option-label.custom {
+    color: #3B82F6;
+}

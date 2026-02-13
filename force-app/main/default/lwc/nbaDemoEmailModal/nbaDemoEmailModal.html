@@ -1,0 +1,42 @@
+<template>
+    <section class="modal-backdrop" onclick={handleClose}>
+        <div class="modal-container" onclick={stopPropagation}>
+            <div class="modal-header">
+                <h2 class="modal-title">Send Email</h2>
+                <button class="close-btn" onclick={handleClose}>&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <lightning-combobox
+                    label="To"
+                    value={selectedContactId}
+                    options={contactOptions}
+                    onchange={handleContactChange}>
+                </lightning-combobox>
+                <lightning-input
+                    label="Subject"
+                    value={emailSubject}
+                    onchange={handleSubjectChange}
+                    class="slds-m-top_small">
+                </lightning-input>
+                <lightning-textarea
+                    label="Body"
+                    value={emailBody}
+                    onchange={handleBodyChange}
+                    class="slds-m-top_small"
+                    style="min-height: 200px;">
+                </lightning-textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick={handleClose}>Cancel</button>
+                <button class="send-btn" onclick={handleSend} disabled={isSending}>
+                    <template if:true={isSending}>
+                        <lightning-spinner alternative-text="Sending" size="small"></lightning-spinner>
+                    </template>
+                    <template if:false={isSending}>
+                        Send Email
+                    </template>
+                </button>
+            </div>
+        </div>
+    </section>
+</template>

@@ -1,0 +1,55 @@
+<template>
+    <div class="products-container">
+        <h3 class="section-title">Current Opportunity Details</h3>
+        <p class="section-description">
+            Here are the current details &amp; current products for this
+            opportunity. Use this page to make updates and see the current MRR
+            value.
+        </p>
+        <div class="amount-row">
+            <span>Current Amount: <strong>{currentAmount}</strong></span>
+            <span>Attained Amount: <strong>{attainedAmount}</strong></span>
+        </div>
+
+        <template if:true={hasProducts}>
+            <div class="products-section">
+                <h4 class="subsection-title">All Current Products</h4>
+                <span class="product-count">{productCount}</span>
+                <table class="product-table">
+                    <thead>
+                        <tr>
+                            <th>Product Family</th>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Sales Price</th>
+                            <th>Total Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={products} for:item="product">
+                            <tr key={product.productName}>
+                                <td>{product.productFamily}</td>
+                                <td>{product.productName}</td>
+                                <td>{product.quantity}</td>
+                                <td>${product.salesPrice}</td>
+                                <td>${product.totalPrice}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </template>
+
+        <div class="flow-section">
+            <p class="flow-instructions">
+                If you would like to update this opportunity, select an option
+                from below, and click 'Get Started'. You can complete this
+                workflow multiple times.
+            </p>
+            <lightning-flow
+                flow-api-name="Opportunity_Screen_Flow_Opportunity_Product_Wizard"
+                flow-input-variables={flowInputVariables}
+            ></lightning-flow>
+        </div>
+    </div>
+</template>

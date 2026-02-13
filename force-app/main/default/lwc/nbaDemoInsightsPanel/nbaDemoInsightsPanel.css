@@ -1,0 +1,93 @@
+.insights-container {
+    background: linear-gradient(135deg, #EEF2FF, #E0E7FF);
+    border-radius: 8px;
+    margin: 0 24px;
+    overflow: hidden;
+}
+
+.insights-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+}
+
+.insights-header-left {
+    display: flex;
+    align-items: center;
+}
+
+.lightbulb-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #4F46E5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.insights-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1E1B4B;
+    margin-left: 12px;
+}
+
+.insights-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.insights-count {
+    background: white;
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 12px;
+    color: #4F46E5;
+    font-weight: 500;
+}
+
+.insights-body {
+    padding: 0 16px 16px;
+}
+
+.insights-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.insight-item {
+    color: #374151;
+    font-size: 13px;
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.insights-tags {
+    margin-top: 8px;
+}
+
+.tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    margin-right: 8px;
+    margin-top: 8px;
+}
+
+.tag-active {
+    background: #4F46E5;
+    color: white;
+}
+
+.tag-inactive {
+    background: #E5E7EB;
+    color: #6B7280;
+}

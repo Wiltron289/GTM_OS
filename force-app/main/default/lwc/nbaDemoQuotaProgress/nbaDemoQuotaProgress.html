@@ -1,0 +1,44 @@
+<template>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">QUOTA PROGRESS</span>
+            <span class="period">This Month</span>
+        </div>
+        <div class="quota-content">
+            <div class="donut-container">
+                <svg viewBox="0 0 120 120" class="donut-svg">
+                    <!-- Background circle -->
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#E5E7EB" stroke-width="10"></circle>
+                    <!-- Progress arc -->
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#10B981" stroke-width="10"
+                        stroke-dasharray={dashArray}
+                        stroke-dashoffset={dashOffset}
+                        stroke-linecap="round"
+                        class="progress-ring"></circle>
+                </svg>
+                <div class="donut-center">
+                    <span class="donut-percent">{percentageDisplay}%</span>
+                </div>
+            </div>
+            <div class="quota-details">
+                <div class="quota-amount">
+                    <span class="amount-main">{formattedClosedWon}</span>
+                    <span class="amount-sep"> / </span>
+                    <span class="amount-target">{formattedTarget}</span>
+                </div>
+                <div class="quota-breakdown">
+                    <div class="breakdown-item">
+                        <span class="dot dot-green"></span>
+                        <span class="breakdown-label">CLOSED WON</span>
+                        <span class="breakdown-value">{formattedClosedWon}</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="dot dot-blue"></span>
+                        <span class="breakdown-label">THIS OPP</span>
+                        <span class="breakdown-value">{formattedThisOpp}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
