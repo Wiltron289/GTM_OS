@@ -187,7 +187,7 @@ public with sharing class NbaDemoController {
         // Query 1: Opportunity with Account fields
         Opportunity opp = [
             SELECT Id, Name, StageName, NextStep, Amount, CloseDate, OwnerId, Owner.Name,
-                   MRR__c, MRR_Potential__c, Deal_Stage_Probability__c,
+                   MRR__c, Deal_Stage_Probability__c,
                    Inception_or_Switcher__c, First_Payday__c,
                    Employee_Count_Deal_Value__c, Payroll_Risk_Level__c,
                    Last_Progression_Time__c, Last_Payroll_Engagement__c,
@@ -264,7 +264,7 @@ public with sharing class NbaDemoController {
         HeaderData h = new HeaderData();
         h.accountName = opp.Account.Name;
         h.accountId = opp.Account.Id;
-        h.mrr = opp.MRR__c != null ? opp.MRR__c : opp.MRR_Potential__c;
+        h.mrr = opp.MRR__c != null ? opp.MRR__c : 0;
         h.closeProbability = opp.Deal_Stage_Probability__c;
         h.opportunityName = opp.Name;
         return h;
@@ -299,7 +299,7 @@ public with sharing class NbaDemoController {
         p.inceptionOrSwitcher = opp.Inception_or_Switcher__c;
         p.employeeCount = opp.Employee_Count_Deal_Value__c != null
             ? Integer.valueOf(opp.Employee_Count_Deal_Value__c) : null;
-        p.predictedMrr = opp.MRR_Potential__c;
+        p.predictedMrr = opp.MRR__c;
         p.payrollRiskLevel = opp.Payroll_Risk_Level__c;
         p.lastProgressionTime = opp.Last_Progression_Time__c;
         p.currentLinearFlowPage = opp.Account.Current_Linear_Flow_Page__c;
@@ -587,11 +587,12 @@ public with sharing class NbaDemoController {
     private static QuotaData buildQuota(Opportunity opp) {
         QuotaData q = new QuotaData();
         q.target = 5000; // Hardcoded for demo
-        q.thisOppMrr = opp.MRR__c != null ? opp.MRR__c : 0;
+        // Use MRR formula if available, fall back to Amount
+        q.thisOppMrr = opp.MRR__c != null ? opp.MRR__c : (opp.Amount != null ? opp.Amount : 0);
 
-        // Aggregate Closed Won MRR this month for the opp owner
+        // Aggregate Closed Won Amount this month for the opp owner
         AggregateResult[] results = [
-            SELECT SUM(MRR__c) totalMrr
+            SELECT SUM(Amount) totalAmount
             FROM Opportunity
             WHERE OwnerId = :opp.OwnerId
               AND StageName = 'Closed Won'
@@ -599,8 +600,8 @@ public with sharing class NbaDemoController {
         ];
 
         q.closedWon = 0;
-        if (!results.isEmpty() && results[0].get('totalMrr') != null) {
-            q.closedWon = (Decimal) results[0].get('totalMrr');
+        if (!results.isEmpty() && results[0].get('totalAmount') != null) {
+            q.closedWon = (Decimal) results[0].get('totalAmount');
         }
 
         q.percentage = q.target > 0 ? ((q.closedWon / q.target) * 100).setScale(0) : 0;

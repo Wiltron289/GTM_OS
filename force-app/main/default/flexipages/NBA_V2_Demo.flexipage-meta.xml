@@ -7,13 +7,21 @@
                 <identifier>c_nbaDemoWorkspace1</identifier>
             </componentInstance>
         </itemInstances>
-        <name>main</name>
+        <name>header</name>
+        <type>Region</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <name>leftcol</name>
+        <type>Region</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <name>rightcol</name>
         <type>Region</type>
     </flexiPageRegions>
     <masterLabel>NBA V2 Demo</masterLabel>
     <sobjectType>Opportunity</sobjectType>
     <template>
-        <name>flexipage:recordHomeFullWidthHeaderTemplateDesktop</name>
+        <name>flexipage:recordHomeTwoColEqualHeaderTemplateDesktop</name>
         <properties>
             <name>enablePageActionConfig</name>
             <value>false</value>

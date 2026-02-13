@@ -3,11 +3,11 @@ import { LightningElement } from 'lwc';
 export default class NbaDemoSnoozeDropdown extends LightningElement {
     get snoozeOptions() {
         return [
-            { label: '1 hour', value: '1h' },
-            { label: '3 hours', value: '3h' },
-            { label: 'Tomorrow morning', value: 'tomorrow' },
-            { label: 'Next week', value: 'nextweek' },
-            { label: 'Custom time...', value: 'custom', isCustom: true }
+            { label: '1 hour', value: '1h', className: 'option-label' },
+            { label: '3 hours', value: '3h', className: 'option-label' },
+            { label: 'Tomorrow morning', value: 'tomorrow', className: 'option-label' },
+            { label: 'Next week', value: 'nextweek', className: 'option-label' },
+            { label: 'Custom time...', value: 'custom', className: 'option-label custom' }
         ];
     }
 

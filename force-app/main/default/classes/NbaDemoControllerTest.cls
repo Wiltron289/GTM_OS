@@ -59,7 +59,8 @@ private class NbaDemoControllerTest {
             Timeline_Confirmed__c = false,
             Next_Step_Date__c = Date.today().addDays(3),
             Future_Follow_Up_Date__c = Date.today().addDays(7),
-            Future_Follow_Up_Reason__c = null
+            Future_Follow_Up_Reason__c = null,
+            Source__c = 'N/A'
         );
         if (payrollRtId != null) {
             opp.RecordTypeId = payrollRtId;
@@ -393,7 +394,8 @@ private class NbaDemoControllerTest {
             AccountId = acc.Id,
             StageName = 'Closed Won',
             CloseDate = Date.today(),
-            MRR__c = 1500
+            Amount = 1500,
+            Source__c = 'N/A'
         );
         insert closedOpp;
 
