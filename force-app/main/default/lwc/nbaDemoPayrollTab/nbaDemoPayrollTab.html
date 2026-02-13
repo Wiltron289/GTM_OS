@@ -29,16 +29,25 @@
 
             <!-- Current Next Step -->
             <div class="section">
-                <h3 class="section-header">Current Next Step</h3>
+                <h3 class="section-header collapsible-header" onclick={toggleNextStep}>
+                    <span>Current Next Step</span>
+                    <lightning-icon icon-name={nextStepChevron} size="xx-small"></lightning-icon>
+                </h3>
+                <template if:true={nextStepExpanded}>
                 <div class="next-step-content">
                     <span class="next-step-value">{currentNextStep}</span>
                     <span class="next-step-status">Payroll Status: {currentPayrollStatus}</span>
                 </div>
+                </template>
             </div>
 
             <!-- Progression -->
             <div class="section">
-                <h3 class="section-header">Progression</h3>
+                <h3 class="section-header collapsible-header" onclick={toggleProgression}>
+                    <span>Progression</span>
+                    <lightning-icon icon-name={progressionChevron} size="xx-small"></lightning-icon>
+                </h3>
+                <template if:true={progressionExpanded}>
                 <div class="progression-grid">
                     <div class="prog-row">
                         <span class="field-label">Payroll Risk Level</span>
@@ -81,11 +90,16 @@
                         <span class="field-value">{paySchedFinish}</span>
                     </div>
                 </div>
+                </template>
             </div>
 
             <!-- Check Information -->
             <div class="section">
-                <h3 class="section-header">Check Information</h3>
+                <h3 class="section-header collapsible-header" onclick={toggleCheckInfo}>
+                    <span>Check Information</span>
+                    <lightning-icon icon-name={checkInfoChevron} size="xx-small"></lightning-icon>
+                </h3>
+                <template if:true={checkInfoExpanded}>
                 <div class="progression-grid">
                     <div class="prog-row">
                         <span class="field-label">Check Info Needed</span>
@@ -106,11 +120,16 @@
                         <span class="field-value">{blockedReason}</span>
                     </div>
                 </div>
+                </template>
             </div>
 
             <!-- Activity -->
             <div class="section">
-                <h3 class="section-header">Activity</h3>
+                <h3 class="section-header collapsible-header" onclick={toggleActivity}>
+                    <span>Activity</span>
+                    <lightning-icon icon-name={activityChevron} size="xx-small"></lightning-icon>
+                </h3>
+                <template if:true={activityExpanded}>
                 <div class="progression-grid">
                     <div class="prog-row">
                         <span class="field-label">Next Step Date</span>
@@ -137,6 +156,7 @@
                         <span class="field-value"></span>
                     </div>
                 </div>
+                </template>
             </div>
         </div>
     </template>

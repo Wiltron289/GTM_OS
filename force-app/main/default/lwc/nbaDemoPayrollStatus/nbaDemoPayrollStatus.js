@@ -1,7 +1,16 @@
-import { LightningElement, api } from 'lwc';
+import { LightningElement, api, track } from 'lwc';
 
 export default class NbaDemoPayrollStatus extends LightningElement {
     @api payrollData;
+    @track sectionExpanded = true;
+
+    get chevronIcon() {
+        return this.sectionExpanded ? 'utility:chevrondown' : 'utility:chevronright';
+    }
+
+    toggleSection() {
+        this.sectionExpanded = !this.sectionExpanded;
+    }
 
     get typeValue() {
         return this.payrollData?.type ?? '—';

@@ -3,23 +3,17 @@ export default class NbaDemoProductsTab extends LightningElement {
     @api productsData;
     @api recordId;
 
+    get productList() {
+        return Array.isArray(this.productsData) ? this.productsData : [];
+    }
     get hasProducts() {
-        return this.productsData?.products?.length > 0;
+        return this.productList.length > 0;
     }
     get products() {
-        return this.productsData?.products || [];
-    }
-    get currentAmount() {
-        const amt = this.productsData?.currentAmount || 0;
-        return '$' + amt.toFixed(2);
-    }
-    get attainedAmount() {
-        const amt = this.productsData?.attainedAmount || 0;
-        return '$' + amt.toFixed(2);
+        return this.productList;
     }
     get productCount() {
-        const products = this.productsData?.products || [];
-        return products.length + ' of ' + products.length + ' items';
+        return this.productList.length + ' of ' + this.productList.length + ' items';
     }
     get flowInputVariables() {
         return [{ name: 'recordId', type: 'String', value: this.recordId }];

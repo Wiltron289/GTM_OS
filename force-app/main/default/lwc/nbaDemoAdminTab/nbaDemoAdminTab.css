@@ -15,6 +15,14 @@
     margin-bottom: 12px;
 }
 
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
 .field-grid-3 {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -39,19 +47,6 @@
     font-weight: 500;
 }
 
-.owner-row {
-    display: flex;
-    align-items: center;
-}
-
-.same-lane-badge {
-    background: #ecfdf5;
-    color: #059669;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    margin-left: 8px;
-}
 
 .sla-grid {
     display: flex;

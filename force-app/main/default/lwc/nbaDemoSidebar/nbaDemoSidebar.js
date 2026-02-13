@@ -53,6 +53,7 @@ export default class NbaDemoSidebar extends LightningElement {
             await saveNote({ oppId: this.recordId, noteBody: this.newNoteText });
             this.newNoteText = '';
             this.showAddNote = false;
+            this.dispatchEvent(new CustomEvent('notesaved'));
         } catch (error) {
             console.error('Error saving note:', error);
         }

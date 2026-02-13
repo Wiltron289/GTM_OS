@@ -1,10 +1,19 @@
-import { LightningElement, api } from 'lwc';
+import { LightningElement, api, track } from 'lwc';
 
 const RADIUS = 50;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export default class NbaDemoQuotaProgress extends LightningElement {
     @api quotaData;
+    @track sectionExpanded = true;
+
+    get chevronIcon() {
+        return this.sectionExpanded ? 'utility:chevrondown' : 'utility:chevronright';
+    }
+
+    toggleSection() {
+        this.sectionExpanded = !this.sectionExpanded;
+    }
 
     get percentageDisplay() {
         return this.quotaData?.percentage ?? 0;

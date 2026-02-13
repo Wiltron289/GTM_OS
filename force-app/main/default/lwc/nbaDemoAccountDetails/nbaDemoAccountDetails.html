@@ -1,6 +1,10 @@
 <template>
     <div class="card">
-        <div class="card-title">ACCOUNT DETAILS</div>
+        <div class="card-title collapsible-header" onclick={toggleSection}>
+            <span>ACCOUNT DETAILS</span>
+            <lightning-icon icon-name={chevronIcon} size="xx-small"></lightning-icon>
+        </div>
+        <template if:true={sectionExpanded}>
         <div class="metrics-grid">
             <div class="metric">
                 <div class="metric-icon icon-blue">
@@ -39,5 +43,6 @@
                 </div>
             </div>
         </div>
+        </template>
     </div>
 </template>

@@ -169,6 +169,18 @@ public with sharing class NbaDemoController {
         }
     }
 
+    private class NoteDataComparator implements System.Comparator<NoteData> {
+        public Integer compare(NoteData a, NoteData b) {
+            if (a.createdDate == null && b.createdDate == null) return 0;
+            if (a.createdDate == null) return 1;
+            if (b.createdDate == null) return -1;
+            // Descending: most recent first
+            if (a.createdDate > b.createdDate) return -1;
+            if (a.createdDate < b.createdDate) return 1;
+            return 0;
+        }
+    }
+
     public class InsightsData {
         @AuraEnabled public List<String> drivers;
         @AuraEnabled public List<TagData> tags;
@@ -275,7 +287,7 @@ public with sharing class NbaDemoController {
         HeaderData h = new HeaderData();
         h.accountName = opp.Account.Name;
         h.accountId = opp.Account.Id;
-        h.mrr = opp.MRR__c != null ? opp.MRR__c : 0;
+        h.mrr = opp.Amount != null ? opp.Amount : (opp.MRR__c != null ? opp.MRR__c : 0);
         h.closeProbability = opp.Deal_Stage_Probability__c;
         h.opportunityName = opp.Name;
         return h;
@@ -632,6 +644,33 @@ public with sharing class NbaDemoController {
             sb.activities.add(a);
         }
 
+        // Query ContentNotes linked to this Opportunity
+        for (ContentDocumentLink cdl : [
+            SELECT ContentDocument.Title, ContentDocument.CreatedDate,
+                   ContentDocument.CreatedBy.Name, ContentDocument.LatestPublishedVersion.VersionData
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId = :oppId
+              AND ContentDocument.FileType = 'SNOTE'
+            ORDER BY ContentDocument.CreatedDate DESC
+            LIMIT 20
+        ]) {
+            NoteData n = new NoteData();
+            n.id = cdl.ContentDocumentId;
+            n.title = cdl.ContentDocument.Title;
+            n.authorName = cdl.ContentDocument.CreatedBy.Name;
+            n.createdDate = cdl.ContentDocument.CreatedDate;
+            n.isAiSummary = false;
+            // ContentNote body is stored as VersionData blob
+            if (cdl.ContentDocument.LatestPublishedVersion != null
+                && cdl.ContentDocument.LatestPublishedVersion.VersionData != null) {
+                n.body = cdl.ContentDocument.LatestPublishedVersion.VersionData.toString();
+            }
+            sb.notes.add(n);
+        }
+
+        // Sort notes by date descending
+        sb.notes.sort(new NoteDataComparator());
+
         // Sort activities by date descending
         sb.activities.sort();
 
@@ -741,5 +780,25 @@ public with sharing class NbaDemoController {
         }
 
         Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<Map<String, String>> getEmailTemplates() {
+        List<Map<String, String>> templates = new List<Map<String, String>>();
+        for (EmailTemplate et : [
+            SELECT Id, Name, Subject, HtmlValue
+            FROM EmailTemplate
+            WHERE IsActive = true
+            ORDER BY Name ASC
+            LIMIT 50
+        ]) {
+            Map<String, String> t = new Map<String, String>();
+            t.put('id', et.Id);
+            t.put('name', et.Name);
+            t.put('subject', et.Subject);
+            t.put('body', et.HtmlValue);
+            templates.add(t);
+        }
+        return templates;
     }
 }

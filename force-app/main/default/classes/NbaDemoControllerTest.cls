@@ -452,6 +452,18 @@ private class NbaDemoControllerTest {
         System.assert(result.quota.percentage > 0, 'Percentage should be > 0 with closed won amount');
     }
 
+    // ─── getEmailTemplates Tests ──────────────────────────────────────
+
+    @isTest
+    static void testGetEmailTemplates_ReturnsListOrEmpty() {
+        Test.startTest();
+        List<Map<String, String>> templates = NbaDemoController.getEmailTemplates();
+        Test.stopTest();
+
+        System.assertNotEquals(null, templates, 'Templates list should not be null');
+        // May be empty if no active templates exist in the org, but should not error
+    }
+
     // ─── On Tier Months Calculation ───────────────────────────────────
 
     @isTest

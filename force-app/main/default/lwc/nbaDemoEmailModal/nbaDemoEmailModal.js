@@ -1,33 +1,61 @@
-import { LightningElement, api, track } from 'lwc';
+import { LightningElement, api, track, wire } from 'lwc';
 import sendEmail from '@salesforce/apex/NbaDemoController.sendEmail';
+import getEmailTemplates from '@salesforce/apex/NbaDemoController.getEmailTemplates';
 
 export default class NbaDemoEmailModal extends LightningElement {
     @api contacts;
     @api recordId;
     @api selectedContact;
     @track selectedContactId;
+    @track selectedTemplateId = '';
     @track emailSubject = '';
     @track emailBody = '';
     @track isSending = false;
+    @track templates = [];
+
+    @wire(getEmailTemplates)
+    wiredTemplates({ data, error }) {
+        if (data) {
+            this.templates = data;
+        } else if (error) {
+            console.error('Error loading email templates:', error);
+        }
+    }
 
     connectedCallback() {
         if (this.selectedContact) {
             this.selectedContactId = this.selectedContact;
-        } else if (this.contacts?.contacts?.length > 0) {
-            this.selectedContactId = this.contacts.contacts[0].contactId;
+        } else {
+            const list = Array.isArray(this.contacts) ? this.contacts : [];
+            if (list.length > 0) {
+                this.selectedContactId = list[0].contactId;
+            }
         }
     }
 
+    get contactList() {
+        return Array.isArray(this.contacts) ? this.contacts : [];
+    }
+
     get contactOptions() {
-        if (!this.contacts?.contacts) return [];
-        return this.contacts.contacts.map(c => ({
+        return this.contactList.map(c => ({
             label: c.name + (c.title ? ' - ' + c.title : ''),
             value: c.contactId
         }));
     }
 
+    get templateOptions() {
+        const options = [{ label: '-- None --', value: '' }];
+        if (this.templates) {
+            this.templates.forEach(t => {
+                options.push({ label: t.name, value: t.id });
+            });
+        }
+        return options;
+    }
+
     get selectedContactName() {
-        const contact = this.contacts?.contacts?.find(c => c.contactId === this.selectedContactId);
+        const contact = this.contactList.find(c => c.contactId === this.selectedContactId);
         return contact ? contact.name : '';
     }
 
@@ -37,6 +65,17 @@ export default class NbaDemoEmailModal extends LightningElement {
 
     handleContactChange(event) {
         this.selectedContactId = event.detail.value;
+    }
+
+    handleTemplateChange(event) {
+        this.selectedTemplateId = event.detail.value;
+        if (this.selectedTemplateId) {
+            const tmpl = this.templates.find(t => t.id === this.selectedTemplateId);
+            if (tmpl) {
+                if (tmpl.subject) this.emailSubject = tmpl.subject;
+                if (tmpl.body) this.emailBody = tmpl.body;
+            }
+        }
     }
 
     handleSubjectChange(event) {
@@ -55,7 +94,7 @@ export default class NbaDemoEmailModal extends LightningElement {
                 contactId: this.selectedContactId,
                 subject: this.emailSubject,
                 body: this.emailBody,
-                templateId: null
+                templateId: this.selectedTemplateId || null
             });
             this.handleClose();
         } catch (error) {

@@ -5,7 +5,8 @@ export default class NbaDemoHeader extends LightningElement {
 
     get formattedMrr() {
         if (!this.headerData?.mrr) return '$0 MRR';
-        return `$${this.headerData.mrr} MRR`;
+        const val = Number(this.headerData.mrr);
+        return `$${val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} MRR`;
     }
 
     get formattedCloseProb() {

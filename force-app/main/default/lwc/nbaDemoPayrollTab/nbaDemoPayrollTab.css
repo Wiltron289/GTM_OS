@@ -78,6 +78,14 @@
     margin-bottom: 8px;
 }
 
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
 /* Current Next Step */
 .next-step-content {
     padding: 12px 0;

@@ -1,6 +1,28 @@
-import { LightningElement, api } from 'lwc';
+import { LightningElement, api, track } from 'lwc';
 export default class NbaDemoPayrollTab extends LightningElement {
     @api payrollTabData;
+    @track nextStepExpanded = true;
+    @track progressionExpanded = true;
+    @track checkInfoExpanded = true;
+    @track activityExpanded = true;
+
+    get nextStepChevron() {
+        return this.nextStepExpanded ? 'utility:chevrondown' : 'utility:chevronright';
+    }
+    get progressionChevron() {
+        return this.progressionExpanded ? 'utility:chevrondown' : 'utility:chevronright';
+    }
+    get checkInfoChevron() {
+        return this.checkInfoExpanded ? 'utility:chevrondown' : 'utility:chevronright';
+    }
+    get activityChevron() {
+        return this.activityExpanded ? 'utility:chevrondown' : 'utility:chevronright';
+    }
+
+    toggleNextStep() { this.nextStepExpanded = !this.nextStepExpanded; }
+    toggleProgression() { this.progressionExpanded = !this.progressionExpanded; }
+    toggleCheckInfo() { this.checkInfoExpanded = !this.checkInfoExpanded; }
+    toggleActivity() { this.activityExpanded = !this.activityExpanded; }
 
     get isReadyToRun() {
         return this.payrollTabData?.isReadyToRun;

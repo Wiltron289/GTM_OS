@@ -17,6 +17,17 @@
     margin-bottom: 16px;
 }
 
+.collapsible-header {
+    cursor: pointer;
+    user-select: none;
+}
+
+.engagement-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .card-title {
     font-size: 12px;
     font-weight: 700;

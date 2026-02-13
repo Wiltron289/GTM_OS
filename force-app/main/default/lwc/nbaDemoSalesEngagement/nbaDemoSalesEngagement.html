@@ -1,10 +1,14 @@
 <template>
     <div class="engagement-container">
         <div class="engagement-card">
-            <div class="engagement-header">
-                <span class="card-title">SALES ENGAGEMENT</span>
-                <span class="stage-badge">{stageName}</span>
+            <div class="engagement-header collapsible-header" onclick={toggleSection}>
+                <div class="engagement-header-left">
+                    <span class="card-title">SALES ENGAGEMENT</span>
+                    <span class="stage-badge">{stageName}</span>
+                </div>
+                <lightning-icon icon-name={chevronIcon} size="xx-small"></lightning-icon>
             </div>
+            <template if:true={sectionExpanded}>
             <div class="metrics-row">
                 <div class="metric">
                     <span class="metric-label">LAST CONTACT</span>
@@ -36,9 +40,11 @@
                     </div>
                 </div>
             </div>
+            </template>
         </div>
         <!-- AI Insight Banner -->
         <template if:true={hasAiInsight}>
+            <template if:true={sectionExpanded}>
             <div class="ai-insight">
                 <div class="ai-icon">
                     <lightning-icon icon-name="utility:magicwand" size="xx-small" variant="inverse"></lightning-icon>
@@ -48,6 +54,7 @@
                     <p class="ai-text">{aiInsight}</p>
                 </div>
             </div>
+            </template>
         </template>
     </div>
 </template>

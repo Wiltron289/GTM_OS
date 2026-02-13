@@ -1,6 +1,10 @@
 <template>
     <div class="card">
-        <div class="card-title">PAYROLL STATUS</div>
+        <div class="card-title collapsible-header" onclick={toggleSection}>
+            <span>PAYROLL STATUS</span>
+            <lightning-icon icon-name={chevronIcon} size="xx-small"></lightning-icon>
+        </div>
+        <template if:true={sectionExpanded}>
         <div class="status-list">
             <div class="status-item">
                 <div class="icon-circle icon-blue">
@@ -30,5 +34,6 @@
                 </div>
             </div>
         </div>
+        </template>
     </div>
 </template>

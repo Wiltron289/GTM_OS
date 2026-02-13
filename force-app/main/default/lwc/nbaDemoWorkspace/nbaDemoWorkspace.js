@@ -1,4 +1,5 @@
 import { LightningElement, api, wire } from 'lwc';
+import { refreshApex } from '@salesforce/apex';
 import getPageData from '@salesforce/apex/NbaDemoController.getPageData';
 
 export default class NbaDemoWorkspace extends LightningElement {
@@ -30,11 +31,16 @@ export default class NbaDemoWorkspace extends LightningElement {
     insightsData;
     upcomingEvent;
 
+    // Store wire result for refreshApex
+    _wiredResult;
+
     // ────────────────────────────────────────────
     // Wire: load all page data in a single call
     // ────────────────────────────────────────────
     @wire(getPageData, { oppId: '$recordId' })
-    wiredPageData({ data, error }) {
+    wiredPageData(result) {
+        this._wiredResult = result;
+        const { data, error } = result;
         if (data) {
             this.headerData = data.header;
             this.accountData = data.account;
@@ -146,5 +152,12 @@ export default class NbaDemoWorkspace extends LightningElement {
     handleContactEmail(event) {
         this.selectedEmailContact = event.detail;
         this.showEmailModal = true;
+    }
+
+    // ────────────────────────────────────────────
+    // Sidebar note-saved handler — refresh data
+    // ────────────────────────────────────────────
+    handleNoteSaved() {
+        refreshApex(this._wiredResult);
     }
 }

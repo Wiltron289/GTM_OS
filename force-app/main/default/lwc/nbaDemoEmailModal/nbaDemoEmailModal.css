@@ -79,3 +79,11 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+.email-body-area textarea {
+    min-height: 300px !important;
+}
+
+.email-body-area .slds-textarea {
+    min-height: 300px;
+}

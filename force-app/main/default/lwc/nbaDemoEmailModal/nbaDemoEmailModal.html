@@ -12,6 +12,13 @@
                     options={contactOptions}
                     onchange={handleContactChange}>
                 </lightning-combobox>
+                <lightning-combobox
+                    label="Template"
+                    value={selectedTemplateId}
+                    options={templateOptions}
+                    onchange={handleTemplateChange}
+                    class="slds-m-top_small">
+                </lightning-combobox>
                 <lightning-input
                     label="Subject"
                     value={emailSubject}
@@ -22,8 +29,7 @@
                     label="Body"
                     value={emailBody}
                     onchange={handleBodyChange}
-                    class="slds-m-top_small"
-                    style="min-height: 200px;">
+                    class="slds-m-top_small email-body-area">
                 </lightning-textarea>
             </div>
             <div class="modal-footer">

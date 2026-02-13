@@ -1,16 +1,5 @@
 <template>
     <div class="products-container">
-        <h3 class="section-title">Current Opportunity Details</h3>
-        <p class="section-description">
-            Here are the current details &amp; current products for this
-            opportunity. Use this page to make updates and see the current MRR
-            value.
-        </p>
-        <div class="amount-row">
-            <span>Current Amount: <strong>{currentAmount}</strong></span>
-            <span>Attained Amount: <strong>{attainedAmount}</strong></span>
-        </div>
-
         <template if:true={hasProducts}>
             <div class="products-section">
                 <h4 class="subsection-title">All Current Products</h4>

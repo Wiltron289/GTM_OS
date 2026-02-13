@@ -1,7 +1,16 @@
-import { LightningElement, api } from 'lwc';
+import { LightningElement, api, track } from 'lwc';
 
 export default class NbaDemoSalesEngagement extends LightningElement {
     @api engagementData;
+    @track sectionExpanded = true;
+
+    get chevronIcon() {
+        return this.sectionExpanded ? 'utility:chevrondown' : 'utility:chevronright';
+    }
+
+    toggleSection() {
+        this.sectionExpanded = !this.sectionExpanded;
+    }
 
     get stageName() {
         return this.engagementData?.stageName ?? '—';
