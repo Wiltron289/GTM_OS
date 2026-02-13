@@ -14,16 +14,6 @@
     </objectPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>Account_Scoring__c.Account__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>false</editable>
-        <field>Account_Scoring__c.Entity_ID__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>false</editable>
         <field>Account_Scoring__c.Prob_Payroll_Conversion__c</field>
         <readable>true</readable>
     </fieldPermissions>
