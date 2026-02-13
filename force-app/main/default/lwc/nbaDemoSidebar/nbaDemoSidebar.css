@@ -118,6 +118,22 @@
     color: var(--nba-text-700, #334155);
 }
 
+.author-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--nba-bg-hover, #f1f5f9);
+    color: var(--nba-text-700, #334155);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--nba-radius-sm, 6px);
+}
+.ai-author-badge {
+    background: var(--nba-purple-50, #faf5ff);
+    color: var(--nba-purple-700, #7e22ce);
+}
+
 .note-date {
     font-size: 11px;
     color: var(--nba-text-400, #94a3b8);

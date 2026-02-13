@@ -5,7 +5,7 @@
                 <span class="card-title">QUOTA PROGRESS</span>
                 <span class="period">This Month</span>
             </div>
-            <lightning-icon icon-name={chevronIcon} size="xx-small"></lightning-icon>
+            <lightning-icon icon-name={chevronIcon} size="x-small"></lightning-icon>
         </div>
         <template if:true={sectionExpanded}>
         <div class="quota-content">
@@ -44,6 +44,9 @@
                 </div>
             </div>
         </div>
+        <template if:true={isZeroProgress}>
+            <p class="empty-state-text">No closed deals this month yet</p>
+        </template>
         </template>
     </div>
 </template>

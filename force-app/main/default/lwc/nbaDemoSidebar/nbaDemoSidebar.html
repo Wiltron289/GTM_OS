@@ -41,7 +41,7 @@
                         <template for:each={computedNotes} for:item="note">
                             <div key={note.key} class={note.noteClass}>
                                 <div class="note-header">
-                                    <span class="note-author">{note.authorDisplay}</span>
+                                    <span class={note.authorBadgeClass}>{note.authorDisplay}</span>
                                     <span class="note-date">{note.formattedDate}</span>
                                 </div>
                                 <p class="note-body">{note.body}</p>

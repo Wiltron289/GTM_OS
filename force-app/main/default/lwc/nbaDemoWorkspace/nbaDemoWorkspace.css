@@ -129,7 +129,7 @@
 .tab-bar {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 24px;
     background-color: var(--nba-bg-card, #ffffff);
     border-bottom: 1px solid var(--nba-border, #e2e8f0);
     border-radius: 0;
@@ -141,7 +141,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 12px 16px;
+    padding: 12px 0;
     border: none;
     border-bottom: 2px solid transparent;
     background: transparent;

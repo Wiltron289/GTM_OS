@@ -6,7 +6,7 @@
                     <span class="card-title">SALES ENGAGEMENT</span>
                     <span class="stage-badge">{stageName}</span>
                 </div>
-                <lightning-icon icon-name={chevronIcon} size="xx-small"></lightning-icon>
+                <lightning-icon icon-name={chevronIcon} size="x-small"></lightning-icon>
             </div>
             <template if:true={sectionExpanded}>
             <div class="metrics-row">
@@ -51,7 +51,16 @@
                 </div>
                 <div class="ai-content">
                     <span class="ai-label">AI INSIGHT</span>
-                    <p class="ai-text">{aiInsight}</p>
+                    <ul class="ai-insight-list">
+                        <template for:each={visibleInsights} for:item="item">
+                            <li key={item.key} class="ai-insight-item">{item.text}</li>
+                        </template>
+                    </ul>
+                    <template if:true={hasMoreInsights}>
+                        <button class="show-more-btn" onclick={toggleShowAllInsights}>
+                            {showMoreLabel}
+                        </button>
+                    </template>
                 </div>
             </div>
             </template>

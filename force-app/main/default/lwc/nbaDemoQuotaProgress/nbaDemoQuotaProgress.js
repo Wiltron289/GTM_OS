@@ -52,4 +52,8 @@ export default class NbaDemoQuotaProgress extends LightningElement {
     get dashOffset() {
         return CIRCUMFERENCE * 0.25;
     }
+
+    get isZeroProgress() {
+        return this.percentageDisplay === 0 || this.percentageDisplay === '0';
+    }
 }

@@ -24,6 +24,14 @@
     user-select: none;
 }
 
+.collapsible-header lightning-icon {
+    --sds-c-icon-color-foreground-default: var(--nba-text-500, #64748b);
+    transition: transform 0.2s ease;
+}
+.collapsible-header:hover lightning-icon {
+    --sds-c-icon-color-foreground-default: var(--nba-text-900, #0f172a);
+}
+
 .engagement-header-left {
     display: flex;
     align-items: center;
@@ -31,10 +39,10 @@
 }
 
 .card-title {
-    font-size: 10px;
+    font-size: 16px;
     font-weight: 600;
-    letter-spacing: 0.1em;
-    color: var(--nba-text-400, #94a3b8);
+    letter-spacing: 0.05em;
+    color: var(--nba-text-900, #0f172a);
     text-transform: uppercase;
 }
 
@@ -152,4 +160,38 @@
     margin-top: 4px;
     line-height: 1.5;
     margin-bottom: 0;
+}
+
+.ai-insight-list {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0 0 0;
+}
+.ai-insight-item {
+    font-size: 13px;
+    color: var(--nba-text-700, #334155);
+    line-height: 1.5;
+    padding: 3px 0;
+    padding-left: 12px;
+    position: relative;
+}
+.ai-insight-item::before {
+    content: "\2022";
+    position: absolute;
+    left: 0;
+    color: var(--nba-blue-500, #3b82f6);
+}
+.show-more-btn {
+    background: none;
+    border: none;
+    color: var(--nba-blue-600, #2563eb);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px 0;
+    margin-top: 4px;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+}
+.show-more-btn:hover {
+    text-decoration: underline;
 }

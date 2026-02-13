@@ -21,7 +21,7 @@ export default class NbaDemoPayrollStatus extends LightningElement {
     }
 
     get checkStatusValue() {
-        return this.payrollData?.checkStatus ?? '—';
+        return this.payrollData?.checkStatus || 'Pending';
     }
 
     get isReady() {

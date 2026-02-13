@@ -146,6 +146,7 @@ public with sharing class NbaDemoController {
         @AuraEnabled public String authorName;
         @AuraEnabled public Datetime createdDate;
         @AuraEnabled public Boolean isAiSummary;
+        @AuraEnabled public Boolean isCurrentUser;
     }
 
     public class ActivityData implements Comparable {
@@ -585,7 +586,7 @@ public with sharing class NbaDemoController {
 
         // Activities: recent Tasks + Events
         for (Task t : [
-            SELECT Id, Subject, ActivityDate, Who.Name, TaskSubtype, Description
+            SELECT Id, Subject, ActivityDate, Who.Name, TaskSubtype, Description, CreatedById
             FROM Task
             WHERE WhatId = :oppId
             ORDER BY ActivityDate DESC, CreatedDate DESC
@@ -620,6 +621,7 @@ public with sharing class NbaDemoController {
                     ? Datetime.newInstance(t.ActivityDate, Time.newInstance(0, 0, 0, 0))
                     : null;
                 n.isAiSummary = false;
+                n.isCurrentUser = (t.CreatedById == UserInfo.getUserId());
                 sb.notes.add(n);
             }
 
@@ -647,7 +649,7 @@ public with sharing class NbaDemoController {
         // Query ContentNotes linked to this Opportunity
         for (ContentDocumentLink cdl : [
             SELECT ContentDocument.Title, ContentDocument.CreatedDate,
-                   ContentDocument.CreatedBy.Name, ContentDocument.LatestPublishedVersion.VersionData
+                   ContentDocument.CreatedBy.Name, ContentDocument.CreatedById, ContentDocument.LatestPublishedVersion.VersionData
             FROM ContentDocumentLink
             WHERE LinkedEntityId = :oppId
               AND ContentDocument.FileType = 'SNOTE'
@@ -660,6 +662,7 @@ public with sharing class NbaDemoController {
             n.authorName = cdl.ContentDocument.CreatedBy.Name;
             n.createdDate = cdl.ContentDocument.CreatedDate;
             n.isAiSummary = false;
+            n.isCurrentUser = (cdl.ContentDocument.CreatedById == UserInfo.getUserId());
             // ContentNote body is stored as VersionData blob
             if (cdl.ContentDocument.LatestPublishedVersion != null
                 && cdl.ContentDocument.LatestPublishedVersion.VersionData != null) {

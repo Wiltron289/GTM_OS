@@ -259,6 +259,40 @@ Commit 11: `style: Design overhaul - align NBA V2 demo LWC with Tailwind design 
 
 **Files changed (19 total):** 16 CSS files + 3 HTML files (header split button, quota SVG stroke, contacts avatar color). Zero JS changes.
 
+### Sprint 4 - Design Polish ✅ COMPLETED (deployed to vscodeOrg, 14 tests passing)
+
+Commit 12: `style: Design polish - 8 changes to align with Magic Patterns prototype`
+
+**What changed:** 8 targeted design polish items to bring the LWC demo closer to the Magic Patterns prototype.
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | Card section headers | `.card-title` upgraded from 10px/slate-400 to 16px/slate-900 across 4 components |
+| 2 | Chevron icons | Size `xx-small` → `x-small`, added hover color transition on `.collapsible-header` in 4 components |
+| 3 | AI Insight formatting | Single paragraph → bulleted list with "Show more" toggle when >2 signals |
+| 4 | Insights Panel bg | Gradient changed from indigo→indigo to blue-50→indigo-50, border blue-200, radius 12px |
+| 5 | Tab bar gap | Gap widened 6px → 24px, tab button padding changed from `12px 16px` to `12px 0` |
+| 6 | Sidebar note author | "Me" badge for current user, "✨ AI Summary" purple badge; `isCurrentUser` added to Apex `NoteData` |
+| 7 | Empty states | Quota 0% shows "No closed deals this month yet"; Check Status empty → "Pending" |
+| 8 | Header breadcrumb | `font-weight: 700` → `600` (semibold) |
+
+**Files changed (17 total):**
+- 8 CSS files (accountDetails, payrollStatus, quotaProgress, salesEngagement, insightsPanel, workspace, sidebar, header)
+- 4 HTML files (accountDetails, payrollStatus, quotaProgress, salesEngagement chevrons + sidebar author badge + quota empty state)
+- 3 JS files (salesEngagement AI insight list, quotaProgress zero check, payrollStatus pending fallback, sidebar author badge)
+- 1 Apex class (NbaDemoController — `NoteData.isCurrentUser`, `CreatedById` in queries)
+
+**New JS patterns added:**
+- `aiInsightItems` getter: splits AI text on sentence boundaries via regex `/(?<=[.!])\s+(?=[A-Z])/`
+- `visibleInsights` / `hasMoreInsights` / `showMoreLabel`: progressive disclosure pattern (show 2, toggle more)
+- `isZeroProgress` getter: detects quota 0% for empty state display
+- `authorBadgeClass` computed property: dynamic CSS class for note author badges
+
+**New Apex changes:**
+- `NoteData.isCurrentUser` (`Boolean`): compares `CreatedById` with `UserInfo.getUserId()`
+- Task query: added `CreatedById` field
+- ContentDocumentLink query: added `ContentDocument.CreatedById` field
+
 ### LWC Repo Structure Convention
 
 For future LWC development, use this naming convention:

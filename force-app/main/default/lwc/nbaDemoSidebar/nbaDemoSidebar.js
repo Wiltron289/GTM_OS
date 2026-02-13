@@ -30,8 +30,13 @@ export default class NbaDemoSidebar extends LightningElement {
             ...note,
             key: note.id || 'note-' + idx,
             formattedDate: note.createdDate ? new Date(note.createdDate).toLocaleDateString() : '',
-            authorDisplay: note.isAiSummary ? '✨ AI Summary' : (note.authorName || 'Me'),
-            noteClass: note.isAiSummary ? 'note-item ai-note' : 'note-item'
+            authorDisplay: note.isAiSummary
+                ? '✨ AI Summary'
+                : (note.isCurrentUser ? 'Me' : (note.authorName || 'Me')),
+            noteClass: note.isAiSummary ? 'note-item ai-note' : 'note-item',
+            authorBadgeClass: note.isAiSummary
+                ? 'note-author author-badge ai-author-badge'
+                : 'note-author author-badge'
         }));
     }
 
