@@ -113,14 +113,79 @@ All project infrastructure and tooling has been configured.
 - ✅ All documentation complete and committed
 
 **Current State:**
-- **Active Branch**: `feature/account-scoring-data-layer`
+- **Active Branch**: `feature/nba-v2-demo-lwc` (branched from `feature/account-scoring-data-layer`)
 - **Deployment Target**: vscodeOrg (Homebase UAT sandbox)
-- **Status**: Feature 1 deployed to vscodeOrg, branch ready to merge
+- **Status**: Feature 2 (Demo LWC) deployed to vscodeOrg, test class needs fixing
 
-**Next Steps (after Feature 1 deploy):**
-- Start Feature 2: NBA Action object + engines
-- Implement configurable cadence logic (Custom Metadata Types)
-- Begin LWC UI based on Figma designs
+### Feature 2: NBA V2 Demo LWC UX 🔧 (deployed to vscodeOrg, tests pending)
+
+**Branch**: `feature/nba-v2-demo-lwc`
+
+**What was built:**
+- 16 Lightning Web Components implementing the product designer's NBA V2 prototype
+- 1 Apex controller (`NbaDemoController.cls`) with centralized data loading pattern
+- 1 Apex test class (`NbaDemoControllerTest.cls`) - needs fixing (see Troubleshooting)
+- 1 FlexiPage (`NBA_V2_Demo`) - dedicated demo record page for Opportunity
+
+**Component Architecture:**
+```
+nbaDemoWorkspace (parent - manages layout, data, tabs)
+├── nbaDemoAlertBanner (meeting reminder banner)
+├── nbaDemoHeader (breadcrumb, MRR badge, Close %, Email Now, Snooze)
+├── nbaDemoInsightsPanel (Why This Account - expandable, Account_Scoring__c drivers)
+├── Overview Tab:
+│   ├── nbaDemoAccountDetails (employees, locations, plan, tier)
+│   ├── nbaDemoPayrollStatus (type, next step, check status)
+│   ├── nbaDemoQuotaProgress (SVG donut chart, hardcoded $5k target)
+│   └── nbaDemoSalesEngagement (metrics + AI insight banner)
+├── nbaDemoUpdatesTab (embeds Opportunity_Stage_Progression_Screen_Flow)
+├── nbaDemoPayrollTab (payroll readiness, progression, check info)
+├── nbaDemoProductsTab (product table + Product Wizard flow embed)
+├── nbaDemoContactsTab (contact cards from OpportunityContactRole)
+├── nbaDemoAdminTab (field updates, SLA, history)
+├── nbaDemoSidebar (notes & activity panel)
+├── nbaDemoEmailModal (custom email composer)
+└── nbaDemoSnoozeDropdown (visual only)
+```
+
+**Data Flow Pattern:**
+- Single Apex call `getPageData(oppId)` returns `PageDataWrapper` with ALL data
+- Parent `nbaDemoWorkspace` loads data via `@wire`, passes to children via `@api` properties
+- Child components are pure display - zero Apex calls
+- 7 SOQL queries total (Opp+Account, Account_Scoring__c, Contacts, Products, Events, Tasks, Aggregate)
+
+**Key Architecture Decisions:**
+- **Single parent LWC** over multiple FlexiPage components: full control over two-column layout
+- **Centralized data loading**: one Apex call reduces wire calls, keeps children stateless
+- **Screen flow embedding**: reuses existing `Opportunity_Stage_Progression_Screen_Flow` and `Opportunity_Screen_Flow_Opportunity_Product_Wizard`
+- **SVG donut chart**: custom SVG with `stroke-dasharray` - no external dependencies
+- **FlexiPage template**: `flexipage:recordHomeTwoColEqualHeaderTemplateDesktop` with component in header region (full width)
+- **Quota uses Amount field**: `MRR__c` is a formula field (not writable in tests), so quota aggregates `SUM(Amount)` instead
+
+**Known Field Issues (discovered during deploy):**
+- `MRR__c` is a Formula(Currency) on Opportunity - queryable but NOT writable
+- `MRR_Potential__c` does NOT exist on Opportunity - removed from controller
+- `Source__c` is a required Picklist on Opportunity - must be set in test data (value: 'N/A')
+- Opportunity Name may be overwritten by org triggers/flows - don't query by Name in tests
+
+**Files Created (69 total):**
+- `classes/NbaDemoController.cls` + meta (~690 lines)
+- `classes/NbaDemoControllerTest.cls` + meta (~440 lines)
+- `flexipages/NBA_V2_Demo.flexipage-meta.xml`
+- 16 LWC components × 4 files each = 64 files under `lwc/nbaDemo*`
+
+**Commits on branch:**
+1. `feat: Add NbaDemoController Apex class for NBA V2 demo LWC`
+2. `feat: Add 16 NBA V2 demo LWC components`
+3. `feat: Add NbaDemoControllerTest and NBA V2 Demo FlexiPage`
+4. `fix: Resolve deploy issues - remove MRR_Potential__c, fix snooze HTML, add Source__c to tests`
+
+**Pending actions / Next steps:**
+1. **Fix Apex test class** - Tests fail with "List has no rows" because UAT org automation likely modifies Opportunity Name. Fix: query by AccountId/StageName instead of Name
+2. **Set up demo test data** - Reassign existing open Opps to current user for testing
+3. **Assign NBA_V2_Demo FlexiPage** to a record type or app page assignment for testing
+4. **Visual verification** - Compare rendered components against prototype screenshots
+5. **Not connected to NBA Queue** - This is standalone record page UX, not wired to an action queue yet
 
 ### LWC Repo Structure Convention
 
@@ -222,6 +287,20 @@ This is a Salesforce DX project named **GTM_OS** using Salesforce API version 65
 - **Root Cause**: Salesforce does not allow field-level security (FLS) to be set on required fields (`required=true`) or required lookup fields. These are automatically visible to users with object access.
 - **Fix**: Remove `<fieldPermissions>` entries for required fields (e.g., `Entity_ID__c`, `Account__c`) from permission set metadata
 - **Prevention**: When creating permission sets, never include FLS entries for fields marked `required=true` in their field definition
+
+### NbaDemoControllerTest "List has no rows" (2026-02-13)
+- **Problem**: All test methods fail with `System.QueryException: List has no rows for assignment to SObject` when querying `SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp'`
+- **Context**: @testSetup creates Account, Contact, Account_Scoring__c, Opportunity, OCR, Products, Tasks, Events. Contact queries work (testSendEmail passes), but Opportunity queries fail.
+- **Likely Root Cause**: UAT org has triggers/flows/Process Builders that rename Opportunities on insert (e.g., prepending Account Name or adding a record type prefix). The query-by-Name pattern breaks.
+- **Attempted**: Added `Source__c = 'N/A'` (required picklist). Deploy succeeded, but tests still fail on Opp query.
+- **Fix needed**: Change all test method queries from `WHERE Name = 'Test NBA Demo Opp'` to `WHERE AccountId IN (SELECT Id FROM Account WHERE Name = 'Test Demo Account') AND StageName = 'Prospecting'` or similar resilient pattern.
+- **Prevention**: In this org, never query test Opportunities by Name. Use AccountId + StageName or store the Id in a class-level variable.
+
+### LWC HTML Ternary Operators (2026-02-13)
+- **Problem**: `nbaDemoSnoozeDropdown` deploy failed with `LWC1058: Invalid HTML syntax: unexpected-character-in-attribute-name`
+- **Root Cause**: LWC templates do NOT support JavaScript ternary operators (`? :`) in HTML attribute values. The expression `class={option.isCustom ? 'a' : 'b'}` is invalid.
+- **Fix**: Pre-compute the CSS class string in JavaScript and pass it as a property (e.g., `className: 'option-label custom'`)
+- **Prevention**: Never use ternary operators in LWC HTML template attributes. Always use computed getters or pre-computed properties.
 
 ## Project Architecture
 
