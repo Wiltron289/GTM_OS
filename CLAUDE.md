@@ -85,12 +85,11 @@ This creates a living knowledge base that prevents repeating past mistakes and h
 **Architecture decisions:**
 - **Lookup(Account)** over Master-Detail: merge safety, pipeline flexibility, no cascade-delete risk
 - **1:1 enforced via Entity_ID__c uniqueness**: mirrors Account.Entity_ID__c (External ID + Unique)
-- **Account surfacing via Percent fields** (not formula): SF formula fields cannot traverse to child records. Sync via Record-Triggered Flow (recommended) or pipeline-side Account update.
+- **Account surfacing fields deferred**: Percent fields exist on Account but sync is deferred. The NBA engine queries Account_Scoring__c directly via indexed `Account__c` lookup - no duplication needed. Sync flow only needed if Opportunity formulas or reporting require Account-level scores later.
 - **deleteConstraint=Restrict**: prevents Account deletion while scoring record exists (no orphans)
 
 **Pending actions:**
 - Deploy to vscodeOrg
-- Build Account-to-Scoring sync mechanism (Record-Triggered Flow recommended)
 - Share data contract with Data Engineering for pipeline implementation
 
 **Data contract key points:**
@@ -119,7 +118,6 @@ All project infrastructure and tooling has been configured.
 - **Status**: Feature 1 metadata complete, ready for deploy
 
 **Next Steps (after Feature 1 deploy):**
-- Build Account Scoring sync flow (stamps scores onto Account fields)
 - Start Feature 2: NBA Action object + engines
 - Implement configurable cadence logic (Custom Metadata Types)
 - Begin LWC UI based on Figma designs

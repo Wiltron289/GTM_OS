@@ -28,15 +28,17 @@
 
 **Defense-in-depth**: Validation rule `Entity_ID_Matches_Account` ensures the Entity_ID on the scoring record matches `Account__r.Entity_ID__c`. This catches API misuse where someone sets the correct Entity_ID but points `Account__c` to the wrong Account.
 
-### Account Surfacing: Percent Fields (not Formula)
+### Account Surfacing: Deferred (Engine Queries Directly)
 
-**Platform constraint**: Salesforce formula fields can only traverse UP to parent records, never DOWN to child records. Since Account_Scoring__c is a child of Account, formula fields on Account cannot reference scoring values.
+**Decision**: The NBA engine (Apex) queries `Account_Scoring__c` directly via the indexed `Account__c` lookup. No sync mechanism is needed for the engine.
 
-**Solution**: Percent fields directly on Account, synced via:
-- **Option A (recommended)**: Record-Triggered Flow on Account_Scoring__c (real-time sync)
-- **Option B**: Pipeline updates both Account_Scoring__c and Account in the same daily job
+**Rationale**: Duplicating scores onto Account via a flow or pipeline adds sync complexity for no engine benefit. The canonical pattern is:
+```apex
+SELECT Prob_Payroll_Conversion__c, Prob_Tier_Upgrade__c
+FROM Account_Scoring__c WHERE Account__c IN :accountIds
+```
 
-These fields are formula-friendly for Opportunities: `Opportunity.Account.Account_Prob_Payroll_Conversion__c` works natively.
+**Account surfacing fields exist but are unsynced**: `Account_Prob_Payroll_Conversion__c` and `Account_Prob_Tier_Upgrade__c` are deployed as Percent fields on Account. A sync flow should only be built if a concrete consumer arises that cannot query Account_Scoring__c directly (e.g., Opportunity formula fields, Account list views/reports).
 
 ### Field Design for Apex Consumption
 
@@ -256,24 +258,13 @@ sf org open --target-org vscodeOrg
 
 ---
 
-## Account Surfacing Sync (Post-Deploy)
+## Account Surfacing Sync (Deferred)
 
-The Account fields (`Account_Prob_Payroll_Conversion__c`, `Account_Prob_Tier_Upgrade__c`) require a sync mechanism.
+The Account fields (`Account_Prob_Payroll_Conversion__c`, `Account_Prob_Tier_Upgrade__c`) are deployed but **intentionally unsynced**. The NBA engine queries `Account_Scoring__c` directly via the indexed `Account__c` lookup, so no duplication is needed.
 
-### Option A: Record-Triggered Flow (Recommended)
+**When to build the sync**: Only if a concrete consumer arises that cannot query Account_Scoring__c directly:
+- Opportunity formula fields that need `Opportunity.Account.Account_Prob_Payroll_Conversion__c`
+- Account list views or reports that need scoring columns without a child object join
+- Flow/Process Builder conditions on Opportunity that reference Account-level scores
 
-Build in Flow Builder:
-1. **Object**: Account_Scoring__c
-2. **Trigger**: After Insert, After Update
-3. **Entry Conditions**: None (run for every scoring record change)
-4. **Action**: Update Records > Account__r
-   - `Account_Prob_Payroll_Conversion__c` = `{!$Record.Prob_Payroll_Conversion__c}`
-   - `Account_Prob_Tier_Upgrade__c` = `{!$Record.Prob_Tier_Upgrade__c}`
-5. Retrieve to source: `sf project retrieve start -m Flow:Sync_Account_Scoring_to_Account`
-
-### Option B: Pipeline-Side Update
-
-Pipeline updates both objects in the daily job:
-1. Upsert `Account_Scoring__c` records (existing behavior)
-2. Update `Account` records with scoring values (additional step)
-   - `UPDATE Account SET Account_Prob_Payroll_Conversion__c = :prob_payroll, Account_Prob_Tier_Upgrade__c = :prob_tier WHERE Entity_ID__c = :company_uuid`
+**How to build it (when needed)**: Record-Triggered Flow on Account_Scoring__c (After Insert/Update) that stamps values onto `Account__r`. Takes ~5 minutes in Flow Builder.
