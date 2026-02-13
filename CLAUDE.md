@@ -220,6 +220,45 @@ Commit 10: `fix: Sprint 2 UX refinements - 8 issues resolved`
 - **Assign NBA_V2_Demo FlexiPage** — Currently unassigned; activate via Setup > Object Manager > Opportunity > Lightning Record Pages > NBA V2 Demo > Activation
 - **Not connected to NBA Queue** — This is standalone record page UX, not wired to an action queue yet
 
+### Sprint 3 - Design Overhaul ✅ COMPLETED (commit `5166a1e`, deployed to vscodeOrg, 14 tests passing)
+
+Commit 11: `style: Design overhaul - align NBA V2 demo LWC with Tailwind design spec`
+
+**What changed:** Comprehensive CSS redesign across all 16 NBA demo components to match the product designer's Tailwind CSS prototype specification.
+
+**Design Token System:** All design tokens defined as CSS custom properties on `nbaDemoWorkspace :host`. Child components reference via `var(--token-name, fallback)`. Tokens cascade through Shadow DOM. Single source of truth for colors, fonts, shadows, and radii.
+
+**Token categories:**
+- `--nba-text-{900/700/500/400/300}` — Slate text scale
+- `--nba-blue-{50/100/200/500/600/700}` — Primary/brand colors
+- `--nba-emerald-{50/500/600}` — Success/positive states
+- `--nba-amber-{50/100/500/700/800}` — Warning states
+- `--nba-purple-{50/100/600/700/900}` — AI/special elements
+- `--nba-indigo-{50/100/600/900}` — Insights/accent
+- `--nba-bg-{page/card/hover}`, `--nba-border`, `--nba-border-light`
+- `--nba-shadow-sm`, `--nba-shadow`, `--nba-radius-{sm/default/lg/full}`
+- `--nba-font-family` — System font stack
+
+**Key visual changes:**
+| Element | Before | After |
+|---|---|---|
+| Font | Salesforce Sans | `ui-sans-serif, system-ui` (system stack) |
+| Email Now CTA | Green `#059669` | Blue-600 `#2563eb` (split button) |
+| Send Email btn | Green `#059669` | Blue-600 `#2563eb` |
+| Active tabs | Blue `#0070d2` | Blue-600 `#2563eb` |
+| Section labels | 12px, gray | 10px, slate-400, tracking 0.1em |
+| Icon containers | Circles (50%) | Rounded squares (8px) |
+| Sidebar toggle | Underline tabs | Pill segmented control (rounded-full) |
+| Note entries | No accent | Left border (blue user, purple AI) |
+| MRR/Close badges | Green text | Neutral bordered pills |
+| Cards | Shadow only | 1px slate-200 border + shadow-sm |
+| AI insight | Purple bg | Blue-50 bg + blue-200 border |
+| Stage badge | Indigo square | Purple-50 pill (rounded-full) |
+| Page layout | `min-height: 100vh` | `height: 100vh; overflow: hidden` (no outer scroll) |
+| Sidebar width | 340px | 320px (xl: 384px) |
+
+**Files changed (19 total):** 16 CSS files + 3 HTML files (header split button, quota SVG stroke, contacts avatar color). Zero JS changes.
+
 ### LWC Repo Structure Convention
 
 For future LWC development, use this naming convention:
