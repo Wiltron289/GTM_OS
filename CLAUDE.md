@@ -30,6 +30,60 @@ When debugging issues, document in this file:
 
 This creates a living knowledge base that prevents repeating past mistakes and helps future agents quickly understand the project context.
 
+## Development Best Practices
+
+**All agents must follow these practices to ensure consistency and quality:**
+
+### Git & Branching Strategy
+- **Use feature branches**: Never work directly on `master`/`main`
+  - Branch naming: `feature/<feature-name>`, `bugfix/<issue-name>`, `hotfix/<critical-fix>`, `refactor/<component-name>`
+  - Examples: `feature/account-management`, `bugfix/login-validation`
+- **Small, focused commits**: Commit early and often with single-purpose changes
+- **Pull Request workflow**: Create PRs even when working solo - documents the "why" behind changes
+
+### Salesforce Development Workflow
+- **Scratch orgs are disposable**: Create new scratch orgs for each feature to test in isolation
+- **Always retrieve before editing**: Run `sf project retrieve start` before modifying metadata through the org UI
+- **Avoid clicking in Setup**: Prefer metadata-based changes (trackable in git) over UI modifications
+- **Test coverage requirement**: Maintain 75%+ Apex test coverage (required for production deployments)
+- **Permission sets over profiles**: Use permission sets for access management - easier to manage and test
+- **Custom metadata for config**: Prefer custom metadata types over custom settings when possible
+
+### Code Organization & Quality
+- **Trigger handler pattern**: Keep trigger logic minimal, delegate to dedicated handler classes
+- **Bulkification**: Always write Apex code with bulk operations in mind (200+ records)
+- **SOQL/DML limits**: Be mindful of governor limits - use collections to minimize queries/DML statements
+- **Mock external callouts**: Always mock HTTP callouts in Apex tests using `Test.setMock()`
+- **Use TODO comments**: Mark future work with `// TODO:` comments for tracking
+
+### Testing Standards
+- **LWC Tests**:
+  - Mock all wire adapters and imported Apex methods
+  - Test user interactions and component lifecycle
+  - Aim for 80%+ code coverage
+- **Apex Tests**:
+  - Use `@isTest` annotation on test classes
+  - Create test data within test methods (don't rely on existing org data)
+  - Use `Test.startTest()` and `Test.stopTest()` to reset governor limits
+  - Assert expected outcomes - every test should have assertions
+  - Use `@testSetup` for shared test data across test methods
+
+### Code Review & Quality Checks
+- **Run checks before commit**:
+  - `npm run lint` - Check code style
+  - `npm test` - Run all LWC tests
+  - `npm run prettier:verify` - Verify formatting
+- **Pre-commit hooks**: Trust the automated checks - they catch common issues
+- **Static code analysis**: Use Salesforce CLI Scanner for security/quality issues
+  - Install: `sf plugins install @salesforce/sfdx-scanner`
+  - Run: `sf scanner run --target "force-app/**/*.cls"`
+
+### Communication & Documentation
+- **Descriptive commit messages**: Explain the "why" not just the "what"
+- **Update CLAUDE.md**: Keep this file current with architectural decisions and patterns
+- **Code comments**: Only add comments when the "why" isn't obvious from the code itself
+- **API versioning**: Keep components on the same API version unless there's a specific reason
+
 ## Project Overview
 
 This is a Salesforce DX project named **GTM_OS** using Salesforce API version 65.0. The project follows the standard Salesforce DX structure with metadata stored in `force-app/main/default/`.
