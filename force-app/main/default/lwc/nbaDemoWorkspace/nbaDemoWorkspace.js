@@ -36,17 +36,17 @@ export default class NbaDemoWorkspace extends LightningElement {
     @wire(getPageData, { oppId: '$recordId' })
     wiredPageData({ data, error }) {
         if (data) {
-            this.headerData = data.headerData;
-            this.accountData = data.accountData;
-            this.payrollStatusData = data.payrollStatusData;
-            this.quotaData = data.quotaData;
-            this.engagementData = data.engagementData;
-            this.payrollTabData = data.payrollTabData;
-            this.productsData = data.productsData;
-            this.contactsData = data.contactsData;
-            this.adminData = data.adminData;
-            this.sidebarData = data.sidebarData;
-            this.insightsData = data.insightsData;
+            this.headerData = data.header;
+            this.accountData = data.account;
+            this.payrollStatusData = data.payrollStatus;
+            this.quotaData = data.quota;
+            this.engagementData = data.engagement;
+            this.payrollTabData = data.payrollTab;
+            this.productsData = data.products;
+            this.contactsData = data.contacts;
+            this.adminData = data.admin;
+            this.sidebarData = data.sidebar;
+            this.insightsData = data.insights;
             this.upcomingEvent = data.upcomingEvent;
             this.error = undefined;
             this.isLoading = false;
