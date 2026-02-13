@@ -69,7 +69,7 @@ This creates a living knowledge base that prevents repeating past mistakes and h
 
 **Project purpose**: Deterministic sales workflow orchestration system for Account Executives. Evaluates CRM context, generates candidate actions, and serves a prioritized "Next Best Action" in a guided flow.
 
-### Feature 1: Account Scoring Data Layer ✅ (metadata complete, pending deploy)
+### Feature 1: Account Scoring Data Layer ✅ (deployed to vscodeOrg)
 
 **Branch**: `feature/account-scoring-data-layer`
 
@@ -89,8 +89,8 @@ This creates a living knowledge base that prevents repeating past mistakes and h
 - **deleteConstraint=Restrict**: prevents Account deletion while scoring record exists (no orphans)
 
 **Pending actions:**
-- Deploy to vscodeOrg
 - Share data contract with Data Engineering for pipeline implementation
+- Merge feature branch to master + push to GitHub
 
 **Data contract key points:**
 - Upsert key: `Account_Scoring__c.Entity_ID__c`
@@ -115,7 +115,7 @@ All project infrastructure and tooling has been configured.
 **Current State:**
 - **Active Branch**: `feature/account-scoring-data-layer`
 - **Deployment Target**: vscodeOrg (Homebase UAT sandbox)
-- **Status**: Feature 1 metadata complete, ready for deploy
+- **Status**: Feature 1 deployed to vscodeOrg, branch ready to merge
 
 **Next Steps (after Feature 1 deploy):**
 - Start Feature 2: NBA Action object + engines
@@ -214,6 +214,14 @@ This is a Salesforce DX project named **GTM_OS** using Salesforce API version 65
 ### Running Individual Tests
 - For LWC: `npm test -- --testPathPattern=<componentName>` - Run tests for a specific LWC component
 - For Apex: `sf apex test run -t <TestClassName>` - Run a specific Apex test class
+
+## Troubleshooting Log
+
+### Permission Set FLS on Required Fields (2026-02-13)
+- **Problem**: Permission sets failed to deploy with "You cannot deploy to a required field" error
+- **Root Cause**: Salesforce does not allow field-level security (FLS) to be set on required fields (`required=true`) or required lookup fields. These are automatically visible to users with object access.
+- **Fix**: Remove `<fieldPermissions>` entries for required fields (e.g., `Entity_ID__c`, `Account__c`) from permission set metadata
+- **Prevention**: When creating permission sets, never include FLS entries for fields marked `required=true` in their field definition
 
 ## Project Architecture
 
