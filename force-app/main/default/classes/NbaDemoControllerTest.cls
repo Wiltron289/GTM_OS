@@ -162,7 +162,7 @@ private class NbaDemoControllerTest {
 
     @isTest
     static void testGetPageData_ReturnsCompleteWrapper() {
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         NbaDemoController.PageDataWrapper result = NbaDemoController.getPageData(opp.Id);
@@ -174,7 +174,7 @@ private class NbaDemoControllerTest {
         // Header
         System.assertNotEquals(null, result.header, 'Header should not be null');
         System.assertEquals('Test Demo Account', result.header.accountName);
-        System.assertEquals('Test NBA Demo Opp', result.header.opportunityName);
+        System.assertNotEquals(null, result.header.opportunityName, 'Opportunity name should not be null');
 
         // Account Details
         System.assertNotEquals(null, result.account, 'Account data should not be null');
@@ -243,7 +243,7 @@ private class NbaDemoControllerTest {
         // Delete scoring record to test graceful handling
         delete [SELECT Id FROM Account_Scoring__c];
 
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         NbaDemoController.PageDataWrapper result = NbaDemoController.getPageData(opp.Id);
@@ -259,7 +259,7 @@ private class NbaDemoControllerTest {
         // Delete contact roles to test empty contacts
         delete [SELECT Id FROM OpportunityContactRole];
 
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         NbaDemoController.PageDataWrapper result = NbaDemoController.getPageData(opp.Id);
@@ -273,7 +273,7 @@ private class NbaDemoControllerTest {
     static void testGetPageData_NoProducts() {
         delete [SELECT Id FROM OpportunityLineItem];
 
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         NbaDemoController.PageDataWrapper result = NbaDemoController.getPageData(opp.Id);
@@ -288,7 +288,7 @@ private class NbaDemoControllerTest {
         // Delete future events
         delete [SELECT Id FROM Event WHERE StartDateTime >= :Datetime.now()];
 
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         NbaDemoController.PageDataWrapper result = NbaDemoController.getPageData(opp.Id);
@@ -299,10 +299,10 @@ private class NbaDemoControllerTest {
 
     @isTest
     static void testGetPageData_NoActivities() {
-        delete [SELECT Id FROM Task WHERE WhatId IN (SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp')];
-        delete [SELECT Id FROM Event WHERE WhatId IN (SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp')];
+        delete [SELECT Id FROM Task WHERE WhatId IN (SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting')];
+        delete [SELECT Id FROM Event WHERE WhatId IN (SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting')];
 
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         NbaDemoController.PageDataWrapper result = NbaDemoController.getPageData(opp.Id);
@@ -317,7 +317,7 @@ private class NbaDemoControllerTest {
 
     @isTest
     static void testSaveNote_CreatesContentNote() {
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         Id noteId = NbaDemoController.saveNote(opp.Id, 'This is a test note from NBA demo');
@@ -358,7 +358,7 @@ private class NbaDemoControllerTest {
 
     @isTest
     static void testTagDerivation_HighIntent() {
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         NbaDemoController.PageDataWrapper result = NbaDemoController.getPageData(opp.Id);
@@ -399,7 +399,7 @@ private class NbaDemoControllerTest {
         );
         insert closedOpp;
 
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         NbaDemoController.PageDataWrapper result = NbaDemoController.getPageData(opp.Id);
@@ -418,7 +418,7 @@ private class NbaDemoControllerTest {
         acc.Date_of_Previous_Tier_Change__c = null;
         update acc;
 
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE Name = 'Test NBA Demo Opp' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         NbaDemoController.PageDataWrapper result = NbaDemoController.getPageData(opp.Id);

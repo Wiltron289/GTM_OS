@@ -148,7 +148,7 @@ public with sharing class NbaDemoController {
         @AuraEnabled public Boolean isAiSummary;
     }
 
-    public class ActivityData {
+    public class ActivityData implements Comparable {
         @AuraEnabled public String id;
         @AuraEnabled public String iconName;
         @AuraEnabled public String iconVariant;
@@ -156,6 +156,17 @@ public with sharing class NbaDemoController {
         @AuraEnabled public Date activityDate;
         @AuraEnabled public String contactName;
         @AuraEnabled public String type;
+
+        public Integer compareTo(Object other) {
+            ActivityData o = (ActivityData) other;
+            if (this.activityDate == null && o.activityDate == null) return 0;
+            if (this.activityDate == null) return 1;
+            if (o.activityDate == null) return -1;
+            // Descending: most recent first
+            if (this.activityDate > o.activityDate) return -1;
+            if (this.activityDate < o.activityDate) return 1;
+            return 0;
+        }
     }
 
     public class InsightsData {
