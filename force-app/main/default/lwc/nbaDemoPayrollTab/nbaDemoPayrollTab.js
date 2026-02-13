@@ -34,7 +34,7 @@ export default class NbaDemoPayrollTab extends LightningElement {
 
     /* Summary getters */
     get inceptionSwitcher() {
-        return this.payrollTabData?.inceptionSwitcher || '\u2014';
+        return this.payrollTabData?.inceptionOrSwitcher || '\u2014';
     }
     get employeeCount() {
         return this.payrollTabData?.employeeCount != null
@@ -49,7 +49,10 @@ export default class NbaDemoPayrollTab extends LightningElement {
 
     /* Current Next Step */
     get currentNextStep() {
-        return this.payrollTabData?.currentNextStep || '\u2014';
+        return this.payrollTabData?.nextStepLabel || '\u2014';
+    }
+    get currentPayrollStatus() {
+        return this.payrollTabData?.payrollStatus || '\u2014';
     }
 
     /* Progression getters */
@@ -78,6 +81,20 @@ export default class NbaDemoPayrollTab extends LightningElement {
         return this.payrollTabData?.paySchedFinish || '\u2014';
     }
 
+    /* Link getters */
+    get adminLink() {
+        return this.payrollTabData?.adminLink || '\u2014';
+    }
+    get hasAdminLink() {
+        return !!this.payrollTabData?.adminLink;
+    }
+    get checkConsoleLink() {
+        return this.payrollTabData?.checkConsoleLink || '\u2014';
+    }
+    get hasCheckConsoleLink() {
+        return !!this.payrollTabData?.checkConsoleLink;
+    }
+
     /* Check Information getters */
     get checkInfoNeeded() {
         return this.payrollTabData?.checkInfoNeeded || '\u2014';
@@ -103,7 +120,7 @@ export default class NbaDemoPayrollTab extends LightningElement {
         return this.payrollTabData?.nextStepDate || '\u2014';
     }
     get nextStep() {
-        return this.payrollTabData?.nextStep || '\u2014';
+        return this.payrollTabData?.nextStepLabel || '\u2014';
     }
     get futureFollowUpDate() {
         return this.payrollTabData?.futureFollowUpDate || '\u2014';

@@ -78,6 +78,17 @@ private class NbaDemoControllerTest {
         );
         insert con;
 
+        // Second contact on Account only (no OCR) to test Account contact inclusion
+        Contact con2 = new Contact(
+            FirstName = 'Bob',
+            LastName = 'Jones',
+            AccountId = acc.Id,
+            Title = 'Finance Manager',
+            Email = 'bob.jones@example.com',
+            Phone = '555-0200'
+        );
+        insert con2;
+
         OpportunityContactRole ocr = new OpportunityContactRole(
             OpportunityId = opp.Id,
             ContactId = con.Id,
@@ -215,12 +226,23 @@ private class NbaDemoControllerTest {
         System.assert(result.insights.drivers.size() >= 2, 'Should have at least 2 drivers from scoring');
         System.assertEquals(4, result.insights.tags.size(), 'Should have 4 tags');
 
-        // Contacts
+        // Contacts (OCR contacts + Account contacts)
         System.assertNotEquals(null, result.contacts, 'Contacts should not be null');
-        System.assert(result.contacts.size() >= 1, 'Should have at least 1 contact');
+        System.assert(result.contacts.size() >= 2, 'Should have at least 2 contacts (OCR + Account)');
+        // First contact should be the OCR primary contact
         System.assertEquals('Jane Smith', result.contacts[0].name);
         System.assertEquals('JS', result.contacts[0].initials);
         System.assertEquals(true, result.contacts[0].isPrimary);
+        // Verify Account-only contact (Bob Jones) is included
+        Boolean foundAccountContact = false;
+        for (NbaDemoController.ContactData cd : result.contacts) {
+            if (cd.name == 'Bob Jones') {
+                foundAccountContact = true;
+                System.assertEquals(false, cd.isPrimary, 'Account-only contact should not be primary');
+                System.assertEquals('BJ', cd.initials);
+            }
+        }
+        System.assert(foundAccountContact, 'Account contact (Bob Jones) should be included');
 
         // Products
         System.assertNotEquals(null, result.products, 'Products should not be null');
@@ -256,7 +278,7 @@ private class NbaDemoControllerTest {
 
     @isTest
     static void testGetPageData_NoContactRoles() {
-        // Delete contact roles to test empty contacts
+        // Delete contact roles - Account contacts should still be returned
         delete [SELECT Id FROM OpportunityContactRole];
 
         Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
@@ -266,7 +288,28 @@ private class NbaDemoControllerTest {
         Test.stopTest();
 
         System.assertNotEquals(null, result.contacts, 'Contacts list should not be null');
-        System.assertEquals(0, result.contacts.size(), 'Should have no contacts');
+        // Account still has contacts (Jane Smith + Bob Jones), so they should appear
+        System.assert(result.contacts.size() >= 2, 'Should have Account contacts even without OCRs');
+        // None should be marked as primary since there are no OCRs
+        for (NbaDemoController.ContactData cd : result.contacts) {
+            System.assertEquals(false, cd.isPrimary, 'Account contacts should not be primary');
+        }
+    }
+
+    @isTest
+    static void testGetPageData_NoContactsAtAll() {
+        // Delete all contacts and OCRs to test truly empty state
+        delete [SELECT Id FROM OpportunityContactRole];
+        delete [SELECT Id FROM Contact WHERE AccountId IN (SELECT Id FROM Account WHERE Name = 'Test Demo Account')];
+
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
+
+        Test.startTest();
+        NbaDemoController.PageDataWrapper result = NbaDemoController.getPageData(opp.Id);
+        Test.stopTest();
+
+        System.assertNotEquals(null, result.contacts, 'Contacts list should not be null');
+        System.assertEquals(0, result.contacts.size(), 'Should have no contacts when all deleted');
     }
 
     @isTest

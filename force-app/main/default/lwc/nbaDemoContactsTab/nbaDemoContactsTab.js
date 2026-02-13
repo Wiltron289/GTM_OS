@@ -3,7 +3,7 @@ export default class NbaDemoContactsTab extends LightningElement {
     @api contactsData;
 
     get contacts() {
-        return this.contactsData?.contacts || [];
+        return Array.isArray(this.contactsData) ? this.contactsData : [];
     }
     get hasContacts() {
         return this.contacts.length > 0;

@@ -10,69 +10,73 @@
             <!-- Summary Row -->
             <div class="summary-row">
                 <div class="summary-item">
-                    <span class="field-label">First Payday</span>
-                    <span class="field-value">{formattedFirstPayday}</span>
+                    <span class="summary-label">FIRST PAYDAY</span>
+                    <span class="summary-value">{formattedFirstPayday}</span>
                 </div>
                 <div class="summary-item">
-                    <span class="field-label">Inception / Switcher</span>
-                    <span class="field-value">{inceptionSwitcher}</span>
+                    <span class="summary-label">INCEPTION OR SWITCHER</span>
+                    <span class="summary-value">{inceptionSwitcher}</span>
                 </div>
                 <div class="summary-item">
-                    <span class="field-label">Employee Count</span>
-                    <span class="field-value">{employeeCount}</span>
+                    <span class="summary-label">EMPLOYEE COUNT</span>
+                    <span class="summary-value">{employeeCount}</span>
                 </div>
                 <div class="summary-item">
-                    <span class="field-label">Predicted MRR</span>
-                    <span class="field-value">{predictedMrr}</span>
+                    <span class="summary-label">PREDICTED MRR</span>
+                    <span class="summary-value">{predictedMrr}</span>
                 </div>
             </div>
 
             <!-- Current Next Step -->
             <div class="section">
                 <h3 class="section-header">Current Next Step</h3>
-                <div class="field-row">
-                    <div class="field-cell">
-                        <span class="field-label">Payroll Status</span>
-                        <span class="field-value">{currentNextStep}</span>
-                    </div>
+                <div class="next-step-content">
+                    <span class="next-step-value">{currentNextStep}</span>
+                    <span class="next-step-status">Payroll Status: {currentPayrollStatus}</span>
                 </div>
             </div>
 
             <!-- Progression -->
             <div class="section">
                 <h3 class="section-header">Progression</h3>
-                <div class="field-row">
-                    <div class="field-cell">
+                <div class="progression-grid">
+                    <div class="prog-row">
                         <span class="field-label">Payroll Risk Level</span>
                         <span class={riskLevelClass}>{payrollRiskLevel}</span>
+                        <span class="field-label">Admin Link</span>
+                        <template if:true={hasAdminLink}>
+                            <a href={adminLink} target="_blank" class="field-link">{adminLink}</a>
+                        </template>
+                        <template if:false={hasAdminLink}>
+                            <span class="field-value">&mdash;</span>
+                        </template>
                     </div>
-                    <div class="field-cell">
+                    <div class="prog-row">
                         <span class="field-label">Last Progression Time</span>
                         <span class="field-value">{lastProgressionTime}</span>
+                        <span class="field-label">Check Console Link</span>
+                        <template if:true={hasCheckConsoleLink}>
+                            <a href={checkConsoleLink} target="_blank" class="field-link">{checkConsoleLink}</a>
+                        </template>
+                        <template if:false={hasCheckConsoleLink}>
+                            <span class="field-value">&mdash;</span>
+                        </template>
                     </div>
-                    <div class="field-cell">
+                    <div class="prog-row">
                         <span class="field-label">Current Linear Flow Page</span>
                         <span class="field-value">{currentLinearFlowPage}</span>
-                    </div>
-                    <div class="field-cell">
-                        <span class="field-label">Last Payroll Engagement</span>
-                        <span class="field-value">{lastPayrollEngagement}</span>
-                    </div>
-                </div>
-                <div class="field-row">
-                    <div class="field-cell">
-                        <span class="field-label">Payroll Engagement Type</span>
-                        <span class="field-value">{payrollEngagementType}</span>
-                    </div>
-                    <div class="field-cell">
                         <span class="field-label">Fed Auth Finish</span>
                         <span class="field-value">{fedAuthFinish}</span>
                     </div>
-                    <div class="field-cell">
+                    <div class="prog-row">
+                        <span class="field-label">Last Payroll Engagement</span>
+                        <span class="field-value">{lastPayrollEngagement}</span>
                         <span class="field-label">Bank Connect Finish</span>
                         <span class="field-value">{bankConnectFinish}</span>
                     </div>
-                    <div class="field-cell">
+                    <div class="prog-row">
+                        <span class="field-label">Payroll Engagement Type</span>
+                        <span class="field-value">{payrollEngagementType}</span>
                         <span class="field-label">Pay Sched Finish</span>
                         <span class="field-value">{paySchedFinish}</span>
                     </div>
@@ -82,73 +86,56 @@
             <!-- Check Information -->
             <div class="section">
                 <h3 class="section-header">Check Information</h3>
-                <div class="field-row">
-                    <div class="field-cell">
+                <div class="progression-grid">
+                    <div class="prog-row">
                         <span class="field-label">Check Info Needed</span>
                         <span class="field-value">{checkInfoNeeded}</span>
-                    </div>
-                    <div class="field-cell">
                         <span class="field-label">KYB Status</span>
                         <span class="field-value">{kybStatus}</span>
                     </div>
-                    <div class="field-cell">
+                    <div class="prog-row">
                         <span class="field-label">Onboard Status</span>
                         <span class="field-value">{onboardStatus}</span>
-                    </div>
-                    <div class="field-cell">
                         <span class="field-label">Implementation Status</span>
                         <span class="field-value">{implementationStatus}</span>
                     </div>
-                </div>
-                <div class="field-row">
-                    <div class="field-cell">
+                    <div class="prog-row">
                         <span class="field-label">Payroll Status</span>
                         <span class="field-value">{payrollStatus}</span>
-                    </div>
-                    <div class="field-cell">
                         <span class="field-label">Blocked Reason</span>
                         <span class="field-value">{blockedReason}</span>
                     </div>
-                    <div class="field-cell"></div>
-                    <div class="field-cell"></div>
                 </div>
             </div>
 
             <!-- Activity -->
             <div class="section">
                 <h3 class="section-header">Activity</h3>
-                <div class="field-row">
-                    <div class="field-cell">
+                <div class="progression-grid">
+                    <div class="prog-row">
                         <span class="field-label">Next Step Date</span>
                         <span class="field-value">{nextStepDate}</span>
-                    </div>
-                    <div class="field-cell">
                         <span class="field-label">Next Step</span>
                         <span class="field-value">{nextStep}</span>
                     </div>
-                    <div class="field-cell">
+                    <div class="prog-row">
                         <span class="field-label">Future Follow-Up Date</span>
                         <span class="field-value">{futureFollowUpDate}</span>
-                    </div>
-                    <div class="field-cell">
                         <span class="field-label">Future Follow-Up Reason</span>
                         <span class="field-value">{futureFollowUpReason}</span>
                     </div>
-                </div>
-                <div class="field-row">
-                    <div class="field-cell">
+                    <div class="prog-row">
                         <span class="field-label">Last Call Date/Time</span>
                         <span class="field-value">{lastCallDateTime}</span>
-                    </div>
-                    <div class="field-cell">
                         <span class="field-label">Last Call Outcome</span>
                         <span class="field-value">{lastCallOutcome}</span>
                     </div>
-                    <div class="field-cell">
+                    <div class="prog-row">
                         <span class="field-label">NBA Call Count</span>
                         <span class="field-value">{nbaCallCount}</span>
+                        <span class="field-label"></span>
+                        <span class="field-value"></span>
                     </div>
-                    <div class="field-cell"></div>
                 </div>
             </div>
         </div>

@@ -418,10 +418,14 @@ public with sharing class NbaDemoController {
 
     private static List<ContactData> buildContacts(Id oppId) {
         List<ContactData> contactList = new List<ContactData>();
+        Set<Id> seenContactIds = new Set<Id>();
 
+        // First: get contacts from OpportunityContactRole (these get isPrimary flag)
+        // Get the Account Id for the Opp so we can also query Account contacts
+        Id accountId;
         for (OpportunityContactRole ocr : [
             SELECT ContactId, Contact.Name, Contact.FirstName, Contact.LastName,
-                   Contact.Title, Contact.Email, Contact.Phone, IsPrimary
+                   Contact.Title, Contact.Email, Contact.Phone, Contact.AccountId, IsPrimary
             FROM OpportunityContactRole
             WHERE OpportunityId = :oppId
             ORDER BY IsPrimary DESC, Contact.Name ASC
@@ -440,6 +444,45 @@ public with sharing class NbaDemoController {
             c.initials = (first + last).toUpperCase();
 
             contactList.add(c);
+            seenContactIds.add(ocr.ContactId);
+
+            if (accountId == null && ocr.Contact.AccountId != null) {
+                accountId = ocr.Contact.AccountId;
+            }
+        }
+
+        // If we didn't get the AccountId from OCR, query it from the Opportunity
+        if (accountId == null) {
+            List<Opportunity> opps = [SELECT AccountId FROM Opportunity WHERE Id = :oppId LIMIT 1];
+            if (!opps.isEmpty()) {
+                accountId = opps[0].AccountId;
+            }
+        }
+
+        // Second: get all contacts on the Account that aren't already in the list
+        if (accountId != null) {
+            for (Contact con : [
+                SELECT Id, Name, FirstName, LastName, Title, Email, Phone
+                FROM Contact
+                WHERE AccountId = :accountId
+                  AND Id NOT IN :seenContactIds
+                ORDER BY Name ASC
+            ]) {
+                ContactData c = new ContactData();
+                c.contactId = con.Id;
+                c.name = con.Name;
+                c.title = con.Title;
+                c.isPrimary = false;
+                c.email = con.Email;
+                c.phone = con.Phone;
+
+                String first = con.FirstName != null ? con.FirstName.substring(0, 1) : '';
+                String last = con.LastName != null ? con.LastName.substring(0, 1) : '';
+                c.initials = (first + last).toUpperCase();
+
+                contactList.add(c);
+                seenContactIds.add(con.Id);
+            }
         }
 
         // Get last activity for each contact
@@ -455,7 +498,7 @@ public with sharing class NbaDemoController {
                 FROM Task
                 WHERE WhoId IN :contactIds AND Status = 'Completed'
                 ORDER BY ActivityDate DESC
-                LIMIT 50
+                LIMIT 100
             ]) {
                 if (!lastTaskByContact.containsKey(t.WhoId)) {
                     lastTaskByContact.put(t.WhoId, t);
