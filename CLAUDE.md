@@ -181,12 +181,17 @@ nbaDemoWorkspace (parent - manages layout, data, tabs)
 4. `fix: Resolve deploy issues - remove MRR_Potential__c, fix snooze HTML, add Source__c to tests`
 5. `docs: Update CLAUDE.md with Feature 2 (NBA V2 Demo LWC) status and troubleshooting`
 6. `fix: Resolve Apex test failures - resilient Opp queries and Comparable sort`
+7. `docs: Update CLAUDE.md - mark Feature 2 tests as passing, add resolved troubleshooting`
+8. `fix: Correct wire data property names in nbaDemoWorkspace`
+
+**Demo data created in org (not in repo - org data only):**
+- 3 `Account_Scoring__c` records for: Bluegrass Pools (7%/43%), Focus Group Services LLC (6%/31%), Makenna Koffee Franchise (5%/30%)
+- Best demo Opportunity: **Bluegrass Pools** (`006Po000011vxwjIAA`) - 179 emp, 10 locations, aio tier, $2,421, 4 tasks, 3 events, contact, product, scoring record
 
 **Pending actions / Next steps:**
-1. **Set up demo test data** - Reassign existing open Opps to current user for testing
-3. **Assign NBA_V2_Demo FlexiPage** to a record type or app page assignment for testing
-4. **Visual verification** - Compare rendered components against prototype screenshots
-5. **Not connected to NBA Queue** - This is standalone record page UX, not wired to an action queue yet
+1. **Visual verification & refinement** - Compare rendered components against prototype screenshots, fix any styling/layout issues
+2. **Assign NBA_V2_Demo FlexiPage** - Currently unassigned; activate via Setup > Object Manager > Opportunity > Lightning Record Pages > NBA V2 Demo > Activation
+3. **Not connected to NBA Queue** - This is standalone record page UX, not wired to an action queue yet
 
 ### LWC Repo Structure Convention
 
@@ -300,6 +305,12 @@ This is a Salesforce DX project named **GTM_OS** using Salesforce API version 65
 - **Root Cause**: `ActivityData` inner class called `sort()` but did not implement `Comparable`
 - **Fix**: Added `implements Comparable` and `compareTo()` method to `ActivityData` (descending by `activityDate`, null-safe)
 - **Prevention**: Any inner class used in a `List.sort()` call must implement `Comparable` with a `compareTo(Object)` method
+
+### Wire Property Name Mismatch (2026-02-13) ✅ RESOLVED
+- **Problem**: `Cannot read properties of undefined (reading 'accountName')` in `nbaDemoHeader` at runtime
+- **Root Cause**: `nbaDemoWorkspace.js` wire handler read `data.headerData`, `data.accountData`, etc. but the Apex `PageDataWrapper` uses `header`, `account`, `payrollStatus`, etc. All child components received `undefined`.
+- **Fix**: Changed all property mappings in the wire handler to match Apex names (e.g., `data.header` not `data.headerData`)
+- **Prevention**: Always verify `@AuraEnabled` property names in the Apex wrapper match the JS wire handler property access
 
 ### LWC HTML Ternary Operators (2026-02-13)
 - **Problem**: `nbaDemoSnoozeDropdown` deploy failed with `LWC1058: Invalid HTML syntax: unexpected-character-in-attribute-name`
