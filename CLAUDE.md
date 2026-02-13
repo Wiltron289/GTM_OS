@@ -30,6 +30,22 @@ When debugging issues, document in this file:
 
 This creates a living knowledge base that prevents repeating past mistakes and helps future agents quickly understand the project context.
 
+### 4. Deployment Target
+- **Primary deployment org**: VSCode org (configured in VS Code Salesforce extensions)
+- Always deploy to the VSCode org unless explicitly instructed otherwise
+- Use `sf project deploy start` to deploy to the default org
+- Verify org context with `sf org display` before deploying
+
+### 5. Context Management & Conversation Restarts
+- **Monitor token usage**: When approaching context limits (~150k-180k tokens used)
+- **Before restarting**: Update CLAUDE.md with current state:
+  - Document any in-progress work
+  - Note decisions made and rationale
+  - List next steps or pending tasks
+  - Update troubleshooting section if debugging
+- **After restart**: New agent should read CLAUDE.md first to understand full project context
+- **Purpose**: Prevents context rot and maintains continuity across conversation sessions
+
 ## Development Best Practices
 
 **All agents must follow these practices to ensure consistency and quality:**
