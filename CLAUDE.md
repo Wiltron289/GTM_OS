@@ -46,6 +46,21 @@ This creates a living knowledge base that prevents repeating past mistakes and h
 - **After restart**: New agent should read CLAUDE.md first to understand full project context
 - **Purpose**: Prevents context rot and maintains continuity across conversation sessions
 
+### 6. Salesforce Metadata Context via MCP
+- **MCP Server**: Salesforce DX MCP server is configured in `.mcp.json` for metadata access
+- **Before writing SFDC code**: Query object metadata via MCP tools to:
+  - Verify correct field API names and labels
+  - Get accurate picklist values for test data
+  - Review validation rules to ensure code compliance
+  - Understand object relationships and dependencies
+- **When to query metadata**:
+  - Before creating test classes (get real field names and values)
+  - Before writing triggers or Apex classes that reference objects
+  - Before creating LWC components that use Salesforce data
+  - When unsure about field types or picklist options
+- **Available toolsets**: `metadata`, `data`, `orgs`, `users`
+- **Purpose**: Ensures accurate code that respects org configuration and reduces errors
+
 ## Development Best Practices
 
 **All agents must follow these practices to ensure consistency and quality:**
