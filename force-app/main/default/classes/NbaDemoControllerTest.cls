@@ -383,12 +383,13 @@ private class NbaDemoControllerTest {
     @isTest
     static void testSendEmail_SendsMessage() {
         Contact con = [SELECT Id FROM Contact WHERE LastName = 'Smith' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         // sendEmail may throw in test context depending on org config,
         // so we catch and verify the method runs without unhandled exceptions
         try {
-            NbaDemoController.sendEmail(con.Id, 'Test Subject', '<p>Test body</p>', null);
+            NbaDemoController.sendEmail(con.Id, 'Test Subject', '<p>Test body</p>', null, opp.Id);
         } catch (Exception e) {
             // Email send may fail in test context - that's acceptable
             // We just need to verify the method is callable and hits the code path

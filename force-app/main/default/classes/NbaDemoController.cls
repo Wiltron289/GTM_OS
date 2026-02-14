@@ -770,15 +770,20 @@ public with sharing class NbaDemoController {
     }
 
     @AuraEnabled
-    public static void sendEmail(Id contactId, String subject, String body, Id templateId) {
+    public static void sendEmail(Id contactId, String subject, String body, Id templateId, Id oppId) {
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setTargetObjectId(contactId);
-        mail.setSubject(subject);
-        mail.setHtmlBody(body);
         mail.setSaveAsActivity(true);
+
+        if (oppId != null) {
+            mail.setWhatId(oppId);
+        }
 
         if (templateId != null) {
             mail.setTemplateId(templateId);
+        } else {
+            mail.setSubject(subject);
+            mail.setHtmlBody(body);
         }
 
         Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });

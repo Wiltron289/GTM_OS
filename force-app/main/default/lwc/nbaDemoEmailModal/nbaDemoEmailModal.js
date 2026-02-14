@@ -94,8 +94,10 @@ export default class NbaDemoEmailModal extends LightningElement {
                 contactId: this.selectedContactId,
                 subject: this.emailSubject,
                 body: this.emailBody,
-                templateId: this.selectedTemplateId || null
+                templateId: this.selectedTemplateId || null,
+                oppId: this.recordId
             });
+            this.dispatchEvent(new CustomEvent('emailsent'));
             this.handleClose();
         } catch (error) {
             console.error('Error sending email:', error);

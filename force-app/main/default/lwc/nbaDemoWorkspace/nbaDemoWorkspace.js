@@ -154,6 +154,10 @@ export default class NbaDemoWorkspace extends LightningElement {
         this.showEmailModal = true;
     }
 
+    handleEmailSent() {
+        refreshApex(this._wiredResult);
+    }
+
     // ────────────────────────────────────────────
     // Sidebar note-saved handler — refresh data
     // ────────────────────────────────────────────
