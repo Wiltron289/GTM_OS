@@ -1,0 +1,87 @@
+<template>
+    <div class="sidebar-container">
+        <div class="sidebar-header">
+            <h3 class="sidebar-title">Notes &amp; Activity</h3>
+            <button class="search-btn">
+                <lightning-icon icon-name="utility:search" size="xx-small"></lightning-icon>
+            </button>
+        </div>
+
+        <!-- Tab Toggle -->
+        <div class="sidebar-tabs">
+            <button class={notesTabClass} data-tab="notes" onclick={handleTabClick}>
+                <lightning-icon icon-name="utility:comments" size="xx-small"></lightning-icon>
+                Notes
+            </button>
+            <button class={activityTabClass} data-tab="activity" onclick={handleTabClick}>
+                <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>
+                Activity
+            </button>
+        </div>
+
+        <!-- Notes Content -->
+        <template if:true={isNotesTab}>
+            <div class="notes-content">
+                <button class="add-note-btn" onclick={toggleAddNote}>+ Add Note</button>
+
+                <template if:true={showAddNote}>
+                    <div class="add-note-form">
+                        <lightning-textarea
+                            value={newNoteText}
+                            onchange={handleNoteChange}
+                            placeholder="Type your note here..."
+                            variant="label-hidden">
+                        </lightning-textarea>
+                        <button class="save-note-btn" onclick={handleSaveNote}>Save</button>
+                    </div>
+                </template>
+
+                <template if:true={hasNotes}>
+                    <div class="notes-list">
+                        <template for:each={computedNotes} for:item="note">
+                            <div key={note.key} class={note.noteClass}>
+                                <div class="note-header">
+                                    <span class={note.authorBadgeClass}>{note.authorDisplay}</span>
+                                    <span class="note-date">{note.formattedDate}</span>
+                                </div>
+                                <p class="note-body">{note.body}</p>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template if:false={hasNotes}>
+                    <p class="empty-text">No notes yet. Add one above.</p>
+                </template>
+            </div>
+        </template>
+
+        <!-- Activity Content -->
+        <template if:true={isActivityTab}>
+            <div class="activity-content">
+                <template if:true={hasActivities}>
+                    <div class="activity-timeline">
+                        <template for:each={activities} for:item="activity">
+                            <div key={activity.key} class="activity-item">
+                                <div class="timeline-dot">
+                                    <lightning-icon icon-name={activity.iconName} size="xx-small"></lightning-icon>
+                                </div>
+                                <div class="activity-detail">
+                                    <span class="activity-label">{activity.label}</span>
+                                    <div class="activity-meta">
+                                        <span class="activity-date">{activity.formattedDate}</span>
+                                        <template if:true={activity.hasContact}>
+                                            <span class="activity-contact"> · {activity.contactName}</span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template if:false={hasActivities}>
+                    <p class="empty-text">No activities recorded.</p>
+                </template>
+            </div>
+        </template>
+    </div>
+</template>

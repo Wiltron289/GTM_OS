@@ -1,0 +1,26 @@
+.updates-container {
+    padding: 4px;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--nba-text-700, #334155);
+    margin-bottom: 4px;
+}
+
+.section-subtitle {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--nba-text-400, #94a3b8);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+}
+
+.flow-container {
+    background: var(--nba-bg-card, #ffffff);
+    border-radius: var(--nba-radius, 8px);
+    padding: 16px;
+}

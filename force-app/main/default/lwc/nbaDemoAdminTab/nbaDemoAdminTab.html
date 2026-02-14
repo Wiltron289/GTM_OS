@@ -1,0 +1,109 @@
+<template>
+    <div class="admin-container">
+        <!-- Field Updates -->
+        <div class="section">
+            <h3 class="section-title collapsible-header" onclick={toggleFieldUpdates}>
+                <span>Field Updates</span>
+                <lightning-icon icon-name={fieldUpdatesChevron} size="xx-small"></lightning-icon>
+            </h3>
+            <template if:true={fieldUpdatesExpanded}>
+            <div class="field-grid-3">
+                <div class="field-item">
+                    <span class="field-label">Stage</span>
+                    <span class="field-value">{adminData.stageName}</span>
+                </div>
+                <div class="field-item">
+                    <span class="field-label">Opportunity Product Families</span>
+                    <span class="field-value">{adminData.oppProductFamilies}</span>
+                </div>
+                <div class="field-item">
+                    <span class="field-label">Opportunity Owner</span>
+                    <span class="field-value">{ownerDisplay}</span>
+                </div>
+            </div>
+            </template>
+        </div>
+
+        <!-- SLA Info -->
+        <div class="section">
+            <h3 class="section-title collapsible-header" onclick={toggleSla}>
+                <span>SLA Info</span>
+                <lightning-icon icon-name={slaChevron} size="xx-small"></lightning-icon>
+            </h3>
+            <template if:true={slaExpanded}>
+            <div class="sla-grid">
+                <div class="sla-row">
+                    <span class="sla-label">Days Since Last Call</span>
+                    <span class="sla-value">{adminData.daysSinceLastCall}</span>
+                    <span class="sla-label">Last Meaningful Connection</span>
+                    <span class="sla-value">{formattedLastCallDateTime}</span>
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label">Days Since Last Meeting</span>
+                    <span class="sla-value">{adminData.daysSinceLastMeeting}</span>
+                    <span class="sla-label">Last Call Date/Time</span>
+                    <span class="sla-value">{formattedLastCallDateTime}</span>
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label">Days Since Last Interaction</span>
+                    <span class="sla-value">{adminData.daysSinceLastInteraction}</span>
+                    <span class="sla-label">Last Meeting Date</span>
+                    <span class="sla-value">{formattedLastMeetingDate}</span>
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label">Hours Since Assignment</span>
+                    <span class="sla-value">{adminData.hoursSinceAssignment}</span>
+                    <span class="sla-label">Next Scheduled Meeting</span>
+                    <span class="sla-value">{formattedNextMeeting}</span>
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label">Days Since Creation</span>
+                    <span class="sla-value">{adminData.daysSinceCreation}</span>
+                    <span class="sla-label">First Assignment Date/Time</span>
+                    <span class="sla-value">{formattedFirstAssignment}</span>
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label">Kubaru Workload Status</span>
+                    <span class="sla-value">{adminData.kubaruWorkload}</span>
+                    <span class="sla-label">Is Within 1 Hour of First Assignment</span>
+                    <span class="sla-value">{adminData.isWithin1Hour}</span>
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label"></span>
+                    <span class="sla-value"></span>
+                    <span class="sla-label">Last Assignment Date/Time</span>
+                    <span class="sla-value">{formattedLastAssignment}</span>
+                </div>
+                <div class="sla-row">
+                    <span class="sla-label"></span>
+                    <span class="sla-value"></span>
+                    <span class="sla-label">Created Date/Time</span>
+                    <span class="sla-value">{formattedCreatedDate}</span>
+                </div>
+            </div>
+            </template>
+        </div>
+
+        <!-- History -->
+        <div class="section">
+            <h3 class="section-title collapsible-header" onclick={toggleHistory}>
+                <span>History</span>
+                <lightning-icon icon-name={historyChevron} size="xx-small"></lightning-icon>
+            </h3>
+            <template if:true={historyExpanded}>
+            <p class="empty-section">No history available</p>
+            </template>
+        </div>
+
+        <!-- Audit -->
+        <div class="section">
+            <h3 class="section-title collapsible-header" onclick={toggleAudit}>
+                <span>Audit</span>
+                <lightning-icon icon-name={auditChevron} size="xx-small"></lightning-icon>
+            </h3>
+            <template if:true={auditExpanded}>
+            <p class="empty-section">No audit logs available</p>
+            </template>
+        </div>
+    </div>
+</template>

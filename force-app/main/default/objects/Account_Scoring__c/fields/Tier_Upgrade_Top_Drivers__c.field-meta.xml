@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/metadata">
+    <fullName>Tier_Upgrade_Top_Drivers__c</fullName>
+    <description>Top feature drivers for the tier upgrade prediction. Used for explainability in NBA V2 UI. Format defined by ML pipeline (e.g., JSON array or semicolon-delimited key-value pairs).</description>
+    <externalId>false</externalId>
+    <label>Tier Upgrade Top Drivers</label>
+    <length>32768</length>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

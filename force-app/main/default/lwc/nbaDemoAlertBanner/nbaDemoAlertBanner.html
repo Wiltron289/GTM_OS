@@ -1,0 +1,16 @@
+<template>
+    <template if:true={showBanner}>
+        <div class="alert-banner">
+            <div class="banner-left">
+                <lightning-icon icon-name="utility:warning" size="x-small" variant="warning"></lightning-icon>
+                <span class="banner-text">
+                    Meeting with <strong>{upcomingEvent.contactName}</strong> at <strong>{upcomingEvent.accountName}</strong> <span class="time-highlight">in {upcomingEvent.minutesUntil} minutes</span>
+                </span>
+            </div>
+            <div class="banner-right">
+                <a class="jump-link" onclick={handleJumpToOpp}>Jump to this opportunity &rarr;</a>
+                <button class="dismiss-btn" onclick={handleDismiss}>&times;</button>
+            </div>
+        </div>
+    </template>
+</template>

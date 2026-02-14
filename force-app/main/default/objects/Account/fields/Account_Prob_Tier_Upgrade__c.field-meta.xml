@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/metadata">
+    <fullName>Account_Prob_Tier_Upgrade__c</fullName>
+    <description>Surfaced from Account_Scoring__c.Prob_Tier_Upgrade__c for cross-object access. Synced by Record-Triggered Flow or daily pipeline. Accessible from Opportunity via Opportunity.Account.Account_Prob_Tier_Upgrade__c.</description>
+    <externalId>false</externalId>
+    <label>Prob Tier Upgrade</label>
+    <precision>5</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackTrending>false</trackTrending>
+    <type>Percent</type>
+</CustomField>

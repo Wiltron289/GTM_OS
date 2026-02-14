@@ -1,0 +1,251 @@
+/* ============================================================
+   nbaDemoWorkspace - Main container / layout styles
+   ============================================================ */
+
+:host {
+    /* ── Design Tokens (cascade through Shadow DOM to children) ── */
+
+    /* Typography */
+    --nba-font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    /* Text Colors (Slate scale) */
+    --nba-text-900: #0f172a;
+    --nba-text-700: #334155;
+    --nba-text-500: #64748b;
+    --nba-text-400: #94a3b8;
+    --nba-text-300: #cbd5e5;
+
+    /* Backgrounds */
+    --nba-bg-page: #f8fafc;
+    --nba-bg-card: #ffffff;
+    --nba-bg-hover: #f1f5f9;
+
+    /* Borders */
+    --nba-border: #e2e8f0;
+    --nba-border-light: #f1f5f9;
+
+    /* Primary / Brand (Blue) */
+    --nba-blue-50: #eff6ff;
+    --nba-blue-100: #dbeafe;
+    --nba-blue-200: #bfdbfe;
+    --nba-blue-500: #3b82f6;
+    --nba-blue-600: #2563eb;
+    --nba-blue-700: #1d4ed8;
+
+    /* Success / Emerald */
+    --nba-emerald-50: #ecfdf5;
+    --nba-emerald-500: #10b981;
+    --nba-emerald-600: #059669;
+
+    /* Warning / Amber */
+    --nba-amber-50: #fffbeb;
+    --nba-amber-100: #fef3c7;
+    --nba-amber-500: #f59e0b;
+    --nba-amber-700: #b45309;
+    --nba-amber-800: #92400e;
+
+    /* Danger / Red */
+    --nba-red-50: #fef2f2;
+    --nba-red-500: #ef4444;
+    --nba-red-600: #dc2626;
+
+    /* Purple / AI */
+    --nba-purple-50: #faf5ff;
+    --nba-purple-100: #f3e8ff;
+    --nba-purple-600: #9333ea;
+    --nba-purple-700: #7e22ce;
+    --nba-purple-900: #4c1d95;
+
+    /* Indigo */
+    --nba-indigo-50: #eef2ff;
+    --nba-indigo-100: #e0e7ff;
+    --nba-indigo-600: #4f46e5;
+    --nba-indigo-900: #312e81;
+
+    /* Orange */
+    --nba-orange-50: #fff7ed;
+
+    /* Shadows */
+    --nba-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --nba-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+
+    /* Radii */
+    --nba-radius-sm: 6px;
+    --nba-radius: 8px;
+    --nba-radius-lg: 12px;
+    --nba-radius-full: 9999px;
+
+    /* ── Host styles ── */
+    display: flex;
+    flex-direction: column;
+    background-color: var(--nba-bg-page, #f8fafc);
+    height: 100vh;
+    overflow: hidden;
+    font-family: var(--nba-font-family);
+    color: var(--nba-text-900, #0f172a);
+}
+
+/* ── Loading state ────────────────────────────── */
+
+.loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    background-color: var(--nba-bg-page, #f8fafc);
+}
+
+/* ── Two-column body layout (tabs + sidebar) ──── */
+
+.workspace-body {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+    padding: 0;
+    max-width: 100%;
+    align-items: start;
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+}
+
+.workspace-main {
+    min-width: 0;
+    overflow-y: auto;
+    height: 100%;
+    padding: 0 16px 16px;
+}
+
+.workspace-sidebar {
+    min-width: 0;
+    border-left: 1px solid var(--nba-border, #e2e8f0);
+    background: var(--nba-bg-card, #ffffff);
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* ── Tab Bar ──────────────────────────────────── */
+
+.tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background-color: var(--nba-bg-card, #ffffff);
+    border-bottom: 1px solid var(--nba-border, #e2e8f0);
+    border-radius: 0;
+    padding: 0 16px;
+    overflow-x: auto;
+}
+
+.tab-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--nba-text-500, #64748b);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s ease, border-color 0.15s ease;
+    position: relative;
+    margin-bottom: -1px;
+    font-family: var(--nba-font-family);
+}
+
+.tab-button:hover {
+    color: var(--nba-text-700, #334155);
+    background-color: transparent;
+}
+
+.tab-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--nba-blue-600, #2563eb) inset;
+    border-radius: 4px 4px 0 0;
+}
+
+.tab-active {
+    color: var(--nba-blue-600, #2563eb);
+    border-bottom-color: var(--nba-blue-600, #2563eb);
+    font-weight: 500;
+}
+
+.tab-active:hover {
+    background-color: transparent;
+}
+
+/* Icon inside tab buttons */
+.tab-button lightning-icon {
+    --sds-c-icon-color-foreground-default: currentColor;
+    flex-shrink: 0;
+}
+
+/* ── Tab Content Area ─────────────────────────── */
+
+.tab-content {
+    background-color: transparent;
+    padding: 16px 0;
+}
+
+/* ── Overview Tab: 3-card grid ────────────────── */
+
+.overview-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+/* ── Responsive breakpoints ───────────────────── */
+
+/* XL: wider sidebar */
+@media (min-width: 1280px) {
+    .workspace-body {
+        grid-template-columns: 1fr 384px;
+    }
+}
+
+/* Tablet: sidebar below main, overview cards stack to 2 cols */
+@media (max-width: 1200px) {
+    .workspace-body {
+        grid-template-columns: 1fr;
+    }
+
+    .workspace-sidebar {
+        position: static;
+        border-left: none;
+        border-top: 1px solid var(--nba-border, #e2e8f0);
+        height: auto;
+    }
+
+    .overview-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Mobile: single column everything */
+@media (max-width: 768px) {
+    .workspace-body {
+        padding: 0;
+    }
+
+    .workspace-main {
+        padding: 0 8px 8px;
+    }
+
+    .overview-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .tab-bar {
+        padding: 0 4px;
+    }
+
+    .tab-button {
+        padding: 10px 10px;
+        font-size: 12px;
+    }
+}

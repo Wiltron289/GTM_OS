@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/metadata">
+    <fullName>Entity_ID_Matches_Account</fullName>
+    <active>true</active>
+    <description>Defense-in-depth: ensures Entity_ID__c matches the parent Account Entity_ID__c. Prevents mismatched scoring-to-account mappings from API misuse. Can be deactivated if causing pipeline issues.</description>
+    <errorConditionFormula>AND(
+    NOT(ISBLANK(Account__r.Entity_ID__c)),
+    Entity_ID__c != Account__r.Entity_ID__c
+)</errorConditionFormula>
+    <errorDisplayField>Entity_ID__c</errorDisplayField>
+    <errorMessage>Entity ID must match the parent Account Entity ID. Expected: {!Account__r.Entity_ID__c}.</errorMessage>
+</ValidationRule>

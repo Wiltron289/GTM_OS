@@ -1,0 +1,203 @@
+.sidebar-container {
+    background: var(--nba-bg-card, #ffffff);
+    height: 100%;
+    padding: 0;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--nba-border, #e2e8f0);
+}
+
+.sidebar-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--nba-text-900, #0f172a);
+    margin: 0;
+}
+
+.search-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--nba-text-500, #64748b);
+}
+
+/* Pill-style segmented control */
+.sidebar-tabs {
+    display: flex;
+    background: var(--nba-bg-hover, #f1f5f9);
+    border-radius: var(--nba-radius-full, 9999px);
+    margin: 12px 20px;
+    padding: 4px;
+}
+
+.sidebar-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    font-size: 13px;
+    color: var(--nba-text-500, #64748b);
+    cursor: pointer;
+    border-radius: var(--nba-radius-full, 9999px);
+    transition: all 0.15s ease;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+}
+
+.sidebar-tab.active {
+    color: var(--nba-text-900, #0f172a);
+    font-weight: 600;
+    background: var(--nba-bg-card, #ffffff);
+    box-shadow: var(--nba-shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+}
+
+.add-note-btn {
+    background: none;
+    border: none;
+    color: var(--nba-blue-600, #2563eb);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 12px 20px;
+    font-weight: 500;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+}
+
+.add-note-form {
+    padding: 0 20px 16px;
+}
+
+.save-note-btn {
+    background: var(--nba-blue-600, #2563eb);
+    color: white;
+    border: none;
+    border-radius: var(--nba-radius-sm, 6px);
+    padding: 6px 16px;
+    cursor: pointer;
+    margin-top: 8px;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+}
+
+.notes-list {
+    padding: 0 20px;
+}
+
+/* Note left border accent */
+.note-item {
+    padding: 16px 0 16px 12px;
+    border-bottom: 1px solid var(--nba-border-light, #f1f5f9);
+    border-left: 3px solid var(--nba-blue-600, #2563eb);
+}
+
+/* AI note: purple accent */
+.ai-note {
+    background: var(--nba-purple-50, #faf5ff);
+    border-radius: var(--nba-radius, 8px);
+    padding: 12px;
+    margin-bottom: 8px;
+    border-left: 3px solid var(--nba-purple-600, #9333ea);
+}
+
+.note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.note-author {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--nba-text-700, #334155);
+}
+
+.author-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--nba-bg-hover, #f1f5f9);
+    color: var(--nba-text-700, #334155);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--nba-radius-sm, 6px);
+}
+.ai-author-badge {
+    background: var(--nba-purple-50, #faf5ff);
+    color: var(--nba-purple-700, #7e22ce);
+}
+
+.note-date {
+    font-size: 11px;
+    color: var(--nba-text-400, #94a3b8);
+}
+
+.note-body {
+    font-size: 13px;
+    color: var(--nba-text-700, #334155);
+    line-height: 1.6;
+    margin-top: 6px;
+}
+
+.activity-timeline {
+    padding: 0 20px;
+}
+
+.activity-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--nba-border-light, #f1f5f9);
+}
+
+.timeline-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--nba-indigo-50, #eef2ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.activity-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.activity-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--nba-text-900, #0f172a);
+}
+
+.activity-meta {
+    font-size: 12px;
+    color: var(--nba-text-500, #64748b);
+}
+
+.activity-date {
+    font-size: 12px;
+    color: var(--nba-text-500, #64748b);
+}
+
+.activity-contact {
+    font-size: 12px;
+    color: var(--nba-text-500, #64748b);
+}
+
+.empty-text {
+    color: var(--nba-text-400, #94a3b8);
+    font-size: 13px;
+    padding: 20px;
+    text-align: center;
+}

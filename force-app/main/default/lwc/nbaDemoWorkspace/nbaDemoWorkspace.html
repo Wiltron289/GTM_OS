@@ -1,0 +1,109 @@
+<template>
+    <template if:true={isLoading}>
+        <div class="loading-container">
+            <lightning-spinner alternative-text="Loading" size="large"></lightning-spinner>
+        </div>
+    </template>
+
+    <template if:false={isLoading}>
+        <!-- Alert Banner -->
+        <c-nba-demo-alert-banner upcoming-event={upcomingEvent}></c-nba-demo-alert-banner>
+
+        <!-- Header -->
+        <c-nba-demo-header
+            header-data={headerData}
+            onemailnow={handleEmailNow}
+            onsnooze={handleSnooze}>
+        </c-nba-demo-header>
+
+        <!-- Insights Panel -->
+        <c-nba-demo-insights-panel insights-data={insightsData}></c-nba-demo-insights-panel>
+
+        <!-- Two Column Layout: Tabs + Sidebar -->
+        <div class="workspace-body">
+            <!-- Left Column: Tabs -->
+            <div class="workspace-main">
+                <!-- Tab Bar -->
+                <div class="tab-bar">
+                    <button class={overviewTabClass} data-tab="overview" onclick={handleTabClick}>
+                        <lightning-icon icon-name="utility:layout" size="x-small"></lightning-icon>
+                        Overview
+                    </button>
+                    <button class={updatesTabClass} data-tab="updates" onclick={handleTabClick}>
+                        <lightning-icon icon-name="utility:refresh" size="x-small"></lightning-icon>
+                        Updates
+                    </button>
+                    <button class={payrollTabClass} data-tab="payroll" onclick={handleTabClick}>
+                        <lightning-icon icon-name="utility:money" size="x-small"></lightning-icon>
+                        Payroll
+                    </button>
+                    <button class={productsTabClass} data-tab="products" onclick={handleTabClick}>
+                        <lightning-icon icon-name="utility:package" size="x-small"></lightning-icon>
+                        Products
+                    </button>
+                    <button class={contactsTabClass} data-tab="contacts" onclick={handleTabClick}>
+                        <lightning-icon icon-name="utility:people" size="x-small"></lightning-icon>
+                        Contacts
+                    </button>
+                    <button class={adminTabClass} data-tab="admin" onclick={handleTabClick}>
+                        <lightning-icon icon-name="utility:settings" size="x-small"></lightning-icon>
+                        Admin
+                    </button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="tab-content">
+                    <template if:true={isOverview}>
+                        <!-- Overview: 3 cards in a row -->
+                        <div class="overview-cards">
+                            <c-nba-demo-account-details account-data={accountData}></c-nba-demo-account-details>
+                            <c-nba-demo-payroll-status payroll-data={payrollStatusData}></c-nba-demo-payroll-status>
+                            <c-nba-demo-quota-progress quota-data={quotaData}></c-nba-demo-quota-progress>
+                        </div>
+                        <c-nba-demo-sales-engagement engagement-data={engagementData}></c-nba-demo-sales-engagement>
+                    </template>
+
+                    <template if:true={isUpdates}>
+                        <c-nba-demo-updates-tab record-id={recordId}></c-nba-demo-updates-tab>
+                    </template>
+
+                    <template if:true={isPayroll}>
+                        <c-nba-demo-payroll-tab payroll-tab-data={payrollTabData}></c-nba-demo-payroll-tab>
+                    </template>
+
+                    <template if:true={isProducts}>
+                        <c-nba-demo-products-tab products-data={productsData} record-id={recordId}></c-nba-demo-products-tab>
+                    </template>
+
+                    <template if:true={isContacts}>
+                        <c-nba-demo-contacts-tab contacts-data={contactsData} oncontactemail={handleContactEmail}></c-nba-demo-contacts-tab>
+                    </template>
+
+                    <template if:true={isAdmin}>
+                        <c-nba-demo-admin-tab admin-data={adminData}></c-nba-demo-admin-tab>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Right Column: Sidebar -->
+            <div class="workspace-sidebar">
+                <c-nba-demo-sidebar sidebar-data={sidebarData} record-id={recordId} onnotesaved={handleNoteSaved}></c-nba-demo-sidebar>
+            </div>
+        </div>
+
+        <!-- Email Modal (conditional) -->
+        <template if:true={showEmailModal}>
+            <c-nba-demo-email-modal
+                contacts={contactsData}
+                record-id={recordId}
+                selected-contact={selectedEmailContact}
+                onclose={handleEmailModalClose}>
+            </c-nba-demo-email-modal>
+        </template>
+
+        <!-- Snooze Dropdown (conditional) -->
+        <template if:true={showSnoozeDropdown}>
+            <c-nba-demo-snooze-dropdown onclose={handleSnoozeClose}></c-nba-demo-snooze-dropdown>
+        </template>
+    </template>
+</template>

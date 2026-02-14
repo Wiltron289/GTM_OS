@@ -1,0 +1,69 @@
+<template>
+    <div class="engagement-container">
+        <div class="engagement-card">
+            <div class="engagement-header collapsible-header" onclick={toggleSection}>
+                <div class="engagement-header-left">
+                    <span class="card-title">SALES ENGAGEMENT</span>
+                    <span class="stage-badge">{stageName}</span>
+                </div>
+                <lightning-icon icon-name={chevronIcon} size="x-small"></lightning-icon>
+            </div>
+            <template if:true={sectionExpanded}>
+            <div class="metrics-row">
+                <div class="metric">
+                    <span class="metric-label">LAST CONTACT</span>
+                    <div class="metric-value-row">
+                        <lightning-icon icon-name="standard:event" size="xx-small"></lightning-icon>
+                        <span class="metric-value">{lastContactLabel}</span>
+                        <span class="metric-sub">&middot; {lastContactAge}</span>
+                    </div>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">TOUCH FREQUENCY</span>
+                    <div class="metric-value-row">
+                        <span class="metric-value-bold">{touchFrequency}</span>
+                        <span class="metric-sub">in 30 days</span>
+                    </div>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">CLOSE POTENTIAL</span>
+                    <div class="metric-value-row">
+                        <span class={closePotentialClass}>{formattedClosePotential}</span>
+                        <span class="metric-sub">&middot; {closePotentialPercent}%</span>
+                    </div>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">DAYS IN STAGE</span>
+                    <div class="metric-value-row">
+                        <span class="metric-value-bold">{daysInStage}</span>
+                        <span class="metric-sub">days</span>
+                    </div>
+                </div>
+            </div>
+            </template>
+        </div>
+        <!-- AI Insight Banner -->
+        <template if:true={hasAiInsight}>
+            <template if:true={sectionExpanded}>
+            <div class="ai-insight">
+                <div class="ai-icon">
+                    <lightning-icon icon-name="utility:magicwand" size="xx-small" variant="inverse"></lightning-icon>
+                </div>
+                <div class="ai-content">
+                    <span class="ai-label">AI INSIGHT</span>
+                    <ul class="ai-insight-list">
+                        <template for:each={visibleInsights} for:item="item">
+                            <li key={item.key} class="ai-insight-item">{item.text}</li>
+                        </template>
+                    </ul>
+                    <template if:true={hasMoreInsights}>
+                        <button class="show-more-btn" onclick={toggleShowAllInsights}>
+                            {showMoreLabel}
+                        </button>
+                    </template>
+                </div>
+            </div>
+            </template>
+        </template>
+    </div>
+</template>

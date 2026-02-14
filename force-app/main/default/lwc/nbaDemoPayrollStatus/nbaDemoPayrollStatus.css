@@ -1,0 +1,116 @@
+.card {
+    background: var(--nba-bg-card, #ffffff);
+    border-radius: var(--nba-radius-lg, 12px);
+    border: 1px solid var(--nba-border, #e2e8f0);
+    box-shadow: var(--nba-shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+    padding: 20px;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+.card-title {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--nba-text-900, #0f172a);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+}
+
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.collapsible-header lightning-icon {
+    --sds-c-icon-color-foreground-default: var(--nba-text-500, #64748b);
+    transition: transform 0.2s ease;
+}
+.collapsible-header:hover lightning-icon {
+    --sds-c-icon-color-foreground-default: var(--nba-text-900, #0f172a);
+}
+
+.status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.icon-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--nba-radius, 8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.icon-blue {
+    background: var(--nba-blue-50, #eff6ff);
+}
+
+.icon-purple {
+    background: var(--nba-purple-50, #faf5ff);
+}
+
+.icon-green {
+    background: var(--nba-emerald-50, #ecfdf5);
+}
+
+.status-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.status-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--nba-text-400, #94a3b8);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.status-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--nba-text-900, #0f172a);
+}
+
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: var(--nba-radius-full, 9999px);
+    font-size: 12px;
+    font-weight: 600;
+    width: fit-content;
+}
+
+.badge-green {
+    background: var(--nba-emerald-50, #ecfdf5);
+    color: var(--nba-emerald-600, #059669);
+}
+
+.badge-yellow {
+    background: var(--nba-amber-50, #fffbeb);
+    color: #D97706;
+}
+
+.badge-red {
+    background: var(--nba-red-50, #fef2f2);
+    color: var(--nba-red-600, #dc2626);
+}
+
+.badge-gray {
+    background: var(--nba-bg-hover, #f1f5f9);
+    color: var(--nba-text-500, #64748b);
+}

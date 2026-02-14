@@ -1,0 +1,48 @@
+<template>
+    <div class="card">
+        <div class="card-title collapsible-header" onclick={toggleSection}>
+            <span>ACCOUNT DETAILS</span>
+            <lightning-icon icon-name={chevronIcon} size="x-small"></lightning-icon>
+        </div>
+        <template if:true={sectionExpanded}>
+        <div class="metrics-grid">
+            <div class="metric">
+                <div class="metric-icon icon-blue">
+                    <lightning-icon icon-name="standard:people" size="small"></lightning-icon>
+                </div>
+                <div class="metric-info">
+                    <span class="metric-label">EMPLOYEES</span>
+                    <span class="metric-value">{employeeCount}</span>
+                </div>
+            </div>
+            <div class="metric">
+                <div class="metric-icon icon-green">
+                    <lightning-icon icon-name="standard:location" size="small"></lightning-icon>
+                </div>
+                <div class="metric-info">
+                    <span class="metric-label">LOCATIONS</span>
+                    <span class="metric-value">{locationCount}</span>
+                </div>
+            </div>
+            <div class="metric">
+                <div class="metric-icon icon-purple">
+                    <lightning-icon icon-name="standard:product" size="small"></lightning-icon>
+                </div>
+                <div class="metric-info">
+                    <span class="metric-label">PLAN</span>
+                    <span class="metric-value">{plan}</span>
+                </div>
+            </div>
+            <div class="metric">
+                <div class="metric-icon icon-orange">
+                    <lightning-icon icon-name="utility:clock" size="small"></lightning-icon>
+                </div>
+                <div class="metric-info">
+                    <span class="metric-label">ON TIER</span>
+                    <span class="metric-value">{onTierMonths}</span>
+                </div>
+            </div>
+        </div>
+        </template>
+    </div>
+</template>

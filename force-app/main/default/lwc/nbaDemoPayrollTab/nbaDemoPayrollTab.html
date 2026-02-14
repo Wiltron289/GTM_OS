@@ -1,0 +1,163 @@
+<template>
+    <template if:true={payrollTabData}>
+        <div class="payroll-container">
+            <!-- Ready Banner -->
+            <div class={readyBannerClass}>
+                <span class="ready-title">{readyMessage}</span>
+                <span class="ready-subtext">{readySubtext}</span>
+            </div>
+
+            <!-- Summary Row -->
+            <div class="summary-row">
+                <div class="summary-item">
+                    <span class="summary-label">FIRST PAYDAY</span>
+                    <span class="summary-value">{formattedFirstPayday}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">INCEPTION OR SWITCHER</span>
+                    <span class="summary-value">{inceptionSwitcher}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">EMPLOYEE COUNT</span>
+                    <span class="summary-value">{employeeCount}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">PREDICTED MRR</span>
+                    <span class="summary-value">{predictedMrr}</span>
+                </div>
+            </div>
+
+            <!-- Current Next Step -->
+            <div class="section">
+                <h3 class="section-header collapsible-header" onclick={toggleNextStep}>
+                    <span>Current Next Step</span>
+                    <lightning-icon icon-name={nextStepChevron} size="xx-small"></lightning-icon>
+                </h3>
+                <template if:true={nextStepExpanded}>
+                <div class="next-step-content">
+                    <span class="next-step-value">{currentNextStep}</span>
+                    <span class="next-step-status">Payroll Status: {currentPayrollStatus}</span>
+                </div>
+                </template>
+            </div>
+
+            <!-- Progression -->
+            <div class="section">
+                <h3 class="section-header collapsible-header" onclick={toggleProgression}>
+                    <span>Progression</span>
+                    <lightning-icon icon-name={progressionChevron} size="xx-small"></lightning-icon>
+                </h3>
+                <template if:true={progressionExpanded}>
+                <div class="progression-grid">
+                    <div class="prog-row">
+                        <span class="field-label">Payroll Risk Level</span>
+                        <span class={riskLevelClass}>{payrollRiskLevel}</span>
+                        <span class="field-label">Admin Link</span>
+                        <template if:true={hasAdminLink}>
+                            <a href={adminLink} target="_blank" class="field-link">{adminLink}</a>
+                        </template>
+                        <template if:false={hasAdminLink}>
+                            <span class="field-value">&mdash;</span>
+                        </template>
+                    </div>
+                    <div class="prog-row">
+                        <span class="field-label">Last Progression Time</span>
+                        <span class="field-value">{lastProgressionTime}</span>
+                        <span class="field-label">Check Console Link</span>
+                        <template if:true={hasCheckConsoleLink}>
+                            <a href={checkConsoleLink} target="_blank" class="field-link">{checkConsoleLink}</a>
+                        </template>
+                        <template if:false={hasCheckConsoleLink}>
+                            <span class="field-value">&mdash;</span>
+                        </template>
+                    </div>
+                    <div class="prog-row">
+                        <span class="field-label">Current Linear Flow Page</span>
+                        <span class="field-value">{currentLinearFlowPage}</span>
+                        <span class="field-label">Fed Auth Finish</span>
+                        <span class="field-value">{fedAuthFinish}</span>
+                    </div>
+                    <div class="prog-row">
+                        <span class="field-label">Last Payroll Engagement</span>
+                        <span class="field-value">{lastPayrollEngagement}</span>
+                        <span class="field-label">Bank Connect Finish</span>
+                        <span class="field-value">{bankConnectFinish}</span>
+                    </div>
+                    <div class="prog-row">
+                        <span class="field-label">Payroll Engagement Type</span>
+                        <span class="field-value">{payrollEngagementType}</span>
+                        <span class="field-label">Pay Sched Finish</span>
+                        <span class="field-value">{paySchedFinish}</span>
+                    </div>
+                </div>
+                </template>
+            </div>
+
+            <!-- Check Information -->
+            <div class="section">
+                <h3 class="section-header collapsible-header" onclick={toggleCheckInfo}>
+                    <span>Check Information</span>
+                    <lightning-icon icon-name={checkInfoChevron} size="xx-small"></lightning-icon>
+                </h3>
+                <template if:true={checkInfoExpanded}>
+                <div class="progression-grid">
+                    <div class="prog-row">
+                        <span class="field-label">Check Info Needed</span>
+                        <span class="field-value">{checkInfoNeeded}</span>
+                        <span class="field-label">KYB Status</span>
+                        <span class="field-value">{kybStatus}</span>
+                    </div>
+                    <div class="prog-row">
+                        <span class="field-label">Onboard Status</span>
+                        <span class="field-value">{onboardStatus}</span>
+                        <span class="field-label">Implementation Status</span>
+                        <span class="field-value">{implementationStatus}</span>
+                    </div>
+                    <div class="prog-row">
+                        <span class="field-label">Payroll Status</span>
+                        <span class="field-value">{payrollStatus}</span>
+                        <span class="field-label">Blocked Reason</span>
+                        <span class="field-value">{blockedReason}</span>
+                    </div>
+                </div>
+                </template>
+            </div>
+
+            <!-- Activity -->
+            <div class="section">
+                <h3 class="section-header collapsible-header" onclick={toggleActivity}>
+                    <span>Activity</span>
+                    <lightning-icon icon-name={activityChevron} size="xx-small"></lightning-icon>
+                </h3>
+                <template if:true={activityExpanded}>
+                <div class="progression-grid">
+                    <div class="prog-row">
+                        <span class="field-label">Next Step Date</span>
+                        <span class="field-value">{nextStepDate}</span>
+                        <span class="field-label">Next Step</span>
+                        <span class="field-value">{nextStep}</span>
+                    </div>
+                    <div class="prog-row">
+                        <span class="field-label">Future Follow-Up Date</span>
+                        <span class="field-value">{futureFollowUpDate}</span>
+                        <span class="field-label">Future Follow-Up Reason</span>
+                        <span class="field-value">{futureFollowUpReason}</span>
+                    </div>
+                    <div class="prog-row">
+                        <span class="field-label">Last Call Date/Time</span>
+                        <span class="field-value">{lastCallDateTime}</span>
+                        <span class="field-label">Last Call Outcome</span>
+                        <span class="field-value">{lastCallOutcome}</span>
+                    </div>
+                    <div class="prog-row">
+                        <span class="field-label">NBA Call Count</span>
+                        <span class="field-value">{nbaCallCount}</span>
+                        <span class="field-label"></span>
+                        <span class="field-value"></span>
+                    </div>
+                </div>
+                </template>
+            </div>
+        </div>
+    </template>
+</template>

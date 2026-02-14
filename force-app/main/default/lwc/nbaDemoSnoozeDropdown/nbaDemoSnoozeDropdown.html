@@ -1,0 +1,11 @@
+<template>
+    <div class="snooze-backdrop" onclick={handleClose}>
+        <div class="snooze-dropdown" onclick={stopPropagation}>
+            <template for:each={snoozeOptions} for:item="option">
+                <button key={option.value} class="snooze-option" data-value={option.value} onclick={handleSelect}>
+                    <span class={option.className}>{option.label}</span>
+                </button>
+            </template>
+        </div>
+    </div>
+</template>
