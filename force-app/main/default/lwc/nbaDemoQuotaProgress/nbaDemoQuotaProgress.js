@@ -60,7 +60,8 @@ export default class NbaDemoQuotaProgress extends LightningElement {
     }
 
     get dashOffset() {
-        return CIRCUMFERENCE * 0.25;
+        // CSS rotate(-90deg) already positions arc start at 12 o'clock
+        return 0;
     }
 
     get hasThisOpp() {

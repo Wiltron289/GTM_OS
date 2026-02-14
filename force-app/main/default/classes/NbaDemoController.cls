@@ -683,8 +683,7 @@ public with sharing class NbaDemoController {
     private static QuotaData buildQuota(Opportunity opp) {
         QuotaData q = new QuotaData();
         q.target = 5000; // Hardcoded for demo
-        // Use MRR formula if available, fall back to Amount
-        q.thisOppMrr = opp.MRR__c != null ? opp.MRR__c : (opp.Amount != null ? opp.Amount : 0);
+        q.thisOppMrr = opp.Amount != null ? opp.Amount : 0;
 
         // Aggregate Closed Won Amount this month for the opp owner
         AggregateResult[] results = [

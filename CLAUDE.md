@@ -325,6 +325,31 @@ Commit 12: `style: Design polish - 8 changes to align with Magic Patterns protot
 - `variant="inverse"` on `lightning-icon` is the reliable way to get white icons on dark backgrounds
 - CSS variables `--sds-c-icon-color-foreground-default` / `--sds-c-icon-color-foreground` work for custom colors but need triple declaration (both vars + `color`) for reliability across SLDS versions
 
+### Sprint 6 - Quota Donut, Note Title, Card Whitespace ✅ COMPLETED (deployed to vscodeOrg, 14 tests passing)
+
+**What changed:** Three targeted fixes for the overview cards and sidebar.
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | Note title | `saveNote()` changed from `'Note - ' + Date.today().format()` to `'Rep Note'` — date was redundant (already shown on right side) |
+| 2 | Overview card whitespace | Added `display: flex; flex-direction: column` to `.card` in AccountDetails, PayrollStatus, QuotaProgress + `flex: 1` on content areas so content fills equal-height grid cells |
+| 3 | Quota donut: two-layer arc | Blue arc renders combined (closedWon + thisOpp), green layers on top for closedWon only. Blue always seamlessly continues from green's end. |
+| 4 | Quota data source | `thisOppMrr` changed from `MRR__c` (formula) with Amount fallback → `Amount` directly. Both thisOpp and closedWon aggregate now use `Amount` consistently. |
+| 5 | Donut arc start position | Fixed double-rotation bug: CSS `rotate(-90deg)` already positions arc at 12 o'clock, so `dashOffset` changed from `CIRCUMFERENCE * 0.25` to `0` |
+
+**Files changed (7 total):**
+- 3 CSS files (accountDetails, payrollStatus, quotaProgress — flexbox card layout)
+- 1 HTML file (quotaProgress — two-layer SVG arcs with conditional rendering)
+- 1 JS file (quotaProgress — combinedDashArray, closedWonDashArray, hasClosedWon, dashOffset=0)
+- 1 Apex class (NbaDemoController — saveNote title, buildQuota uses Amount)
+
+**Quota donut SVG pattern (for reference):**
+- CSS `transform: rotate(-90deg)` on SVG positions arc start at 12 o'clock
+- Do NOT also use `stroke-dashoffset = CIRCUMFERENCE * 0.25` — that creates a double-rotation (arc starts at 9 o'clock)
+- Two-layer approach: blue arc = combined total (bottom), green arc = closedWon (top). The visible blue beyond the green edge is the "this opp" potential.
+- `stroke-linecap="round"` gives rounded arc endpoints
+- Only render green arc when `hasClosedWon` to avoid phantom dot at zero
+
 ### LWC Repo Structure Convention
 
 For future LWC development, use this naming convention:
