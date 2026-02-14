@@ -30,8 +30,8 @@
             <!-- Current Next Step -->
             <div class="section">
                 <h3 class="section-header collapsible-header" onclick={toggleNextStep}>
+                    <lightning-icon icon-name={nextStepChevron} size="x-small"></lightning-icon>
                     <span>Current Next Step</span>
-                    <lightning-icon icon-name={nextStepChevron} size="xx-small"></lightning-icon>
                 </h3>
                 <template if:true={nextStepExpanded}>
                 <div class="next-step-content">
@@ -44,8 +44,8 @@
             <!-- Progression -->
             <div class="section">
                 <h3 class="section-header collapsible-header" onclick={toggleProgression}>
+                    <lightning-icon icon-name={progressionChevron} size="x-small"></lightning-icon>
                     <span>Progression</span>
-                    <lightning-icon icon-name={progressionChevron} size="xx-small"></lightning-icon>
                 </h3>
                 <template if:true={progressionExpanded}>
                 <div class="progression-grid">
@@ -96,8 +96,8 @@
             <!-- Check Information -->
             <div class="section">
                 <h3 class="section-header collapsible-header" onclick={toggleCheckInfo}>
+                    <lightning-icon icon-name={checkInfoChevron} size="x-small"></lightning-icon>
                     <span>Check Information</span>
-                    <lightning-icon icon-name={checkInfoChevron} size="xx-small"></lightning-icon>
                 </h3>
                 <template if:true={checkInfoExpanded}>
                 <div class="progression-grid">
@@ -126,8 +126,8 @@
             <!-- Activity -->
             <div class="section">
                 <h3 class="section-header collapsible-header" onclick={toggleActivity}>
+                    <lightning-icon icon-name={activityChevron} size="x-small"></lightning-icon>
                     <span>Activity</span>
-                    <lightning-icon icon-name={activityChevron} size="xx-small"></lightning-icon>
                 </h3>
                 <template if:true={activityExpanded}>
                 <div class="progression-grid">

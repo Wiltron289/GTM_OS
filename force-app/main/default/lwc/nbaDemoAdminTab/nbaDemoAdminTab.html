@@ -3,8 +3,8 @@
         <!-- Field Updates -->
         <div class="section">
             <h3 class="section-title collapsible-header" onclick={toggleFieldUpdates}>
+                <lightning-icon icon-name={fieldUpdatesChevron} size="x-small"></lightning-icon>
                 <span>Field Updates</span>
-                <lightning-icon icon-name={fieldUpdatesChevron} size="xx-small"></lightning-icon>
             </h3>
             <template if:true={fieldUpdatesExpanded}>
             <div class="field-grid-3">
@@ -27,8 +27,8 @@
         <!-- SLA Info -->
         <div class="section">
             <h3 class="section-title collapsible-header" onclick={toggleSla}>
+                <lightning-icon icon-name={slaChevron} size="x-small"></lightning-icon>
                 <span>SLA Info</span>
-                <lightning-icon icon-name={slaChevron} size="xx-small"></lightning-icon>
             </h3>
             <template if:true={slaExpanded}>
             <div class="sla-grid">
@@ -87,8 +87,8 @@
         <!-- History -->
         <div class="section">
             <h3 class="section-title collapsible-header" onclick={toggleHistory}>
+                <lightning-icon icon-name={historyChevron} size="x-small"></lightning-icon>
                 <span>History</span>
-                <lightning-icon icon-name={historyChevron} size="xx-small"></lightning-icon>
             </h3>
             <template if:true={historyExpanded}>
             <p class="empty-section">No history available</p>
@@ -98,8 +98,8 @@
         <!-- Audit -->
         <div class="section">
             <h3 class="section-title collapsible-header" onclick={toggleAudit}>
+                <lightning-icon icon-name={auditChevron} size="x-small"></lightning-icon>
                 <span>Audit</span>
-                <lightning-icon icon-name={auditChevron} size="xx-small"></lightning-icon>
             </h3>
             <template if:true={auditExpanded}>
             <p class="empty-section">No audit logs available</p>

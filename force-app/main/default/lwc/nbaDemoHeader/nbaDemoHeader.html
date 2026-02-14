@@ -16,14 +16,32 @@
             </span>
         </div>
         <div class="header-right">
-            <div class="email-btn-group">
-                <button class="email-now-btn" onclick={handleEmailNow}>
-                    <lightning-icon icon-name="utility:email" size="xx-small" class="email-icon"></lightning-icon>
-                    Email Now
-                </button>
-                <button class="email-chevron-btn" onclick={handleEmailDropdown}>
-                    <lightning-icon icon-name="utility:chevrondown" size="xx-small"></lightning-icon>
-                </button>
+            <div class="email-btn-wrapper">
+                <div class="email-btn-group">
+                    <button class="email-now-btn" onclick={handleEmailNow}>
+                        <lightning-icon icon-name="utility:email" size="xx-small" variant="inverse"></lightning-icon>
+                        Email Now
+                    </button>
+                    <button class="email-chevron-btn" onclick={handleEmailDropdown}>
+                        <lightning-icon icon-name="utility:chevrondown" size="xx-small" variant="inverse"></lightning-icon>
+                    </button>
+                </div>
+                <template if:true={showContactDropdown}>
+                    <div class="contact-dropdown">
+                        <div class="dropdown-header">SELECT RECIPIENT</div>
+                        <template for:each={contactList} for:item="contact">
+                            <div key={contact.contactId} class="dropdown-item" onclick={handleContactSelect} data-contact-id={contact.contactId}>
+                                <div class="dropdown-contact-info">
+                                    <span class="dropdown-contact-name">{contact.name}</span>
+                                    <span class="dropdown-contact-title">{contact.title}</span>
+                                </div>
+                                <template if:true={contact.isPrimary}>
+                                    <div class="primary-dot"></div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
             </div>
             <button class="snooze-btn" onclick={handleSnooze}>
                 <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>

@@ -90,26 +90,49 @@
     padding: 0 20px;
 }
 
-/* Note left border accent */
+/* Note card — collapsed by default */
 .note-item {
-    padding: 16px 0 16px 12px;
     border-bottom: 1px solid var(--nba-border-light, #f1f5f9);
     border-left: 3px solid var(--nba-blue-600, #2563eb);
+    padding-left: 12px;
 }
 
 /* AI note: purple accent */
 .ai-note {
-    background: var(--nba-purple-50, #faf5ff);
-    border-radius: var(--nba-radius, 8px);
-    padding: 12px;
-    margin-bottom: 8px;
     border-left: 3px solid var(--nba-purple-600, #9333ea);
 }
 
+.ai-note.note-expanded {
+    background: var(--nba-purple-50, #faf5ff);
+    border-radius: var(--nba-radius, 8px);
+    margin-bottom: 8px;
+}
+
+/* Collapsible note header — always visible */
 .note-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 12px 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.note-header:hover {
+    background: var(--nba-bg-hover, #f8fafc);
+}
+
+.note-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.note-chevron {
+    --sds-c-icon-color-foreground-default: #94a3b8;
+    --sds-c-icon-color-foreground: #94a3b8;
+    flex-shrink: 0;
 }
 
 .note-author {
@@ -128,24 +151,45 @@
     font-weight: 600;
     padding: 2px 8px;
     border-radius: var(--nba-radius-sm, 6px);
+    flex-shrink: 0;
 }
+
 .ai-author-badge {
     background: var(--nba-purple-50, #faf5ff);
     color: var(--nba-purple-700, #7e22ce);
 }
 
+.note-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--nba-text-700, #334155);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .note-date {
     font-size: 11px;
     color: var(--nba-text-400, #94a3b8);
+    flex-shrink: 0;
+    margin-left: 8px;
 }
 
-.note-body {
+/* Note body — only visible when expanded */
+.note-body-container {
+    padding: 0 0 12px 4px;
     font-size: 13px;
     color: var(--nba-text-700, #334155);
     line-height: 1.6;
-    margin-top: 6px;
 }
 
+/* Tame the rich text component's default styling */
+.note-body-container lightning-formatted-rich-text {
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* Activity styles */
 .activity-timeline {
     padding: 0 20px;
 }

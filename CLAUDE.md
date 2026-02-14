@@ -63,7 +63,7 @@ This creates a living knowledge base that prevents repeating past mistakes and h
 
 ## Project Status
 
-**Last Updated**: 2026-02-13
+**Last Updated**: 2026-02-14
 
 ### NBA V2 - Next Best Action System
 
@@ -115,7 +115,7 @@ All project infrastructure and tooling has been configured.
 **Current State:**
 - **Active Branch**: `feature/nba-v2-demo-lwc` (branched from `feature/account-scoring-data-layer`)
 - **Deployment Target**: vscodeOrg (Homebase UAT sandbox)
-- **Status**: Feature 2 (Demo LWC) + Sprint 2 UX refinements deployed to vscodeOrg, all 14 tests passing
+- **Status**: Feature 2 (Demo LWC) through Sprint 5 deployed to vscodeOrg, all 14 tests passing
 
 ### Feature 2: NBA V2 Demo LWC UX ✅ (deployed to vscodeOrg, tests passing)
 
@@ -292,6 +292,38 @@ Commit 12: `style: Design polish - 8 changes to align with Magic Patterns protot
 - `NoteData.isCurrentUser` (`Boolean`): compares `CreatedById` with `UserInfo.getUserId()`
 - Task query: added `CreatedById` field
 - ContentDocumentLink query: added `ContentDocument.CreatedById` field
+
+### Sprint 5 - UX Refinements & Features ✅ COMPLETED (deployed to vscodeOrg, 14 tests passing)
+
+**What changed:** Targeted design alignment with product prototype, plus new sidebar and header features.
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | Section headers redesigned | PayrollTab + AdminTab: 10px uppercase gray → 15px Title Case dark (`#0f172a`), removed `text-transform: uppercase` and `letter-spacing` |
+| 2 | Chevrons moved to left | All collapsible section chevrons moved from right side to left (before text), size `xx-small` → `x-small` |
+| 3 | Chevron color styling | Added triple styling hooks (`--sds-c-icon-color-foreground-default`, `--sds-c-icon-color-foreground`, `color`) for gray `#94a3b8` chevrons with hover darkening |
+| 4 | Admin SLA grid alignment | `grid-template-columns` changed from `1fr auto 1fr auto` to `200px 1fr 240px 1fr` for consistent two-column pairs |
+| 5 | Row borders visibility | PayrollTab + AdminTab row borders changed from `#f1f5f9` (nearly invisible) to `#e2e8f0` (visible slate) |
+| 6 | Email Now icons white | Added `variant="inverse"` to both `lightning-icon` elements in email split button (mail + chevron) |
+| 7 | Email contact dropdown | New dropdown on chevron click: shows contacts with name/title, blue dot for primary, click to open email modal pre-populated |
+| 8 | Collapsible notes | Notes in sidebar now collapsible (default collapsed), showing author badge + title + date in header row |
+| 9 | Rich text notes | Replaced raw `{note.body}` with `lightning-formatted-rich-text` — HTML tags now render properly |
+| 10 | Note titles | Each note shows `note.title` from Apex (Task subject or ContentNote title), fallback "Rep Note" |
+| 11 | Equal-height overview cards | Added `:host { height: 100% }` + `height: 100%; box-sizing: border-box` to AccountDetails, PayrollStatus, QuotaProgress cards |
+
+**Files changed (13 total):**
+- 6 CSS files (payrollTab, adminTab, header, sidebar, accountDetails, payrollStatus, quotaProgress)
+- 4 HTML files (payrollTab, adminTab, header, sidebar)
+- 2 JS files (header — contact dropdown + close-on-click-outside, sidebar — expandedNoteIds Set + toggle logic)
+- 1 parent HTML (workspace — pass contacts to header, listen for contactemail event)
+
+**New component features:**
+- **nbaDemoHeader**: Now accepts `@api contacts`, shows contact dropdown on chevron click, dispatches `contactemail` event with selected contact
+- **nbaDemoSidebar**: Notes use `expandedNoteIds` Set for independent collapse/expand, `lightning-formatted-rich-text` for HTML rendering, `displayTitle` getter with "Rep Note" fallback
+
+**SLDS icon color pattern (for reference):**
+- `variant="inverse"` on `lightning-icon` is the reliable way to get white icons on dark backgrounds
+- CSS variables `--sds-c-icon-color-foreground-default` / `--sds-c-icon-color-foreground` work for custom colors but need triple declaration (both vars + `color`) for reliability across SLDS versions
 
 ### LWC Repo Structure Convention
 
