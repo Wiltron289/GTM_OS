@@ -115,7 +115,7 @@ All project infrastructure and tooling has been configured.
 **Current State:**
 - **Active Branch**: `feature/nba-v2-demo-lwc` (branched from `feature/account-scoring-data-layer`)
 - **Deployment Target**: vscodeOrg (Homebase UAT sandbox)
-- **Status**: Feature 2 (Demo LWC) through Sprint 5 deployed to vscodeOrg, all 14 tests passing
+- **Status**: Feature 2 (Demo LWC) through Sprint 7 deployed to vscodeOrg, all 14 tests passing
 
 ### Feature 2: NBA V2 Demo LWC UX ✅ (deployed to vscodeOrg, tests passing)
 
@@ -352,6 +352,38 @@ Commit 12: `style: Design polish - 8 changes to align with Magic Patterns protot
 - Two-layer approach: blue arc = combined total (bottom), green arc = closedWon (top). The visible blue beyond the green edge is the "this opp" potential.
 - `stroke-linecap="round"` gives rounded arc endpoints
 - Only render green arc when `hasClosedWon` to avoid phantom dot at zero
+
+### Sprint 7 - Email Modal Fixes ✅ COMPLETED (deployed to vscodeOrg, 14 tests passing)
+
+**What changed:** Three bugs fixed in the email modal component.
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | Rich text email body | Replaced `lightning-textarea` with `lightning-input-rich-text` so template HTML renders as formatted text in the composer instead of showing raw `<p>`, `<br>` tags |
+| 2 | Contact dropdown → To field | Fixed `connectedCallback`: `selectedContact` receives a full contact object from the header dropdown, but was assigned directly as `selectedContactId`. Now extracts `.contactId` from the object. |
+| 3 | Merge tags not resolving | Old code called both `setHtmlBody(body)` AND `setTemplateId(templateId)`, which caused Salesforce to use the raw HTML (with unresolved `{{{Recipient.FirstName}}}` tags) instead of processing the template. Now only `setTemplateId()` is called when a template is selected; `setSubject`/`setHtmlBody` only set when composing without a template. |
+| 4 | Email not in activities | Added `oppId` parameter to `sendEmail` Apex method + `mail.setWhatId(oppId)`. Without this, the email Task was linked only to the Contact and had no `WhatId`, so `buildSidebar`'s `WHERE WhatId = :oppId` query never found it. |
+| 5 | Sidebar not refreshing after send | Email modal now dispatches `emailsent` custom event after successful send. Workspace listens for it and calls `refreshApex()` so the new email activity appears immediately in the sidebar. |
+
+**Files changed (5 total):**
+- 1 Apex class (NbaDemoController — `sendEmail` signature: added `Id oppId`, `setWhatId`, conditional subject/body)
+- 1 Apex test class (NbaDemoControllerTest — `testSendEmail_SendsMessage` passes `opp.Id` for new param)
+- 1 LWC JS (nbaDemoEmailModal — `contactId` extraction, `oppId` in sendEmail call, `emailsent` event, rich text `onchange` handler)
+- 1 LWC HTML (nbaDemoEmailModal — `lightning-input-rich-text` replacing `lightning-textarea`)
+- 1 LWC CSS (nbaDemoEmailModal — updated selectors for rich text component)
+- 1 LWC HTML (nbaDemoWorkspace — `onemailsent` listener)
+- 1 LWC JS (nbaDemoWorkspace — `handleEmailSent` with `refreshApex`)
+
+**Salesforce email in sandbox (for reference):**
+- Sandbox uses a system relay address (e.g., `swgxeiq1xjvsoupp...sandbox.salesforce.com`) as the sender — this is normal platform behavior, not a code issue
+- In production, emails send from the running user's address (or org-wide email if configured)
+- Subject is auto-prefixed with "Sandbox:" in sandbox environments
+
+**Messaging.SingleEmailMessage pattern (for reference):**
+- When using `setTemplateId()`: do NOT also call `setSubject()` or `setHtmlBody()` — Salesforce will use the raw values instead of processing the template merge fields
+- `setTargetObjectId(contactId)` resolves Contact/Lead merge fields
+- `setWhatId(oppId)` resolves Opportunity/Account merge fields AND links the activity Task to the Opportunity
+- `setSaveAsActivity(true)` creates a Task record — it needs `WhatId` to appear on the related record's activity timeline
 
 ### LWC Repo Structure Convention
 
