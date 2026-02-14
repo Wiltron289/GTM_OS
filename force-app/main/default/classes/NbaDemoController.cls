@@ -111,6 +111,8 @@ public with sharing class NbaDemoController {
         @AuraEnabled public Date lastActivityDate;
         @AuraEnabled public String email;
         @AuraEnabled public String phone;
+        @AuraEnabled public String mogliNumber;
+        @AuraEnabled public Boolean optedOut;
     }
 
     public class AdminData {
@@ -438,7 +440,9 @@ public with sharing class NbaDemoController {
         Id accountId;
         for (OpportunityContactRole ocr : [
             SELECT ContactId, Contact.Name, Contact.FirstName, Contact.LastName,
-                   Contact.Title, Contact.Email, Contact.Phone, Contact.AccountId, IsPrimary
+                   Contact.Title, Contact.Email, Contact.Phone, Contact.AccountId,
+                   Contact.Mogli_SMS__Mogli_Number__c, Contact.Mogli_SMS__Mogli_Opt_Out__c,
+                   IsPrimary
             FROM OpportunityContactRole
             WHERE OpportunityId = :oppId
             ORDER BY IsPrimary DESC, Contact.Name ASC
@@ -450,6 +454,8 @@ public with sharing class NbaDemoController {
             c.isPrimary = ocr.IsPrimary;
             c.email = ocr.Contact.Email;
             c.phone = ocr.Contact.Phone;
+            c.mogliNumber = ocr.Contact.Mogli_SMS__Mogli_Number__c;
+            c.optedOut = ocr.Contact.Mogli_SMS__Mogli_Opt_Out__c == true;
 
             // Build initials
             String first = ocr.Contact.FirstName != null ? ocr.Contact.FirstName.substring(0, 1) : '';
@@ -475,7 +481,8 @@ public with sharing class NbaDemoController {
         // Second: get all contacts on the Account that aren't already in the list
         if (accountId != null) {
             for (Contact con : [
-                SELECT Id, Name, FirstName, LastName, Title, Email, Phone
+                SELECT Id, Name, FirstName, LastName, Title, Email, Phone,
+                       Mogli_SMS__Mogli_Number__c, Mogli_SMS__Mogli_Opt_Out__c
                 FROM Contact
                 WHERE AccountId = :accountId
                   AND Id NOT IN :seenContactIds
@@ -488,6 +495,8 @@ public with sharing class NbaDemoController {
                 c.isPrimary = false;
                 c.email = con.Email;
                 c.phone = con.Phone;
+                c.mogliNumber = con.Mogli_SMS__Mogli_Number__c;
+                c.optedOut = con.Mogli_SMS__Mogli_Opt_Out__c == true;
 
                 String first = con.FirstName != null ? con.FirstName.substring(0, 1) : '';
                 String last = con.LastName != null ? con.LastName.substring(0, 1) : '';
@@ -671,6 +680,36 @@ public with sharing class NbaDemoController {
             sb.notes.add(n);
         }
 
+        // SMS activities from Mogli
+        for (Mogli_SMS__SMS__c sms : [
+            SELECT Id, Mogli_SMS__Message__c, Mogli_SMS__Send_Date__c,
+                   Mogli_SMS__Direction__c, Mogli_SMS__Contact__r.Name,
+                   Mogli_SMS__Phone_Number__c, CreatedDate
+            FROM Mogli_SMS__SMS__c
+            WHERE Mogli_SMS__Opportunity__c = :oppId
+            ORDER BY CreatedDate DESC
+            LIMIT 20
+        ]) {
+            ActivityData a = new ActivityData();
+            a.id = sms.Id;
+            String msgPreview = sms.Mogli_SMS__Message__c != null
+                ? (sms.Mogli_SMS__Message__c.length() > 40
+                    ? sms.Mogli_SMS__Message__c.substring(0, 40) + '...'
+                    : sms.Mogli_SMS__Message__c)
+                : 'SMS';
+            String contactName = sms.Mogli_SMS__Contact__r != null ? sms.Mogli_SMS__Contact__r.Name : null;
+            a.label = (sms.Mogli_SMS__Direction__c == 'Outbound' ? 'SMS sent' : 'SMS received')
+                + (contactName != null ? ' - ' + contactName + ': ' : ': ') + msgPreview;
+            a.activityDate = sms.Mogli_SMS__Send_Date__c != null
+                ? sms.Mogli_SMS__Send_Date__c.date()
+                : sms.CreatedDate.date();
+            a.contactName = contactName;
+            a.type = 'SMS';
+            a.iconName = 'utility:chat';
+            a.iconVariant = '';
+            sb.activities.add(a);
+        }
+
         // Sort notes by date descending
         sb.notes.sort(new NoteDataComparator());
 
@@ -807,5 +846,69 @@ public with sharing class NbaDemoController {
             templates.add(t);
         }
         return templates;
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<Map<String, String>> getSmsTemplates() {
+        List<Map<String, String>> templates = new List<Map<String, String>>();
+        for (Mogli_SMS__SMS_Template__c tmpl : [
+            SELECT Id, Name, Mogli_SMS__Name__c, Mogli_SMS__Text__c
+            FROM Mogli_SMS__SMS_Template__c
+            WHERE Mogli_SMS__private__c = false
+            ORDER BY Name ASC
+            LIMIT 50
+        ]) {
+            Map<String, String> t = new Map<String, String>();
+            t.put('id', tmpl.Id);
+            t.put('name', tmpl.Mogli_SMS__Name__c != null ? tmpl.Mogli_SMS__Name__c : tmpl.Name);
+            t.put('text', tmpl.Mogli_SMS__Text__c);
+            templates.add(t);
+        }
+        return templates;
+    }
+
+    @AuraEnabled
+    public static Id sendSms(Id contactId, String message, Id oppId) {
+        Contact con = [
+            SELECT Id, Mogli_SMS__Mogli_Number__c, Mogli_SMS__Mogli_Opt_Out__c, AccountId
+            FROM Contact
+            WHERE Id = :contactId
+            LIMIT 1
+        ];
+
+        if (String.isBlank(con.Mogli_SMS__Mogli_Number__c)) {
+            AuraHandledException ex = new AuraHandledException('Contact does not have an SMS number (Mogli Number is blank).');
+            ex.setMessage('Contact does not have an SMS number (Mogli Number is blank).');
+            throw ex;
+        }
+
+        if (con.Mogli_SMS__Mogli_Opt_Out__c == true) {
+            AuraHandledException ex = new AuraHandledException('Contact has opted out of SMS communications.');
+            ex.setMessage('Contact has opted out of SMS communications.');
+            throw ex;
+        }
+
+        List<Mogli_SMS__Gateway__c> gateways = [
+            SELECT Id
+            FROM Mogli_SMS__Gateway__c
+            WHERE Mogli_SMS__Inactive__c = false
+            ORDER BY Name ASC
+            LIMIT 1
+        ];
+
+        Mogli_SMS__SMS__c sms = new Mogli_SMS__SMS__c();
+        sms.Mogli_SMS__Contact__c = contactId;
+        sms.Mogli_SMS__Opportunity__c = oppId;
+        sms.Account__c = con.AccountId;
+        sms.Mogli_SMS__Message__c = message;
+        sms.Mogli_SMS__Direction__c = 'Outbound';
+        sms.Mogli_SMS__Phone_Number__c = con.Mogli_SMS__Mogli_Number__c;
+
+        if (!gateways.isEmpty()) {
+            sms.Mogli_SMS__Gateway__c = gateways[0].Id;
+        }
+
+        insert sms;
+        return sms.Id;
     }
 }
