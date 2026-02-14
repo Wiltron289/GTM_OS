@@ -336,12 +336,15 @@ Commit 12: `style: Design polish - 8 changes to align with Magic Patterns protot
 | 3 | Quota donut: two-layer arc | Blue arc renders combined (closedWon + thisOpp), green layers on top for closedWon only. Blue always seamlessly continues from green's end. |
 | 4 | Quota data source | `thisOppMrr` changed from `MRR__c` (formula) with Amount fallback → `Amount` directly. Both thisOpp and closedWon aggregate now use `Amount` consistently. |
 | 5 | Donut arc start position | Fixed double-rotation bug: CSS `rotate(-90deg)` already positions arc at 12 o'clock, so `dashOffset` changed from `CIRCUMFERENCE * 0.25` to `0` |
+| 6 | Payroll Status icons | Switched from `utility:*` (bare glyphs) to `standard:*` icons (colored circle + white glyph) to match Account Details style: `standard:contract` (TYPE), `standard:activations` (NEXT STEP), `standard:approval` (CHECK STATUS). Size `xx-small` → `small`, container 40px → 36px. |
+| 7 | Field mapping doc | Created `docs/nba-v2-field-mapping.csv` — 107 field mappings across all 13 visual sections, showing Salesforce object/field → display element mapping |
 
-**Files changed (7 total):**
-- 3 CSS files (accountDetails, payrollStatus, quotaProgress — flexbox card layout)
-- 1 HTML file (quotaProgress — two-layer SVG arcs with conditional rendering)
+**Files changed (9 total):**
+- 3 CSS files (accountDetails, payrollStatus, quotaProgress — flexbox card layout + icon container resize)
+- 2 HTML files (quotaProgress — two-layer SVG arcs; payrollStatus — standard icons)
 - 1 JS file (quotaProgress — combinedDashArray, closedWonDashArray, hasClosedWon, dashOffset=0)
 - 1 Apex class (NbaDemoController — saveNote title, buildQuota uses Amount)
+- 1 CSV doc (docs/nba-v2-field-mapping.csv — complete data mapping reference)
 
 **Quota donut SVG pattern (for reference):**
 - CSS `transform: rotate(-90deg)` on SVG positions arc start at 12 o'clock
