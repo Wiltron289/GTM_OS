@@ -757,7 +757,7 @@ public with sharing class NbaDemoController {
     @AuraEnabled
     public static Id saveNote(Id oppId, String noteBody) {
         ContentNote cn = new ContentNote();
-        cn.Title = 'Note - ' + Date.today().format();
+        cn.Title = 'Rep Note';
         cn.Content = Blob.valueOf(noteBody);
         insert cn;
 
