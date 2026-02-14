@@ -902,6 +902,7 @@ public with sharing class NbaDemoController {
         sms.Account__c = con.AccountId;
         sms.Mogli_SMS__Message__c = message;
         sms.Mogli_SMS__Direction__c = 'Outbound';
+        sms.Mogli_SMS__Status__c = 'Queued';
         sms.Mogli_SMS__Phone_Number__c = con.Mogli_SMS__Mogli_Number__c;
 
         if (!gateways.isEmpty()) {
