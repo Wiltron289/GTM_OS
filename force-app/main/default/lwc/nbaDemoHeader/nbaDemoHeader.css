@@ -170,6 +170,64 @@
     flex-shrink: 0;
 }
 
+/* SMS button wrapper */
+.sms-btn-wrapper {
+    position: relative;
+}
+
+.sms-btn-group {
+    display: inline-flex;
+    align-items: stretch;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--nba-shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+}
+
+.sms-now-btn {
+    background: #059669;
+    color: white;
+    border: none;
+    border-radius: 8px 0 0 8px;
+    padding: 10px 16px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+}
+
+.sms-now-btn:hover {
+    background: #10b981;
+}
+
+.sms-chevron-btn {
+    background: #059669;
+    color: white;
+    border: none;
+    border-left: 1px solid #047857;
+    border-radius: 0 8px 8px 0;
+    padding: 10px 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+}
+
+.sms-chevron-btn:hover {
+    background: #10b981;
+}
+
+.opted-out-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: #b45309;
+    background: #fffbeb;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
 /* Snooze */
 .snooze-btn {
     background: var(--nba-bg-card, #ffffff);

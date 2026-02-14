@@ -15,6 +15,8 @@
             contacts={contactsData}
             onemailnow={handleEmailNow}
             oncontactemail={handleContactEmail}
+            onsmsnow={handleSmsNow}
+            oncontactsms={handleContactSms}
             onsnooze={handleSnooze}>
         </c-nba-demo-header>
 
@@ -78,7 +80,7 @@
                     </template>
 
                     <template if:true={isContacts}>
-                        <c-nba-demo-contacts-tab contacts-data={contactsData} oncontactemail={handleContactEmail}></c-nba-demo-contacts-tab>
+                        <c-nba-demo-contacts-tab contacts-data={contactsData} oncontactemail={handleContactEmail} oncontactsms={handleContactSms}></c-nba-demo-contacts-tab>
                     </template>
 
                     <template if:true={isAdmin}>
@@ -102,6 +104,17 @@
                 onclose={handleEmailModalClose}
                 onemailsent={handleEmailSent}>
             </c-nba-demo-email-modal>
+        </template>
+
+        <!-- SMS Modal (conditional) -->
+        <template if:true={showSmsModal}>
+            <c-nba-demo-sms-modal
+                contacts={contactsData}
+                record-id={recordId}
+                selected-contact={selectedSmsContact}
+                onclose={handleSmsModalClose}
+                onsmssent={handleSmsSent}>
+            </c-nba-demo-sms-modal>
         </template>
 
         <!-- Snooze Dropdown (conditional) -->

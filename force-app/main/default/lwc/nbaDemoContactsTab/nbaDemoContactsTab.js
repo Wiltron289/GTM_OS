@@ -35,6 +35,17 @@ export default class NbaDemoContactsTab extends LightningElement {
         );
     }
 
+    handleSms(event) {
+        const contactId = event.currentTarget.dataset.contactId;
+        this.dispatchEvent(
+            new CustomEvent('contactsms', {
+                detail: { contactId },
+                bubbles: true,
+                composed: true
+            })
+        );
+    }
+
     handleCall(event) {
         const phone = event.currentTarget.dataset.phone;
         if (phone) {

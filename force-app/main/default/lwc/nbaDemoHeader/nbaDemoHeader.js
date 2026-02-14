@@ -4,6 +4,7 @@ export default class NbaDemoHeader extends LightningElement {
     @api headerData;
     @api contacts;
     @track showContactDropdown = false;
+    @track showSmsContactDropdown = false;
 
     get formattedMrr() {
         if (!this.headerData?.mrr) return '$0 MRR';
@@ -21,18 +22,26 @@ export default class NbaDemoHeader extends LightningElement {
         return this.contacts.filter(c => c.email);
     }
 
+    get smsContactList() {
+        if (!this.contacts || !Array.isArray(this.contacts)) return [];
+        return this.contacts.filter(c => c.mogliNumber);
+    }
+
     handleEmailNow() {
         this.showContactDropdown = false;
+        this.showSmsContactDropdown = false;
         this.dispatchEvent(new CustomEvent('emailnow'));
     }
 
     handleSnooze() {
         this.showContactDropdown = false;
+        this.showSmsContactDropdown = false;
         this.dispatchEvent(new CustomEvent('snooze'));
     }
 
     handleEmailDropdown(event) {
         event.stopPropagation();
+        this.showSmsContactDropdown = false;
         this.showContactDropdown = !this.showContactDropdown;
     }
 
@@ -45,9 +54,31 @@ export default class NbaDemoHeader extends LightningElement {
         }
     }
 
+    handleSmsNow() {
+        this.showContactDropdown = false;
+        this.showSmsContactDropdown = false;
+        this.dispatchEvent(new CustomEvent('smsnow'));
+    }
+
+    handleSmsDropdown(event) {
+        event.stopPropagation();
+        this.showContactDropdown = false;
+        this.showSmsContactDropdown = !this.showSmsContactDropdown;
+    }
+
+    handleSmsContactSelect(event) {
+        const contactId = event.currentTarget.dataset.contactId;
+        const contact = this.smsContactList.find(c => c.contactId === contactId);
+        if (contact) {
+            this.showSmsContactDropdown = false;
+            this.dispatchEvent(new CustomEvent('contactsms', { detail: contact }));
+        }
+    }
+
     connectedCallback() {
         this._closeDropdownHandler = () => {
             this.showContactDropdown = false;
+            this.showSmsContactDropdown = false;
         };
         document.addEventListener('click', this._closeDropdownHandler);
     }

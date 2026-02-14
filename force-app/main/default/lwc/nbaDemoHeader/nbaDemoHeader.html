@@ -43,6 +43,38 @@
                     </div>
                 </template>
             </div>
+            <div class="sms-btn-wrapper">
+                <div class="sms-btn-group">
+                    <button class="sms-now-btn" onclick={handleSmsNow}>
+                        <lightning-icon icon-name="utility:chat" size="xx-small" variant="inverse"></lightning-icon>
+                        SMS
+                    </button>
+                    <button class="sms-chevron-btn" onclick={handleSmsDropdown}>
+                        <lightning-icon icon-name="utility:chevrondown" size="xx-small" variant="inverse"></lightning-icon>
+                    </button>
+                </div>
+                <template if:true={showSmsContactDropdown}>
+                    <div class="contact-dropdown">
+                        <div class="dropdown-header">SELECT SMS RECIPIENT</div>
+                        <template for:each={smsContactList} for:item="contact">
+                            <div key={contact.contactId} class="dropdown-item" onclick={handleSmsContactSelect} data-contact-id={contact.contactId}>
+                                <div class="dropdown-contact-info">
+                                    <span class="dropdown-contact-name">{contact.name}</span>
+                                    <span class="dropdown-contact-title">{contact.mogliNumber}</span>
+                                </div>
+                                <template if:true={contact.optedOut}>
+                                    <span class="opted-out-badge">Opted Out</span>
+                                </template>
+                                <template if:false={contact.optedOut}>
+                                    <template if:true={contact.isPrimary}>
+                                        <div class="primary-dot"></div>
+                                    </template>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
             <button class="snooze-btn" onclick={handleSnooze}>
                 <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>
                 Snooze
