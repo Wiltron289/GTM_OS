@@ -24,7 +24,7 @@ export default class NbaDemoEmailModal extends LightningElement {
 
     connectedCallback() {
         if (this.selectedContact) {
-            this.selectedContactId = this.selectedContact;
+            this.selectedContactId = this.selectedContact.contactId || this.selectedContact;
         } else {
             const list = Array.isArray(this.contacts) ? this.contacts : [];
             if (list.length > 0) {
@@ -83,7 +83,7 @@ export default class NbaDemoEmailModal extends LightningElement {
     }
 
     handleBodyChange(event) {
-        this.emailBody = event.target.value;
+        this.emailBody = event.detail ? event.detail.value : event.target.value;
     }
 
     async handleSend() {

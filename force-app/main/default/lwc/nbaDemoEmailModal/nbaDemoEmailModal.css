@@ -83,10 +83,13 @@
     cursor: not-allowed;
 }
 
-.email-body-area textarea {
-    min-height: 300px !important;
+.email-body-area {
+    --sds-c-textarea-sizing-min-height: 300px;
 }
 
-.email-body-area .slds-textarea {
-    min-height: 300px;
+.slds-form-element__label {
+    font-size: 0.75rem;
+    color: var(--nba-text-500, #64748b);
+    margin-bottom: 4px;
+    display: block;
 }
