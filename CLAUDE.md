@@ -115,7 +115,7 @@ All project infrastructure and tooling has been configured.
 **Current State:**
 - **Active Branch**: `feature/nba-v2-demo-lwc` (branched from `feature/account-scoring-data-layer`)
 - **Deployment Target**: vscodeOrg (Homebase UAT sandbox)
-- **Status**: Feature 2 (Demo LWC) through Sprint 7 deployed to vscodeOrg, all 14 tests passing
+- **Status**: Feature 2 (Demo LWC) through Sprint 8 deployed to vscodeOrg, all 18 tests passing
 
 ### Feature 2: NBA V2 Demo LWC UX ✅ (deployed to vscodeOrg, tests passing)
 
@@ -384,6 +384,50 @@ Commit 12: `style: Design polish - 8 changes to align with Magic Patterns protot
 - `setTargetObjectId(contactId)` resolves Contact/Lead merge fields
 - `setWhatId(oppId)` resolves Opportunity/Account merge fields AND links the activity Task to the Opportunity
 - `setSaveAsActivity(true)` creates a Task record — it needs `WhatId` to appear on the related record's activity timeline
+
+### Sprint 8 - SMS Integration via Mogli SMS ✅ COMPLETED (deployed to vscodeOrg, 18 tests passing)
+
+**What changed:** Added SMS messaging capability mirroring the email modal pattern, using Mogli SMS managed package for delivery.
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | SMS modal component | New `nbaDemoSmsModal` LWC: contact selector, Mogli template picker, plain text body, character counter (160 chars/segment), phone number display, opt-out warning, green send button |
+| 2 | Header SMS button | Green "SMS" split button between "Email Now" and "Snooze" — main button opens modal, chevron shows contact dropdown filtered to contacts with Mogli numbers |
+| 3 | Contact data enrichment | `ContactData` now includes `mogliNumber` (Mogli_SMS__Mogli_Number__c) and `optedOut` (Mogli_SMS__Mogli_Opt_Out__c) from both OCR and Account contacts |
+| 4 | sendSms Apex method | Creates `Mogli_SMS__SMS__c` record with Direction='Outbound', auto-selects first active Telnyx gateway, validates Mogli number exists and not opted out |
+| 5 | getSmsTemplates Apex method | Queries `Mogli_SMS__SMS_Template__c` (non-private templates), returns id/name/text for template picker |
+| 6 | Sidebar SMS activities | `buildSidebar()` now queries `Mogli_SMS__SMS__c WHERE Opportunity__c = :oppId`, renders as "SMS sent/received" with `utility:chat` icon |
+| 7 | Contacts tab SMS button | New "SMS" action button on each contact card, dispatches `contactsms` event |
+| 8 | Workspace wiring | `showSmsModal`/`selectedSmsContact` state, event listeners for `smsnow`/`contactsms`/`smssent`, `refreshApex` after send |
+
+**Mogli SMS Architecture (for reference):**
+- **Namespace**: `Mogli_SMS`
+- **Message object**: `Mogli_SMS__SMS__c` — stores all SMS/MMS records, has lookups to Contact, Opportunity, Account (non-namespaced `Account__c`)
+- **Template object**: `Mogli_SMS__SMS_Template__c` — `Mogli_SMS__Name__c` (unique name), `Mogli_SMS__Text__c` (body)
+- **Gateway object**: `Mogli_SMS__Gateway__c` — 38 active Telnyx gateways, filtered by `Mogli_SMS__Inactive__c = false`
+- **Contact fields**: `Mogli_SMS__Mogli_Number__c` (SMS phone number), `Mogli_SMS__Mogli_Opt_Out__c` (opt-out flag)
+- **Delivery**: Insert `SMS__c` with `Direction__c = 'Outbound'` → Mogli's managed package triggers handle Telnyx delivery
+- **Activity linking**: SMS records link to Opportunity via `Mogli_SMS__Opportunity__c` lookup (NOT Task/WhatId like email)
+
+**Org-specific discovery (for reference):**
+- `Account__c` field on `Mogli_SMS__SMS__c` is **non-namespaced** (created manually, not by managed package) — do NOT use `Mogli_SMS__Account__c`
+- Mogli auto-populates `Mogli_SMS__Mogli_Number__c` on Contact from the `Phone` field via a trigger — test data that needs blank Mogli numbers must also clear `Phone` and `MobilePhone`
+- `AuraHandledException.getMessage()` returns "Script-thrown exception" in test context — must call `setMessage()` explicitly for testable error messages
+
+**Files changed (15 total):**
+- 4 new files: `lwc/nbaDemoSmsModal/` (JS, HTML, CSS, meta)
+- 2 Apex files: `NbaDemoController.cls` (5 changes), `NbaDemoControllerTest.cls` (4 new test methods)
+- 3 Header files: `nbaDemoHeader` (HTML, JS, CSS — SMS button + dropdown)
+- 2 Workspace files: `nbaDemoWorkspace` (HTML, JS — modal wiring)
+- 2 Contacts tab files: `nbaDemoContactsTab` (HTML, JS — SMS button)
+
+**Component tree update:**
+```
+nbaDemoWorkspace (parent)
+├── ... (existing components)
+├── nbaDemoSmsModal (NEW - SMS composer)
+└── nbaDemoEmailModal (existing - email composer)
+```
 
 ### LWC Repo Structure Convention
 
