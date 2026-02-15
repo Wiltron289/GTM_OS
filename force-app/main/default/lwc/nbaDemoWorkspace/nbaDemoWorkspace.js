@@ -11,6 +11,8 @@ export default class NbaDemoWorkspace extends LightningElement {
     // Modal / dropdown state
     showEmailModal = false;
     selectedEmailContact = null;
+    showSmsModal = false;
+    selectedSmsContact = null;
     showSnoozeDropdown = false;
 
     // Loading & error state
@@ -152,6 +154,32 @@ export default class NbaDemoWorkspace extends LightningElement {
     handleContactEmail(event) {
         this.selectedEmailContact = event.detail;
         this.showEmailModal = true;
+    }
+
+    handleEmailSent() {
+        refreshApex(this._wiredResult);
+    }
+
+    // ────────────────────────────────────────────
+    // SMS modal handlers
+    // ────────────────────────────────────────────
+    handleSmsNow() {
+        this.selectedSmsContact = null;
+        this.showSmsModal = true;
+    }
+
+    handleSmsModalClose() {
+        this.showSmsModal = false;
+        this.selectedSmsContact = null;
+    }
+
+    handleContactSms(event) {
+        this.selectedSmsContact = event.detail;
+        this.showSmsModal = true;
+    }
+
+    handleSmsSent() {
+        refreshApex(this._wiredResult);
     }
 
     // ────────────────────────────────────────────

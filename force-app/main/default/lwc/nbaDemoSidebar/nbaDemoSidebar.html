@@ -40,11 +40,19 @@
                     <div class="notes-list">
                         <template for:each={computedNotes} for:item="note">
                             <div key={note.key} class={note.noteClass}>
-                                <div class="note-header">
-                                    <span class={note.authorBadgeClass}>{note.authorDisplay}</span>
+                                <div class="note-header" onclick={handleNoteToggle} data-note-id={note.key}>
+                                    <div class="note-header-left">
+                                        <lightning-icon icon-name={note.chevronIcon} size="xx-small" class="note-chevron"></lightning-icon>
+                                        <span class={note.authorBadgeClass}>{note.authorDisplay}</span>
+                                        <span class="note-title">{note.displayTitle}</span>
+                                    </div>
                                     <span class="note-date">{note.formattedDate}</span>
                                 </div>
-                                <p class="note-body">{note.body}</p>
+                                <template if:true={note.isExpanded}>
+                                    <div class="note-body-container">
+                                        <lightning-formatted-rich-text value={note.body}></lightning-formatted-rich-text>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>

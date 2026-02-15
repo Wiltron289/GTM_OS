@@ -62,6 +62,11 @@
     gap: 8px;
 }
 
+/* Email button wrapper — positions dropdown relative to the button group */
+.email-btn-wrapper {
+    position: relative;
+}
+
 .email-btn-group {
     display: inline-flex;
     align-items: stretch;
@@ -105,6 +110,125 @@
     background: var(--nba-blue-700, #1d4ed8);
 }
 
+/* Contact Dropdown */
+.contact-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 260px;
+    background: var(--nba-bg-card, #ffffff);
+    border: 1px solid var(--nba-border, #e2e8f0);
+    border-radius: var(--nba-radius, 8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    overflow: hidden;
+}
+
+.dropdown-header {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--nba-text-400, #94a3b8);
+    padding: 12px 16px 8px;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.dropdown-item:hover {
+    background: var(--nba-bg-hover, #f1f5f9);
+}
+
+.dropdown-contact-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dropdown-contact-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--nba-text-900, #0f172a);
+}
+
+.dropdown-contact-title {
+    font-size: 12px;
+    color: var(--nba-text-500, #64748b);
+}
+
+.primary-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--nba-blue-600, #2563eb);
+    flex-shrink: 0;
+}
+
+/* SMS button wrapper */
+.sms-btn-wrapper {
+    position: relative;
+}
+
+.sms-btn-group {
+    display: inline-flex;
+    align-items: stretch;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--nba-shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+}
+
+.sms-now-btn {
+    background: #059669;
+    color: white;
+    border: none;
+    border-radius: 8px 0 0 8px;
+    padding: 10px 16px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+}
+
+.sms-now-btn:hover {
+    background: #10b981;
+}
+
+.sms-chevron-btn {
+    background: #059669;
+    color: white;
+    border: none;
+    border-left: 1px solid #047857;
+    border-radius: 0 8px 8px 0;
+    padding: 10px 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+}
+
+.sms-chevron-btn:hover {
+    background: #10b981;
+}
+
+.opted-out-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: #b45309;
+    background: #fffbeb;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+/* Snooze */
 .snooze-btn {
     background: var(--nba-bg-card, #ffffff);
     color: var(--nba-text-700, #334155);

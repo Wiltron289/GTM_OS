@@ -14,7 +14,7 @@
 .modal-container {
     background: var(--nba-bg-card, #ffffff);
     border-radius: var(--nba-radius-lg, 12px);
-    width: 560px;
+    width: 520px;
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -27,6 +27,12 @@
     align-items: center;
     padding: 20px 24px;
     border-bottom: 1px solid var(--nba-border, #e2e8f0);
+}
+
+.modal-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .modal-title {
@@ -46,6 +52,65 @@
 
 .modal-body {
     padding: 24px;
+}
+
+.phone-display {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--nba-text-500, #64748b);
+    padding: 6px 0 0;
+}
+
+.phone-number {
+    font-weight: 500;
+}
+
+.opt-out-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    background: #fffbeb;
+    border: 1px solid #f59e0b;
+    border-radius: var(--nba-radius-sm, 6px);
+    color: #92400e;
+    font-size: 13px;
+}
+
+.body-label {
+    font-size: 0.75rem;
+    color: var(--nba-text-500, #64748b);
+    margin-bottom: 4px;
+    display: block;
+}
+
+.sms-body-area {
+    --sds-c-textarea-sizing-min-height: 120px;
+}
+
+.char-counter {
+    font-size: 12px;
+    color: var(--nba-text-400, #94a3b8);
+    text-align: right;
+    margin-top: 4px;
+}
+
+.char-counter.over-limit {
+    color: #b45309;
+    font-weight: 600;
+}
+
+.send-error {
+    padding: 8px 12px;
+    margin-top: 12px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: var(--nba-radius-sm, 6px);
+    color: #dc2626;
+    font-size: 13px;
 }
 
 .modal-footer {
@@ -70,26 +135,22 @@
     padding: 8px 20px;
     border-radius: var(--nba-radius-sm, 6px);
     border: none;
-    background: var(--nba-blue-600, #2563eb);
+    background: #059669;
     color: white;
     font-weight: 600;
     cursor: pointer;
     font-size: 14px;
     font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.send-btn:hover {
+    background: #10b981;
 }
 
 .send-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-}
-
-.email-body-area {
-    --sds-c-textarea-sizing-min-height: 300px;
-}
-
-.slds-form-element__label {
-    font-size: 0.75rem;
-    color: var(--nba-text-500, #64748b);
-    margin-bottom: 4px;
-    display: block;
 }

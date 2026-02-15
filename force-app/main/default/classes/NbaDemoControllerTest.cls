@@ -74,11 +74,13 @@ private class NbaDemoControllerTest {
             AccountId = acc.Id,
             Title = 'VP Operations',
             Email = 'jane.smith@example.com',
-            Phone = '555-0100'
+            Phone = '555-0100',
+            Mogli_SMS__Mogli_Number__c = '+15550100'
         );
         insert con;
 
         // Second contact on Account only (no OCR) to test Account contact inclusion
+        // Intentionally no Mogli number to test SMS edge cases
         Contact con2 = new Contact(
             FirstName = 'Bob',
             LastName = 'Jones',
@@ -383,12 +385,13 @@ private class NbaDemoControllerTest {
     @isTest
     static void testSendEmail_SendsMessage() {
         Contact con = [SELECT Id FROM Contact WHERE LastName = 'Smith' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
 
         Test.startTest();
         // sendEmail may throw in test context depending on org config,
         // so we catch and verify the method runs without unhandled exceptions
         try {
-            NbaDemoController.sendEmail(con.Id, 'Test Subject', '<p>Test body</p>', null);
+            NbaDemoController.sendEmail(con.Id, 'Test Subject', '<p>Test body</p>', null, opp.Id);
         } catch (Exception e) {
             // Email send may fail in test context - that's acceptable
             // We just need to verify the method is callable and hits the code path
@@ -480,5 +483,82 @@ private class NbaDemoControllerTest {
         Test.stopTest();
 
         System.assertEquals(null, result.account.onTierMonths, 'On tier months should be null when date is null');
+    }
+
+    // ─── SMS Tests ─────────────────────────────────────────────────────
+
+    @isTest
+    static void testSendSms_CreatesRecord() {
+        Contact con = [SELECT Id FROM Contact WHERE LastName = 'Smith' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
+
+        Test.startTest();
+        Id smsId = NbaDemoController.sendSms(con.Id, 'Hello, this is a test SMS', opp.Id);
+        Test.stopTest();
+
+        System.assertNotEquals(null, smsId, 'SMS record ID should be returned');
+
+        Mogli_SMS__SMS__c sms = [
+            SELECT Mogli_SMS__Message__c, Mogli_SMS__Direction__c,
+                   Mogli_SMS__Contact__c, Mogli_SMS__Opportunity__c
+            FROM Mogli_SMS__SMS__c
+            WHERE Id = :smsId
+        ];
+        System.assertEquals('Hello, this is a test SMS', sms.Mogli_SMS__Message__c);
+        System.assertEquals('Outbound', sms.Mogli_SMS__Direction__c);
+        System.assertEquals(con.Id, sms.Mogli_SMS__Contact__c);
+        System.assertEquals(opp.Id, sms.Mogli_SMS__Opportunity__c);
+    }
+
+    @isTest
+    static void testSendSms_NoMogliNumber_ThrowsError() {
+        // Clear both Phone and Mogli number (org automation auto-populates Mogli from Phone)
+        Contact con = [SELECT Id FROM Contact WHERE LastName = 'Jones' LIMIT 1];
+        con.Mogli_SMS__Mogli_Number__c = null;
+        con.Phone = null;
+        con.MobilePhone = null;
+        update con;
+
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
+
+        Test.startTest();
+        Boolean threwException = false;
+        try {
+            NbaDemoController.sendSms(con.Id, 'Test message', opp.Id);
+        } catch (AuraHandledException e) {
+            threwException = true;
+        }
+        Test.stopTest();
+
+        System.assert(threwException, 'Should have thrown AuraHandledException for missing Mogli number');
+    }
+
+    @isTest
+    static void testSendSms_OptedOut_ThrowsError() {
+        Contact con = [SELECT Id FROM Contact WHERE LastName = 'Smith' LIMIT 1];
+        con.Mogli_SMS__Mogli_Opt_Out__c = true;
+        update con;
+
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
+
+        Test.startTest();
+        Boolean threwException = false;
+        try {
+            NbaDemoController.sendSms(con.Id, 'Test message', opp.Id);
+        } catch (AuraHandledException e) {
+            threwException = true;
+        }
+        Test.stopTest();
+
+        System.assert(threwException, 'Should have thrown AuraHandledException for opted-out contact');
+    }
+
+    @isTest
+    static void testGetSmsTemplates_ReturnsListOrEmpty() {
+        Test.startTest();
+        List<Map<String, String>> templates = NbaDemoController.getSmsTemplates();
+        Test.stopTest();
+
+        System.assertNotEquals(null, templates, 'SMS templates list should not be null');
     }
 }

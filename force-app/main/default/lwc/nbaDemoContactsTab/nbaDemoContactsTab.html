@@ -70,6 +70,17 @@
                             </button>
                             <button
                                 class="action-btn"
+                                data-contact-id={contact.contactId}
+                                onclick={handleSms}
+                            >
+                                <lightning-icon
+                                    icon-name="utility:chat"
+                                    size="xx-small"
+                                ></lightning-icon>
+                                SMS
+                            </button>
+                            <button
+                                class="action-btn"
                                 data-phone={contact.phone}
                                 onclick={handleCall}
                             >

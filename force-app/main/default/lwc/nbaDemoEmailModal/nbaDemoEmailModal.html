@@ -25,12 +25,14 @@
                     onchange={handleSubjectChange}
                     class="slds-m-top_small">
                 </lightning-input>
-                <lightning-textarea
-                    label="Body"
-                    value={emailBody}
-                    onchange={handleBodyChange}
-                    class="slds-m-top_small email-body-area">
-                </lightning-textarea>
+                <div class="slds-m-top_small">
+                    <label class="slds-form-element__label">Body</label>
+                    <lightning-input-rich-text
+                        value={emailBody}
+                        onchange={handleBodyChange}
+                        class="email-body-area">
+                    </lightning-input-rich-text>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="cancel-btn" onclick={handleClose}>Cancel</button>

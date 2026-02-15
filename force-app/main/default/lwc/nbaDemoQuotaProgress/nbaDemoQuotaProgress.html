@@ -13,12 +13,22 @@
                 <svg viewBox="0 0 120 120" class="donut-svg">
                     <!-- Background circle -->
                     <circle cx="60" cy="60" r="50" fill="none" stroke="#e2e8f0" stroke-width="10"></circle>
-                    <!-- Progress arc -->
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="#10B981" stroke-width="10"
-                        stroke-dasharray={dashArray}
-                        stroke-dashoffset={dashOffset}
-                        stroke-linecap="round"
-                        class="progress-ring"></circle>
+                    <!-- Blue arc: combined (closedWon + thisOpp) as bottom layer -->
+                    <template if:true={hasThisOpp}>
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#2563eb" stroke-width="10"
+                            stroke-dasharray={combinedDashArray}
+                            stroke-dashoffset={dashOffset}
+                            stroke-linecap="round"
+                            class="progress-ring"></circle>
+                    </template>
+                    <!-- Green arc: closedWon only, layered on top -->
+                    <template if:true={hasClosedWon}>
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#10B981" stroke-width="10"
+                            stroke-dasharray={closedWonDashArray}
+                            stroke-dashoffset={dashOffset}
+                            stroke-linecap="round"
+                            class="progress-ring"></circle>
+                    </template>
                 </svg>
                 <div class="donut-center">
                     <span class="donut-percent">{percentageDisplay}%</span>

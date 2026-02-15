@@ -1,0 +1,76 @@
+<template>
+    <section class="modal-backdrop" onclick={handleClose}>
+        <div class="modal-container" onclick={stopPropagation}>
+            <div class="modal-header">
+                <div class="modal-title-row">
+                    <lightning-icon icon-name="utility:chat" size="small"></lightning-icon>
+                    <h2 class="modal-title">Send SMS</h2>
+                </div>
+                <button class="close-btn" onclick={handleClose}>&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <lightning-combobox
+                    label="To"
+                    value={selectedContactId}
+                    options={contactOptions}
+                    onchange={handleContactChange}>
+                </lightning-combobox>
+
+                <div class="phone-display">
+                    <lightning-icon icon-name="utility:call" size="xx-small"></lightning-icon>
+                    <span class="phone-number">{selectedPhoneNumber}</span>
+                </div>
+
+                <template if:true={isSelectedOptedOut}>
+                    <div class="opt-out-warning">
+                        <lightning-icon icon-name="utility:warning" size="xx-small"></lightning-icon>
+                        <span>This contact has opted out of SMS communications.</span>
+                    </div>
+                </template>
+
+                <template if:true={hasNoSmsNumber}>
+                    <div class="opt-out-warning">
+                        <lightning-icon icon-name="utility:warning" size="xx-small"></lightning-icon>
+                        <span>This contact does not have an SMS number.</span>
+                    </div>
+                </template>
+
+                <lightning-combobox
+                    label="Template"
+                    value={selectedTemplateId}
+                    options={templateOptions}
+                    onchange={handleTemplateChange}
+                    class="slds-m-top_small">
+                </lightning-combobox>
+
+                <div class="slds-m-top_small">
+                    <label class="body-label">Message</label>
+                    <lightning-textarea
+                        value={messageBody}
+                        onchange={handleBodyChange}
+                        placeholder="Type your SMS message..."
+                        max-length="1600"
+                        class="sms-body-area">
+                    </lightning-textarea>
+                    <div class={characterCountClass}>{characterCountLabel}</div>
+                </div>
+
+                <template if:true={sendError}>
+                    <div class="send-error">{sendError}</div>
+                </template>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick={handleClose}>Cancel</button>
+                <button class="send-btn" onclick={handleSend} disabled={sendDisabled}>
+                    <template if:true={isSending}>
+                        <lightning-spinner alternative-text="Sending" size="small"></lightning-spinner>
+                    </template>
+                    <template if:false={isSending}>
+                        <lightning-icon icon-name="utility:chat" size="xx-small" variant="inverse"></lightning-icon>
+                        Send SMS
+                    </template>
+                </button>
+            </div>
+        </div>
+    </section>
+</template>

@@ -36,7 +36,17 @@ This creates a living knowledge base that prevents repeating past mistakes and h
 - Use `sf project deploy start` to deploy to the default org
 - Verify org context with `sf org display` before deploying
 
-### 5. Context Management & Conversation Restarts
+### 5. Local Dev for LWC Development
+- **Always start Local Dev** at the beginning of any session involving LWC CSS, HTML, or JS changes
+- **Command**: `sf lightning dev app --target-org lwilson@joinhomebase.com.uat --device-type desktop --name "Homebase NBA"`
+- **What it does**: Serves your local LWC files to the browser in real-time. CSS/HTML/JS changes appear in ~1-2 seconds on save — no deploy needed
+- **What still needs deploy**: Apex changes, new `@api` properties, `@wire` signature changes, `.js-meta.xml` changes
+- **Port**: Runs on port 8081. If you get `EADDRINUSE`, kill the process on that port first: `netstat -ano | findstr ":8081"` then `taskkill //PID <pid> //F`
+- **Org requirement**: "Enable Local Dev" toggle must be ON in Setup > Local Dev (already enabled)
+- **Plugin**: `@salesforce/plugin-lightning-dev` v4.5.3 (already installed)
+- **Why**: Eliminates the 30-60 second deploy-refresh cycle for front-end iteration. Critical for design/CSS work across multiple components.
+
+### 6. Context Management & Conversation Restarts
 - **Monitor token usage**: When approaching context limits (~150k-180k tokens used)
 - **Before restarting**: Update CLAUDE.md with current state:
   - Document any in-progress work
@@ -46,7 +56,7 @@ This creates a living knowledge base that prevents repeating past mistakes and h
 - **After restart**: New agent should read CLAUDE.md first to understand full project context
 - **Purpose**: Prevents context rot and maintains continuity across conversation sessions
 
-### 6. Salesforce Metadata Context via MCP
+### 7. Salesforce Metadata Context via MCP
 - **MCP Server**: Salesforce DX MCP server is configured in `.mcp.json` for metadata access
 - **Before writing SFDC code**: Query object metadata via MCP tools to:
   - Verify correct field API names and labels
@@ -63,7 +73,7 @@ This creates a living knowledge base that prevents repeating past mistakes and h
 
 ## Project Status
 
-**Last Updated**: 2026-02-13
+**Last Updated**: 2026-02-14
 
 ### NBA V2 - Next Best Action System
 
@@ -104,7 +114,7 @@ All project infrastructure and tooling has been configured.
 
 **Completed Setup:**
 - ✅ Git repository initialized and pushed to GitHub (https://github.com/Wiltron289/GTM_OS)
-- ✅ Comprehensive working rules established (6 rules documented above)
+- ✅ Comprehensive working rules established (7 rules documented above)
 - ✅ Development best practices defined
 - ✅ Salesforce MCP server configured and verified working
   - Connected to vscodeOrg (lwilson@joinhomebase.com.uat)
@@ -115,23 +125,23 @@ All project infrastructure and tooling has been configured.
 **Current State:**
 - **Active Branch**: `feature/nba-v2-demo-lwc` (branched from `feature/account-scoring-data-layer`)
 - **Deployment Target**: vscodeOrg (Homebase UAT sandbox)
-- **Status**: Feature 2 (Demo LWC) + Sprint 2 UX refinements deployed to vscodeOrg, all 14 tests passing
+- **Status**: Feature 2 (Demo LWC) through Sprint 8 deployed to vscodeOrg, all 18 tests passing
 
 ### Feature 2: NBA V2 Demo LWC UX ✅ (deployed to vscodeOrg, tests passing)
 
 **Branch**: `feature/nba-v2-demo-lwc`
 
 **What was built:**
-- 16 Lightning Web Components implementing the product designer's NBA V2 prototype
+- 17 Lightning Web Components implementing the product designer's NBA V2 prototype
 - 1 Apex controller (`NbaDemoController.cls`) with centralized data loading pattern
-- 1 Apex test class (`NbaDemoControllerTest.cls`) - 13 tests, all passing
+- 1 Apex test class (`NbaDemoControllerTest.cls`) - 18 tests, all passing
 - 1 FlexiPage (`NBA_V2_Demo`) - dedicated demo record page for Opportunity
 
 **Component Architecture:**
 ```
 nbaDemoWorkspace (parent - manages layout, data, tabs)
 ├── nbaDemoAlertBanner (meeting reminder banner)
-├── nbaDemoHeader (breadcrumb, MRR badge, Close %, Email Now, Snooze)
+├── nbaDemoHeader (breadcrumb, MRR badge, Close %, Email Now, SMS, Snooze)
 ├── nbaDemoInsightsPanel (Why This Account - expandable, Account_Scoring__c drivers)
 ├── Overview Tab:
 │   ├── nbaDemoAccountDetails (employees, locations, plan, tier)
@@ -145,6 +155,7 @@ nbaDemoWorkspace (parent - manages layout, data, tabs)
 ├── nbaDemoAdminTab (field updates, SLA, history)
 ├── nbaDemoSidebar (notes & activity panel)
 ├── nbaDemoEmailModal (custom email composer)
+├── nbaDemoSmsModal (SMS composer via Mogli SMS)
 └── nbaDemoSnoozeDropdown (visual only)
 ```
 
@@ -152,7 +163,7 @@ nbaDemoWorkspace (parent - manages layout, data, tabs)
 - Single Apex call `getPageData(oppId)` returns `PageDataWrapper` with ALL data
 - Parent `nbaDemoWorkspace` loads data via `@wire`, passes to children via `@api` properties
 - Child components are pure display - zero Apex calls
-- 8 SOQL queries total (Opp+Account, Account_Scoring__c, OCR Contacts, Account Contacts, Products, Events, Tasks, Aggregate)
+- 9 SOQL queries total (Opp+Account, Account_Scoring__c, OCR Contacts, Account Contacts, Products, Events, Tasks, Aggregate, Mogli SMS)
 
 **Key Architecture Decisions:**
 - **Single parent LWC** over multiple FlexiPage components: full control over two-column layout
@@ -168,11 +179,11 @@ nbaDemoWorkspace (parent - manages layout, data, tabs)
 - `Source__c` is a required Picklist on Opportunity - must be set in test data (value: 'N/A')
 - Opportunity Name may be overwritten by org triggers/flows - don't query by Name in tests
 
-**Files Created (69 total):**
-- `classes/NbaDemoController.cls` + meta (~690 lines)
-- `classes/NbaDemoControllerTest.cls` + meta (~440 lines)
+**Files Created (73 total):**
+- `classes/NbaDemoController.cls` + meta (~910 lines)
+- `classes/NbaDemoControllerTest.cls` + meta (~560 lines)
 - `flexipages/NBA_V2_Demo.flexipage-meta.xml`
-- 16 LWC components × 4 files each = 64 files under `lwc/nbaDemo*`
+- 17 LWC components × 4 files each = 68 files under `lwc/nbaDemo*`
 
 **Commits on branch:**
 1. `feat: Add NbaDemoController Apex class for NBA V2 demo LWC`
@@ -184,6 +195,17 @@ nbaDemoWorkspace (parent - manages layout, data, tabs)
 7. `docs: Update CLAUDE.md - mark Feature 2 tests as passing, add resolved troubleshooting`
 8. `fix: Correct wire data property names in nbaDemoWorkspace`
 9. `fix: Resolve field mapping bugs, contacts query, and payroll tab layout`
+10. `fix: Sprint 2 UX refinements - 8 issues resolved`
+11. `style: Design overhaul - align NBA V2 demo LWC with Tailwind design spec`
+12. `style: Design polish - 8 changes to align with Magic Patterns prototype`
+13. `feat: Sprint 5 - section header redesign, contact dropdown, collapsible rich text notes`
+14. `fix: Sprint 6 - quota donut arc fix, Amount for thisOpp, update CLAUDE.md`
+15. `fix: Email modal - rich text body + contact dropdown populates To field`
+16. `fix: Email sendEmail - add WhatId for merge tags, activity linking, sidebar refresh`
+17. `feat: Add SMS integration via Mogli SMS - Apex layer`
+18. `feat: Add SMS modal LWC + header/workspace/contacts integration`
+19. `docs: Update CLAUDE.md with Sprint 8 - SMS integration via Mogli SMS`
+20. `fix: Set SMS Status to 'Queued' for Mogli delivery trigger`
 
 **Demo data created in org (not in repo - org data only):**
 - 3 `Account_Scoring__c` records for: Bluegrass Pools (7%/43%), Focus Group Services LLC (6%/31%), Makenna Koffee Franchise (5%/30%)
@@ -292,6 +314,142 @@ Commit 12: `style: Design polish - 8 changes to align with Magic Patterns protot
 - `NoteData.isCurrentUser` (`Boolean`): compares `CreatedById` with `UserInfo.getUserId()`
 - Task query: added `CreatedById` field
 - ContentDocumentLink query: added `ContentDocument.CreatedById` field
+
+### Sprint 5 - UX Refinements & Features ✅ COMPLETED (deployed to vscodeOrg, 14 tests passing)
+
+**What changed:** Targeted design alignment with product prototype, plus new sidebar and header features.
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | Section headers redesigned | PayrollTab + AdminTab: 10px uppercase gray → 15px Title Case dark (`#0f172a`), removed `text-transform: uppercase` and `letter-spacing` |
+| 2 | Chevrons moved to left | All collapsible section chevrons moved from right side to left (before text), size `xx-small` → `x-small` |
+| 3 | Chevron color styling | Added triple styling hooks (`--sds-c-icon-color-foreground-default`, `--sds-c-icon-color-foreground`, `color`) for gray `#94a3b8` chevrons with hover darkening |
+| 4 | Admin SLA grid alignment | `grid-template-columns` changed from `1fr auto 1fr auto` to `200px 1fr 240px 1fr` for consistent two-column pairs |
+| 5 | Row borders visibility | PayrollTab + AdminTab row borders changed from `#f1f5f9` (nearly invisible) to `#e2e8f0` (visible slate) |
+| 6 | Email Now icons white | Added `variant="inverse"` to both `lightning-icon` elements in email split button (mail + chevron) |
+| 7 | Email contact dropdown | New dropdown on chevron click: shows contacts with name/title, blue dot for primary, click to open email modal pre-populated |
+| 8 | Collapsible notes | Notes in sidebar now collapsible (default collapsed), showing author badge + title + date in header row |
+| 9 | Rich text notes | Replaced raw `{note.body}` with `lightning-formatted-rich-text` — HTML tags now render properly |
+| 10 | Note titles | Each note shows `note.title` from Apex (Task subject or ContentNote title), fallback "Rep Note" |
+| 11 | Equal-height overview cards | Added `:host { height: 100% }` + `height: 100%; box-sizing: border-box` to AccountDetails, PayrollStatus, QuotaProgress cards |
+
+**Files changed (13 total):**
+- 6 CSS files (payrollTab, adminTab, header, sidebar, accountDetails, payrollStatus, quotaProgress)
+- 4 HTML files (payrollTab, adminTab, header, sidebar)
+- 2 JS files (header — contact dropdown + close-on-click-outside, sidebar — expandedNoteIds Set + toggle logic)
+- 1 parent HTML (workspace — pass contacts to header, listen for contactemail event)
+
+**New component features:**
+- **nbaDemoHeader**: Now accepts `@api contacts`, shows contact dropdown on chevron click, dispatches `contactemail` event with selected contact
+- **nbaDemoSidebar**: Notes use `expandedNoteIds` Set for independent collapse/expand, `lightning-formatted-rich-text` for HTML rendering, `displayTitle` getter with "Rep Note" fallback
+
+**SLDS icon color pattern (for reference):**
+- `variant="inverse"` on `lightning-icon` is the reliable way to get white icons on dark backgrounds
+- CSS variables `--sds-c-icon-color-foreground-default` / `--sds-c-icon-color-foreground` work for custom colors but need triple declaration (both vars + `color`) for reliability across SLDS versions
+
+### Sprint 6 - Quota Donut, Note Title, Card Whitespace ✅ COMPLETED (deployed to vscodeOrg, 14 tests passing)
+
+**What changed:** Three targeted fixes for the overview cards and sidebar.
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | Note title | `saveNote()` changed from `'Note - ' + Date.today().format()` to `'Rep Note'` — date was redundant (already shown on right side) |
+| 2 | Overview card whitespace | Added `display: flex; flex-direction: column` to `.card` in AccountDetails, PayrollStatus, QuotaProgress + `flex: 1` on content areas so content fills equal-height grid cells |
+| 3 | Quota donut: two-layer arc | Blue arc renders combined (closedWon + thisOpp), green layers on top for closedWon only. Blue always seamlessly continues from green's end. |
+| 4 | Quota data source | `thisOppMrr` changed from `MRR__c` (formula) with Amount fallback → `Amount` directly. Both thisOpp and closedWon aggregate now use `Amount` consistently. |
+| 5 | Donut arc start position | Fixed double-rotation bug: CSS `rotate(-90deg)` already positions arc at 12 o'clock, so `dashOffset` changed from `CIRCUMFERENCE * 0.25` to `0` |
+| 6 | Payroll Status icons | Switched from `utility:*` (bare glyphs) to `standard:*` icons (colored circle + white glyph) to match Account Details style: `standard:contract` (TYPE), `standard:activations` (NEXT STEP), `standard:approval` (CHECK STATUS). Size `xx-small` → `small`, container 40px → 36px. |
+| 7 | Field mapping doc | Created `docs/nba-v2-field-mapping.csv` — 107 field mappings across all 13 visual sections, showing Salesforce object/field → display element mapping |
+
+**Files changed (9 total):**
+- 3 CSS files (accountDetails, payrollStatus, quotaProgress — flexbox card layout + icon container resize)
+- 2 HTML files (quotaProgress — two-layer SVG arcs; payrollStatus — standard icons)
+- 1 JS file (quotaProgress — combinedDashArray, closedWonDashArray, hasClosedWon, dashOffset=0)
+- 1 Apex class (NbaDemoController — saveNote title, buildQuota uses Amount)
+- 1 CSV doc (docs/nba-v2-field-mapping.csv — complete data mapping reference)
+
+**Quota donut SVG pattern (for reference):**
+- CSS `transform: rotate(-90deg)` on SVG positions arc start at 12 o'clock
+- Do NOT also use `stroke-dashoffset = CIRCUMFERENCE * 0.25` — that creates a double-rotation (arc starts at 9 o'clock)
+- Two-layer approach: blue arc = combined total (bottom), green arc = closedWon (top). The visible blue beyond the green edge is the "this opp" potential.
+- `stroke-linecap="round"` gives rounded arc endpoints
+- Only render green arc when `hasClosedWon` to avoid phantom dot at zero
+
+### Sprint 7 - Email Modal Fixes ✅ COMPLETED (deployed to vscodeOrg, 14 tests passing)
+
+**What changed:** Three bugs fixed in the email modal component.
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | Rich text email body | Replaced `lightning-textarea` with `lightning-input-rich-text` so template HTML renders as formatted text in the composer instead of showing raw `<p>`, `<br>` tags |
+| 2 | Contact dropdown → To field | Fixed `connectedCallback`: `selectedContact` receives a full contact object from the header dropdown, but was assigned directly as `selectedContactId`. Now extracts `.contactId` from the object. |
+| 3 | Merge tags not resolving | Old code called both `setHtmlBody(body)` AND `setTemplateId(templateId)`, which caused Salesforce to use the raw HTML (with unresolved `{{{Recipient.FirstName}}}` tags) instead of processing the template. Now only `setTemplateId()` is called when a template is selected; `setSubject`/`setHtmlBody` only set when composing without a template. |
+| 4 | Email not in activities | Added `oppId` parameter to `sendEmail` Apex method + `mail.setWhatId(oppId)`. Without this, the email Task was linked only to the Contact and had no `WhatId`, so `buildSidebar`'s `WHERE WhatId = :oppId` query never found it. |
+| 5 | Sidebar not refreshing after send | Email modal now dispatches `emailsent` custom event after successful send. Workspace listens for it and calls `refreshApex()` so the new email activity appears immediately in the sidebar. |
+
+**Files changed (5 total):**
+- 1 Apex class (NbaDemoController — `sendEmail` signature: added `Id oppId`, `setWhatId`, conditional subject/body)
+- 1 Apex test class (NbaDemoControllerTest — `testSendEmail_SendsMessage` passes `opp.Id` for new param)
+- 1 LWC JS (nbaDemoEmailModal — `contactId` extraction, `oppId` in sendEmail call, `emailsent` event, rich text `onchange` handler)
+- 1 LWC HTML (nbaDemoEmailModal — `lightning-input-rich-text` replacing `lightning-textarea`)
+- 1 LWC CSS (nbaDemoEmailModal — updated selectors for rich text component)
+- 1 LWC HTML (nbaDemoWorkspace — `onemailsent` listener)
+- 1 LWC JS (nbaDemoWorkspace — `handleEmailSent` with `refreshApex`)
+
+**Salesforce email in sandbox (for reference):**
+- Sandbox uses a system relay address (e.g., `swgxeiq1xjvsoupp...sandbox.salesforce.com`) as the sender — this is normal platform behavior, not a code issue
+- In production, emails send from the running user's address (or org-wide email if configured)
+- Subject is auto-prefixed with "Sandbox:" in sandbox environments
+
+**Messaging.SingleEmailMessage pattern (for reference):**
+- When using `setTemplateId()`: do NOT also call `setSubject()` or `setHtmlBody()` — Salesforce will use the raw values instead of processing the template merge fields
+- `setTargetObjectId(contactId)` resolves Contact/Lead merge fields
+- `setWhatId(oppId)` resolves Opportunity/Account merge fields AND links the activity Task to the Opportunity
+- `setSaveAsActivity(true)` creates a Task record — it needs `WhatId` to appear on the related record's activity timeline
+
+### Sprint 8 - SMS Integration via Mogli SMS ✅ COMPLETED (deployed to vscodeOrg, 18 tests passing)
+
+**What changed:** Added SMS messaging capability mirroring the email modal pattern, using Mogli SMS managed package for delivery.
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | SMS modal component | New `nbaDemoSmsModal` LWC: contact selector, Mogli template picker, plain text body, character counter (160 chars/segment), phone number display, opt-out warning, green send button |
+| 2 | Header SMS button | Green "SMS" split button between "Email Now" and "Snooze" — main button opens modal, chevron shows contact dropdown filtered to contacts with Mogli numbers |
+| 3 | Contact data enrichment | `ContactData` now includes `mogliNumber` (Mogli_SMS__Mogli_Number__c) and `optedOut` (Mogli_SMS__Mogli_Opt_Out__c) from both OCR and Account contacts |
+| 4 | sendSms Apex method | Creates `Mogli_SMS__SMS__c` record with Direction='Outbound' and Status='Queued', auto-selects first active Telnyx gateway, validates Mogli number exists and not opted out |
+| 5 | getSmsTemplates Apex method | Queries `Mogli_SMS__SMS_Template__c` (non-private templates), returns id/name/text for template picker |
+| 6 | Sidebar SMS activities | `buildSidebar()` now queries `Mogli_SMS__SMS__c WHERE Opportunity__c = :oppId`, renders as "SMS sent/received" with `utility:chat` icon |
+| 7 | Contacts tab SMS button | New "SMS" action button on each contact card, dispatches `contactsms` event |
+| 8 | Workspace wiring | `showSmsModal`/`selectedSmsContact` state, event listeners for `smsnow`/`contactsms`/`smssent`, `refreshApex` after send |
+
+**Mogli SMS Architecture (for reference):**
+- **Namespace**: `Mogli_SMS`
+- **Message object**: `Mogli_SMS__SMS__c` — stores all SMS/MMS records, has lookups to Contact, Opportunity, Account (non-namespaced `Account__c`)
+- **Template object**: `Mogli_SMS__SMS_Template__c` — `Mogli_SMS__Name__c` (unique name), `Mogli_SMS__Text__c` (body)
+- **Gateway object**: `Mogli_SMS__Gateway__c` — 38 active Telnyx gateways, filtered by `Mogli_SMS__Inactive__c = false`
+- **Contact fields**: `Mogli_SMS__Mogli_Number__c` (SMS phone number), `Mogli_SMS__Mogli_Opt_Out__c` (opt-out flag)
+- **Delivery**: Insert `SMS__c` with `Direction__c = 'Outbound'` and `Status__c = 'Queued'` → Mogli's managed package triggers pick up queued records and handle Telnyx delivery. Without `Status = 'Queued'`, the record is created but never sent.
+- **Activity linking**: SMS records link to Opportunity via `Mogli_SMS__Opportunity__c` lookup (NOT Task/WhatId like email)
+
+**Org-specific discovery (for reference):**
+- `Account__c` field on `Mogli_SMS__SMS__c` is **non-namespaced** (created manually, not by managed package) — do NOT use `Mogli_SMS__Account__c`
+- Mogli auto-populates `Mogli_SMS__Mogli_Number__c` on Contact from the `Phone` field via a trigger — test data that needs blank Mogli numbers must also clear `Phone` and `MobilePhone`
+- `AuraHandledException.getMessage()` returns "Script-thrown exception" in test context — must call `setMessage()` explicitly for testable error messages
+
+**Files changed (15 total):**
+- 4 new files: `lwc/nbaDemoSmsModal/` (JS, HTML, CSS, meta)
+- 2 Apex files: `NbaDemoController.cls` (5 changes), `NbaDemoControllerTest.cls` (4 new test methods)
+- 3 Header files: `nbaDemoHeader` (HTML, JS, CSS — SMS button + dropdown)
+- 2 Workspace files: `nbaDemoWorkspace` (HTML, JS — modal wiring)
+- 2 Contacts tab files: `nbaDemoContactsTab` (HTML, JS — SMS button)
+
+**Component tree update:**
+```
+nbaDemoWorkspace (parent)
+├── ... (existing components)
+├── nbaDemoSmsModal (NEW - SMS composer)
+└── nbaDemoEmailModal (existing - email composer)
+```
 
 ### LWC Repo Structure Convention
 
@@ -423,6 +581,24 @@ This is a Salesforce DX project named **GTM_OS** using Salesforce API version 65
 - **Root Cause**: `nbaDemoWorkspace.js` wire handler read `data.headerData`, `data.accountData`, etc. but the Apex `PageDataWrapper` uses `header`, `account`, `payrollStatus`, etc. All child components received `undefined`.
 - **Fix**: Changed all property mappings in the wire handler to match Apex names (e.g., `data.header` not `data.headerData`)
 - **Prevention**: Always verify `@AuraEnabled` property names in the Apex wrapper match the JS wire handler property access
+
+### Mogli SMS Records Created But Not Sent (2026-02-14) ✅ RESOLVED
+- **Problem**: SMS records were being created in Salesforce but never actually delivered via Telnyx
+- **Root Cause**: Mogli's managed package triggers only process SMS records with `Mogli_SMS__Status__c = 'Queued'`. Without this status, the record exists but Mogli ignores it.
+- **Fix**: Added `sms.Mogli_SMS__Status__c = 'Queued';` to the `sendSms()` method before insert
+- **Prevention**: When creating `Mogli_SMS__SMS__c` records programmatically, always set `Status__c = 'Queued'` for outbound messages. The status field is the trigger for Mogli's delivery automation.
+
+### Mogli Auto-Populates Mogli_Number from Phone (2026-02-14) ✅ RESOLVED
+- **Problem**: Test `testSendSms_NoMogliNumber_ThrowsError` failed — even after setting `Mogli_SMS__Mogli_Number__c = null`, the contact still had a Mogli number
+- **Root Cause**: Org has a Mogli trigger that auto-populates `Mogli_SMS__Mogli_Number__c` from the Contact's `Phone` field
+- **Fix**: Test now also clears `Phone = null` and `MobilePhone = null` before updating the contact, preventing the trigger from re-populating the Mogli number
+- **Prevention**: When writing tests that need contacts without Mogli numbers, clear `Phone` and `MobilePhone` in addition to `Mogli_SMS__Mogli_Number__c`
+
+### Non-Namespaced Field on Managed Package Object (2026-02-14) ✅ RESOLVED
+- **Problem**: Deploy failed with `Variable does not exist: Mogli_SMS__Account__c` on `Mogli_SMS__SMS__c`
+- **Root Cause**: The Account lookup field on `Mogli_SMS__SMS__c` was created manually (not by the managed package), so it uses the non-namespaced API name `Account__c` instead of `Mogli_SMS__Account__c`
+- **Fix**: Changed to `sms.Account__c = con.AccountId;`
+- **Prevention**: Always verify field API names via MCP Tooling API query before referencing managed package object fields — some fields may have been added manually and won't have the namespace prefix
 
 ### LWC HTML Ternary Operators (2026-02-13)
 - **Problem**: `nbaDemoSnoozeDropdown` deploy failed with `LWC1058: Invalid HTML syntax: unexpected-character-in-attribute-name`

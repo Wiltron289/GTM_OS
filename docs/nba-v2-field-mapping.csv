@@ -1,0 +1,117 @@
+Section,Display Element,Apex Property,Salesforce Object,Field API Name,Transformation / Notes
+Header,Account Name (breadcrumb),accountName,Account,Name,Direct
+Header,Account ID,accountId,Account,Id,Direct
+Header,MRR Badge,mrr,Opportunity,"Amount (primary), MRR__c (fallback)","Amount ?? MRR__c ?? 0"
+Header,Close %,closeProbability,Opportunity,Deal_Stage_Probability__c,Direct
+Header,Opportunity Name,opportunityName,Opportunity,Name,Direct
+Account Details,Employee Count,employeeCount,Account,Employee_Count__c,"Integer.valueOf() or 0"
+Account Details,Location Count,locationCount,Account,Active_Location_Count__c,"Integer.valueOf() or 0"
+Account Details,Plan / Tier,plan,Account,Highest_Current_Tier__c,Direct
+Account Details,On Tier Duration,onTierMonths,Account,Date_of_Previous_Tier_Change__c,"monthsBetween(Date.today()) + 'mo' suffix"
+Payroll Status,Type (Inception/Switcher),type,Opportunity,Inception_or_Switcher__c,Direct
+Payroll Status,Next Step,nextStep,Opportunity,NextStep,Direct
+Payroll Status,Check Status,checkStatus,Account,Payroll_Status__c,Direct
+Quota Progress,Target,target,N/A,N/A,"Hardcoded $5000 for demo"
+Quota Progress,This Opp Amount,thisOppMrr,Opportunity,Amount,"Amount ?? 0"
+Quota Progress,Closed Won This Month,closedWon,Opportunity (aggregate),"SUM(Amount) WHERE StageName='Closed Won' AND CloseDate=THIS_MONTH","Aggregate query filtered by OwnerId"
+Quota Progress,Percentage,percentage,N/A (calculated),N/A,"(closedWon / target) * 100, rounded to 0 decimals"
+Sales Engagement,Close Potential %,closePotential,Opportunity,Deal_Stage_Probability__c,Direct
+Sales Engagement,Days in Stage,daysInStage,Opportunity,"LastStageChange__c (primary), Days_Since_Creation__c (fallback)","daysBetween(Date.today())"
+Sales Engagement,Stage Name,stageName,Opportunity,StageName,Direct
+Sales Engagement,Last Contact Type,lastContactType,Task or Event,"TaskSubtype or 'Event'","From most recent sidebar activity"
+Sales Engagement,Last Contact Label,lastContactLabel,Task or Event,Subject,"First 20 chars of subject, or 'Activity'"
+Sales Engagement,Last Contact Age,lastContactAge,Task or Event,ActivityDate,"Days ago: 'Today', '1d ago', 'Nd ago'"
+Sales Engagement,Touch Frequency (30d),touchFrequency,Task + Event,ActivityDate,"Count of activities in last 30 days"
+Sales Engagement,AI Insight,aiInsight,Account_Scoring__c,"Payroll_Top_Drivers__c + Tier_Upgrade_Top_Drivers__c","Space-joined driver strings from Insights"
+Insights Panel,Driver Text Lines,drivers[],Account_Scoring__c,"Payroll_Top_Drivers__c, Tier_Upgrade_Top_Drivers__c","Split on newlines, trim blanks, combine"
+Insights Panel,Insight Count,insightCount,N/A (calculated),N/A,"drivers.size()"
+Insights Panel,Tag: High Intent,tags[0].active,Opportunity,Deal_Stage_Probability__c,"Boolean: probability > 70%"
+Insights Panel,Tag: Decision Maker Engaged,tags[1].active,Opportunity,Decision_Maker_Identified__c,"Boolean field direct"
+Insights Panel,Tag: Budget Confirmed,tags[2].active,Opportunity,Budget_Confirmed__c,"Boolean field direct"
+Insights Panel,Tag: Time Sensitive,tags[3].active,Opportunity,Timeline_Confirmed__c,"Boolean field direct"
+Contacts Tab,Contact Name,name,Contact,Name,Direct
+Contacts Tab,Initials,initials,Contact,"FirstName, LastName","FirstName[0] + LastName[0] uppercase"
+Contacts Tab,Title / Role,title,Contact,Title,Direct
+Contacts Tab,Primary Flag,isPrimary,OpportunityContactRole,IsPrimary,"Boolean; false for Account-only contacts"
+Contacts Tab,Email,email,Contact,Email,Direct
+Contacts Tab,Phone,phone,Contact,Phone,Direct
+Contacts Tab,Last Activity Type,lastActivityType,Task,TaskSubtype,"'Call' if TaskSubtype='Call', else 'Task'"
+Contacts Tab,Last Activity Label,lastActivityLabel,Task,Subject,Direct
+Contacts Tab,Last Activity Date,lastActivityDate,Task,ActivityDate,Direct
+Products Tab,Product Family,productFamily,Product2,Family,Direct
+Products Tab,Product Name,productName,Product2,Name,Direct
+Products Tab,Quantity,quantity,OpportunityLineItem,Quantity,Direct
+Products Tab,Unit Price,salesPrice,OpportunityLineItem,UnitPrice,Direct
+Products Tab,Total Price,totalPrice,OpportunityLineItem,TotalPrice,Direct
+Sidebar Notes (Task),Note Title,title,Task,Subject,Direct
+Sidebar Notes (Task),Note Body,body,Task,Description,Direct
+Sidebar Notes (Task),Author Name,authorName,Task,"Who.Name or 'Me'","Who.Name fallback 'Me'"
+Sidebar Notes (Task),Created Date,createdDate,Task,ActivityDate,"Converted to Datetime"
+Sidebar Notes (Task),Is Current User,isCurrentUser,Task,CreatedById,"CreatedById == UserInfo.getUserId()"
+Sidebar Notes (Task),Query Filter,N/A,Task,Subject,"Subject LIKE 'Note%' only"
+Sidebar Notes (ContentNote),Note Title,title,ContentDocument,Title,Direct
+Sidebar Notes (ContentNote),Note Body,body,ContentVersion,VersionData,".toString() blob conversion"
+Sidebar Notes (ContentNote),Author Name,authorName,User (via ContentDocument),CreatedBy.Name,Direct
+Sidebar Notes (ContentNote),Created Date,createdDate,ContentDocument,CreatedDate,Direct
+Sidebar Notes (ContentNote),Is Current User,isCurrentUser,ContentDocument,CreatedById,"CreatedById == UserInfo.getUserId()"
+Sidebar Notes (ContentNote),Query Filter,N/A,ContentDocumentLink,FileType,"FileType = 'SNOTE' only"
+Sidebar Activities (Task),Label,label,Task,Subject,Direct
+Sidebar Activities (Task),Date,activityDate,Task,ActivityDate,Direct
+Sidebar Activities (Task),Contact Name,contactName,Task,Who.Name,"null if no Who relation"
+Sidebar Activities (Task),Type,type,Task,TaskSubtype,Direct
+Sidebar Activities (Task),Icon,iconName,N/A (computed),TaskSubtype,"Call=standard:log_a_call, Email=standard:email, Other=standard:task"
+Sidebar Activities (Event),Label,label,Event,Subject,Direct
+Sidebar Activities (Event),Date,activityDate,Event,ActivityDate,Direct
+Sidebar Activities (Event),Contact Name,contactName,Event,Who.Name,"null if no Who relation"
+Sidebar Activities (Event),Type,type,N/A,N/A,"Always 'Event'"
+Sidebar Activities (Event),Icon,iconName,N/A,N/A,"Always standard:event"
+Alert Banner,Contact Name,contactName,Event,Who.Name,"'Unknown' fallback"
+Alert Banner,Account Name,accountName,Account,Name,Direct
+Alert Banner,Start Time,startTime,Event,StartDateTime,Direct
+Alert Banner,Minutes Until,minutesUntil,N/A (calculated),StartDateTime,"(StartDateTime - now()) / 60000"
+Alert Banner,Has Upcoming,hasUpcoming,N/A (boolean),N/A,"true if event within next 24hrs"
+Admin Tab,Stage Name,stageName,Opportunity,StageName,Direct
+Admin Tab,Product Families,oppProductFamilies,Opportunity,Opportunity_Product_Families__c,Direct
+Admin Tab,Owner Name,ownerName,User (via Opportunity),Owner.Name,Direct
+Admin Tab,Days Since Last Call,daysSinceLastCall,Opportunity,Days_Since_Last_Call__c,Direct
+Admin Tab,Days Since Last Meeting,daysSinceLastMeeting,Opportunity,Days_Since_Last_Meeting__c,Direct
+Admin Tab,Days Since Last Interaction,daysSinceLastInteraction,Opportunity,Days_Since_Last_Interaction__c,Direct
+Admin Tab,Hours Since Assignment,hoursSinceAssignment,Opportunity,Hours_Since_Assignment__c,Direct
+Admin Tab,Days Since Creation,daysSinceCreation,Opportunity,Days_Since_Creation__c,Direct
+Admin Tab,Kubaru Workload,kubaruWorkload,Opportunity,Kubaru_Workload__c,Direct
+Admin Tab,Last Meaningful Connection,lastMeaningfulConnection,Opportunity,Last_Meaningful_Connection__c,Direct
+Admin Tab,Last Call DateTime,lastCallDateTime,Opportunity,Last_Call_Date_Time__c,Direct
+Admin Tab,Last Meeting Date,lastMeetingDate,Opportunity,Last_Meeting_Date__c,Direct
+Admin Tab,Next Scheduled Meeting,nextScheduledMeeting,Opportunity,Next_Scheduled_Meeting__c,Direct
+Admin Tab,First Assignment DateTime,firstAssignmentDateTime,Opportunity,First_Assignment_Date_Time__c,Direct
+Admin Tab,Is Within 1 Hour,isWithin1Hour,Opportunity,Is_Within_1_Hour_of_First_Assignment__c,Direct
+Admin Tab,Last Assignment DateTime,lastAssignmentDateTime,Opportunity,Date_Time_Last_Reassignment__c,Direct
+Admin Tab,Created Date,createdDate,Opportunity,CreatedDate,Direct
+Payroll Tab,First Payday,firstPayday,Opportunity,First_Payday__c,Direct
+Payroll Tab,Inception or Switcher,inceptionOrSwitcher,Opportunity,Inception_or_Switcher__c,Direct
+Payroll Tab,Employee Count,employeeCount,Opportunity,Employee_Count_Deal_Value__c,"Integer.valueOf() or null"
+Payroll Tab,Predicted MRR,predictedMrr,Opportunity,MRR__c,Direct (formula field)
+Payroll Tab,Payroll Risk Level,payrollRiskLevel,Opportunity,Payroll_Risk_Level__c,Direct
+Payroll Tab,Last Progression Time,lastProgressionTime,Opportunity,Last_Progression_Time__c,Direct
+Payroll Tab,Current Linear Flow Page,currentLinearFlowPage,Account,Current_Linear_Flow_Page__c,Direct
+Payroll Tab,Last Payroll Engagement,lastPayrollEngagement,Opportunity,Last_Payroll_Engagement__c,Direct
+Payroll Tab,Payroll Engagement Type,payrollEngagementType,Opportunity,Payroll_Engagement_Type__c,Direct
+Payroll Tab,Fed Auth Finish,fedAuthFinish,Opportunity,Fed_Auth_Finish_Time__c,Direct
+Payroll Tab,Bank Connect Finish,bankConnectFinish,Opportunity,Bank_Connect_Finish__c,Direct
+Payroll Tab,Pay Sched Finish,paySchedFinish,Opportunity,Pay_Sched_Finish__c,Direct
+Payroll Tab,Admin Link,adminLink,Account,Admin_Link__c,Direct
+Payroll Tab,Check Console Link,checkConsoleLink,Account,Check_Console_Link__c,Direct
+Payroll Tab,KYB Status,kybStatus,Account,KYB_Status__c,Direct
+Payroll Tab,Onboard Status,onboardStatus,Account,Onboard_Status__c,Direct
+Payroll Tab,Implementation Status,implementationStatus,Account,Implementation_Status__c,Direct
+Payroll Tab,Payroll Status,payrollStatus,Account,Payroll_Status__c,Direct
+Payroll Tab,Blocked Reason,blockedReason,Account,Blocked_Reason__c,Direct
+Payroll Tab,Check Info Needed,checkInfoNeeded,Account,Check_Info_Needed__c,Direct
+Payroll Tab,Next Step Date,nextStepDate,Opportunity,Next_Step_Date__c,Direct
+Payroll Tab,Next Step Label,nextStepLabel,Opportunity,NextStep,Direct
+Payroll Tab,Future Follow Up Date,futureFollowUpDate,Opportunity,Future_Follow_Up_Date__c,Direct
+Payroll Tab,Future Follow Up Reason,futureFollowUpReason,Opportunity,Future_Follow_Up_Reason__c,Direct
+Payroll Tab,Last Call DateTime,lastCallDateTime,Opportunity,Last_Call_Date_Time__c,Direct
+Payroll Tab,Last Call Outcome,lastCallOutcome,Opportunity,Last_Call_Outcome__c,Direct
+Payroll Tab,NBA Call Count,nbaCallCount,Opportunity,NBA_Call_Count__c,"Integer.valueOf() or 0"
+Payroll Tab,Is Ready To Run,isReadyToRun,Account,Payroll_Status__c,"Boolean: containsIgnoreCase('ready')"

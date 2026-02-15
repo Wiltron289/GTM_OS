@@ -8,11 +8,9 @@
 }
 
 .section-title {
-    font-size: 10px;
+    font-size: 15px;
     font-weight: 600;
-    letter-spacing: 0.1em;
-    color: var(--nba-text-400, #94a3b8);
-    text-transform: uppercase;
+    color: var(--nba-text-900, #0f172a);
     padding-bottom: 8px;
     border-bottom: 1px solid var(--nba-border, #e2e8f0);
     margin-bottom: 12px;
@@ -20,10 +18,24 @@
 
 .collapsible-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
+    gap: 6px;
     cursor: pointer;
     user-select: none;
+}
+
+.collapsible-header lightning-icon {
+    --sds-c-icon-color-foreground-default: #94a3b8;
+    --sds-c-icon-color-foreground: #94a3b8;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.collapsible-header:hover lightning-icon {
+    --sds-c-icon-color-foreground-default: #334155;
+    --sds-c-icon-color-foreground: #334155;
+    color: #334155;
 }
 
 .field-grid-3 {
@@ -60,10 +72,10 @@
 
 .sla-row {
     display: grid;
-    grid-template-columns: 1fr auto 1fr auto;
+    grid-template-columns: 200px 1fr 240px 1fr;
     gap: 12px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--nba-border-light, #f1f5f9);
+    padding: 10px 0;
+    border-bottom: 1px solid var(--nba-border, #e2e8f0);
     align-items: center;
 }
 
