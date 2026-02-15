@@ -698,7 +698,7 @@ public with sharing class NbaDemoController {
                     : sms.Mogli_SMS__Message__c)
                 : 'SMS';
             String contactName = sms.Mogli_SMS__Contact__r != null ? sms.Mogli_SMS__Contact__r.Name : null;
-            a.label = (sms.Mogli_SMS__Direction__c == 'Outbound' ? 'SMS sent' : 'SMS received')
+            a.label = (sms.Mogli_SMS__Direction__c == 'Outgoing' || sms.Mogli_SMS__Direction__c == 'Outbound' ? 'SMS sent' : 'SMS received')
                 + (contactName != null ? ' - ' + contactName + ': ' : ': ') + msgPreview;
             a.activityDate = sms.Mogli_SMS__Send_Date__c != null
                 ? sms.Mogli_SMS__Send_Date__c.date()
@@ -901,7 +901,7 @@ public with sharing class NbaDemoController {
         sms.Mogli_SMS__Opportunity__c = oppId;
         sms.Account__c = con.AccountId;
         sms.Mogli_SMS__Message__c = message;
-        sms.Mogli_SMS__Direction__c = 'Outbound';
+        sms.Mogli_SMS__Direction__c = 'Outgoing';
         sms.Mogli_SMS__Status__c = 'Queued';
         sms.Mogli_SMS__Phone_Number__c = con.Mogli_SMS__Mogli_Number__c;
 

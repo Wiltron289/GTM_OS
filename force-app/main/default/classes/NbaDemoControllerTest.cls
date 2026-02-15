@@ -505,7 +505,7 @@ private class NbaDemoControllerTest {
             WHERE Id = :smsId
         ];
         System.assertEquals('Hello, this is a test SMS', sms.Mogli_SMS__Message__c);
-        System.assertEquals('Outbound', sms.Mogli_SMS__Direction__c);
+        System.assertEquals('Outgoing', sms.Mogli_SMS__Direction__c);
         System.assertEquals(con.Id, sms.Mogli_SMS__Contact__c);
         System.assertEquals(opp.Id, sms.Mogli_SMS__Opportunity__c);
     }
