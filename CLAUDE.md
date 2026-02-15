@@ -60,7 +60,7 @@ When developing features or debugging, update the appropriate doc file:
 | **Active Branch** | `feature/nba-v2-demo-lwc` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
 | **Apex Tests** | 44 Phase 4 trigger tests + 43 Phase 2 engine + 10 controller + 19 existing = 116 total |
-| **Current Phase** | **Phase 5 IN PROGRESS — Cooldown, Escalation, Cadence, Polish (Sprint 15)** |
+| **Current Phase** | **Phase 5 IN PROGRESS — On-Demand Engine + Platform Cache (Sprint 15)** |
 | **Phase Plan** | `docs/nba-v2-phase-plan.md` |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
@@ -155,30 +155,42 @@ Added real-time trigger-based action creation so actions appear instantly when C
 #### Key Gotcha: Trigger-Test Interaction
 When testing `createTimeBoundAction()` directly, set `NbaTriggerContext.setEventHandlerRun()` BEFORE inserting the Event to prevent the EventTrigger from creating the action first (dedup would return null). Tests that rely on the trigger firing should NOT set this guard.
 
-### Phase 5 — Cooldown, Escalation, Cadence, Polish — IN PROGRESS (Sprint 15)
+### Phase 5 — On-Demand Engine + Platform Cache — IN PROGRESS (Sprint 15)
 
-Activates dormant engine features and adds production readiness. Full plan: `.claude/plans/hashed-hopping-rose.md`.
+**PIVOTED** from persist-first to on-demand architecture. Full plan: `.claude/plans/hashed-hopping-rose.md`.
+
+The persist-first model (scheduled jobs pre-create NBA_Queue__c records) had fundamental issues: capacity cap friction (MAX_ACTIVE_PENDING_PER_AE = 2 blocks promotion), stale records between batch runs, and actions not reflecting real-time CRM state. The new model evaluates on-demand, caches in Platform Cache, and persists NBA_Queue__c only as audit records on AE interaction.
+
+#### Architecture Shift
+```
+OLD:  Scheduled Job → create NBA_Queue__c → LWC reads from DB
+NEW:  LWC requests action → evaluate signals NOW → Platform Cache → serve
+      AE interacts (complete/snooze/dismiss) → write audit record → re-evaluate → serve next
+      Triggers (time-bound only) → write Layer 1 record → invalidate cache → 15s poll picks it up
+```
 
 #### Scope Decisions
-- **Blitz campaigns**: DEFERRED. Layer 2 mode infrastructure built but Campaign linking + NbaBlitzService skipped for now.
-- **Method escalation**: On no-connect only (Attempted-LVM, Attempted-NVM). Connected calls don't escalate.
+- **Blitz campaigns**: DEFERRED. Layer 2 mode infrastructure built but Campaign linking skipped.
+- **Method escalation**: On no-connect only (Attempted-LVM, Attempted-NVM). Integrated into evaluation pipeline.
 - **Action bar UX**: Keep generic "Complete" button. Method shown as instruction text only.
 - **Manager dashboard**: DEFERRED to Sprint 16.
 
-#### Work Groups (6)
+#### Work Groups (7)
 | Group | Goal | New Files | Key Modified Files |
 |-------|------|-----------|-------------------|
-| **A. Cooldown** | Set CooldownUntil__c on completion, daily cap gate, midnight reset | NbaCooldownService + test | NbaActionStateService, NbaActionSelectionService, NbaActionExpirationSchedulable |
-| **B. Escalation** | Call→SMS→Email on no-connect dispositions | NbaMethodEscalationService + test | (standalone) |
-| **C. Cadence** | Auto-create next cadence step on completion | — | NbaActionCreationService (new method), NbaActionStateService |
-| **D. Layer 2** | Blitz-aware mode gate in selection engine | — | NbaActionSelectionService |
-| **E. LWC Polish** | Mode indicator badge, method/cadence display | — | NbaActionController, nbaDemoHeader, nbaDemoInsightsPanel |
-| **F. Permissions** | NBA_Queue__c field access for AEs + managers | NBA_Queue_AE + NBA_Queue_Manager permsets | — |
+| **A. Platform Cache** | NbaCacheService for per-AE action caching (5min TTL) | NbaCacheService + test | — |
+| **B. On-Demand Controller** | Rewrite getActiveAction as evaluation entry point, checkTimeBound for 15s poll | — | NbaActionController |
+| **C. Simplified State** | NbaActionStateService → audit record writer + cache invalidation | — | NbaActionStateService |
+| **D. Trigger Updates** | Add cache invalidation to all triggers, remove Queueable | — | NbaOpportunityTriggerHandler, NbaEventTriggerHandler, NbaTaskTriggerHandler |
+| **E. LWC Polling** | Dual poll (15s time-bound + 5min full refresh), pass full action context | — | nbaDemoWorkspace.js, nbaActionBar.js |
+| **F. Cooldown + Escalation** | Integrated into on-demand evaluation pipeline | — | NbaSignalService, NbaActionCreationService |
+| **G. Cleanup + Permissions** | Archive schedulables, add permission sets | NBA_Queue_AE + NBA_Queue_Manager permsets | NbaActionCreationSchedulable, NbaActionExpirationSchedulable |
 
 #### Key Architecture Changes
-- **completeAction() flow** (NbaActionStateService): Update status → apply cooldown → increment attempt counter → create cadence follow-up (with escalation) → promote next. ~4 SOQL + ~4 DML.
-- **Selection gate** (NbaActionSelectionService): Cooldown gate (existing) + daily cap gate (new) + mode gate (rewritten for Blitz awareness).
-- **Cadence progression**: On completion, immediately checks NBA_Cadence_Rule__mdt for next stage. If no-connect, escalates method via Next_Method_On_Fail__c. If daily cap reached, defers to scheduled job.
+- **getActiveAction() flow** (NbaActionController): Check Layer 1 time-bound (1 SOQL) → check Platform Cache → cache miss: full evaluation (NbaSignalService + NbaActionCreationService + NbaActionSelectionService) ~12 SOQL → cache result → return.
+- **completeAction()**: Now takes action details (not actionId). Writes NBA_Queue__c audit record → invalidates cache → re-evaluates → returns next action.
+- **SOQL budget**: Cache hit = 1 SOQL. Cache miss = ~12 SOQL. Worst case with getPageData = ~24 SOQL. Safe within 100.
+- **Deprecated**: NbaActionCreationSchedulable (6 creation jobs), NbaRealTimeEvaluationQueueable (replaced by on-demand). Capacity cap removed.
 
 ### Signal Architecture Reference
 
