@@ -5,49 +5,41 @@
     font-family: var(--nba-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
 }
 
-/* ─── Contact Picker ─────────────────────── */
+/* ─── Contact Picker (Dropdown) ──────────── */
 .contact-picker {
-    display: flex;
-    gap: 6px;
+    position: relative;
     padding: 12px 20px;
-    overflow-x: auto;
     border-bottom: 1px solid var(--nba-border-light, #f1f5f9);
     flex-shrink: 0;
 }
 
-.contact-pill {
-    display: inline-flex;
+.contact-selector {
+    display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: var(--nba-radius-full, 9999px);
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: var(--nba-radius, 8px);
     border: 1px solid var(--nba-border, #e2e8f0);
     background: var(--nba-bg-card, #ffffff);
     cursor: pointer;
-    white-space: nowrap;
-    font-size: 12px;
+    font-size: 13px;
     font-family: inherit;
-    color: var(--nba-text-700, #334155);
+    color: var(--nba-text-900, #0f172a);
     transition: all 0.15s ease;
 }
 
-.contact-pill:hover {
-    background: var(--nba-bg-hover, #f1f5f9);
-}
-
-.contact-pill-selected {
-    background: var(--nba-blue-50, #eff6ff);
+.contact-selector:hover {
     border-color: var(--nba-blue-600, #2563eb);
-    color: var(--nba-blue-700, #1d4ed8);
-    font-weight: 600;
+    background: var(--nba-blue-50, #eff6ff);
 }
 
-.pill-initials {
-    width: 22px;
-    height: 22px;
+.selector-initials {
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    background: var(--nba-blue-100, #dbeafe);
-    color: var(--nba-blue-700, #1d4ed8);
+    background: var(--nba-blue-600, #2563eb);
+    color: white;
     font-size: 10px;
     font-weight: 700;
     display: flex;
@@ -56,23 +48,118 @@
     flex-shrink: 0;
 }
 
-.contact-pill-selected .pill-initials {
-    background: var(--nba-blue-600, #2563eb);
-    color: white;
-}
-
-.pill-name {
-    max-width: 80px;
+.selector-name {
+    flex: 1;
+    font-weight: 600;
+    text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.pill-opted-out {
+.selector-opted-out {
     font-size: 10px;
     color: var(--nba-amber-700, #b45309);
     background: var(--nba-amber-50, #fffbeb);
     padding: 1px 6px;
     border-radius: var(--nba-radius-full, 9999px);
+    flex-shrink: 0;
+}
+
+.selector-chevron {
+    --sds-c-icon-color-foreground-default: #94a3b8;
+    --sds-c-icon-color-foreground: #94a3b8;
+    flex-shrink: 0;
+}
+
+/* Dropdown menu */
+.contact-dropdown {
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    top: 100%;
+    z-index: 100;
+    background: var(--nba-bg-card, #ffffff);
+    border: 1px solid var(--nba-border, #e2e8f0);
+    border-radius: var(--nba-radius, 8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 4px;
+    margin-top: 4px;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    background: none;
+    border-radius: var(--nba-radius-sm, 6px);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--nba-text-700, #334155);
+    transition: background 0.1s ease;
+}
+
+.dropdown-item:hover {
+    background: var(--nba-bg-hover, #f1f5f9);
+}
+
+.dropdown-item-selected {
+    background: var(--nba-blue-50, #eff6ff);
+    color: var(--nba-blue-700, #1d4ed8);
+}
+
+.dropdown-initials {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--nba-blue-100, #dbeafe);
+    color: var(--nba-blue-700, #1d4ed8);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.dropdown-item-selected .dropdown-initials {
+    background: var(--nba-blue-600, #2563eb);
+    color: white;
+}
+
+.dropdown-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-align: left;
+    min-width: 0;
+}
+
+.dropdown-name {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dropdown-opted-out {
+    font-size: 10px;
+    color: var(--nba-amber-700, #b45309);
+    background: var(--nba-amber-50, #fffbeb);
+    padding: 1px 6px;
+    border-radius: var(--nba-radius-full, 9999px);
+    flex-shrink: 0;
+}
+
+.dropdown-check {
+    --sds-c-icon-color-foreground-default: #2563eb;
+    --sds-c-icon-color-foreground: #2563eb;
+    flex-shrink: 0;
 }
 
 /* ─── Chat Area ──────────────────────────── */

@@ -8,19 +8,40 @@
     </template>
 
     <template if:true={hasSmsContacts}>
-        <!-- Contact picker pills -->
+        <!-- Contact picker dropdown -->
         <div class="contact-picker">
-            <template for:each={contactPills} for:item="pill">
-                <button key={pill.contactId}
-                        class={pill.pillClass}
-                        data-contact-id={pill.contactId}
-                        onclick={handleContactSelect}>
-                    <span class="pill-initials">{pill.initials}</span>
-                    <span class="pill-name">{pill.name}</span>
-                    <template if:true={pill.optedOut}>
-                        <span class="pill-opted-out">Opted Out</span>
+            <button class="contact-selector" onclick={toggleContactDropdown}>
+                <span class="selector-initials">{selectedContactInitials}</span>
+                <span class="selector-name">{selectedContactName}</span>
+                <template if:true={isSelectedOptedOut}>
+                    <span class="selector-opted-out">Opted Out</span>
+                </template>
+                <lightning-icon
+                    icon-name={contactDropdownChevron}
+                    size="xx-small"
+                    class="selector-chevron">
+                </lightning-icon>
+            </button>
+            <template if:true={showContactDropdown}>
+                <div class="contact-dropdown">
+                    <template for:each={contactDropdownItems} for:item="item">
+                        <button key={item.contactId}
+                                class={item.itemClass}
+                                data-contact-id={item.contactId}
+                                onclick={handleContactSelect}>
+                            <span class="dropdown-initials">{item.initials}</span>
+                            <div class="dropdown-info">
+                                <span class="dropdown-name">{item.name}</span>
+                                <template if:true={item.optedOut}>
+                                    <span class="dropdown-opted-out">Opted Out</span>
+                                </template>
+                            </div>
+                            <template if:true={item.isSelected}>
+                                <lightning-icon icon-name="utility:check" size="xx-small" class="dropdown-check"></lightning-icon>
+                            </template>
+                        </button>
                     </template>
-                </button>
+                </div>
             </template>
         </div>
 

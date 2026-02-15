@@ -12,6 +12,7 @@ export default class NbaDemoConversationView extends LightningElement {
     @track messageBody = '';
     @track isSending = false;
     @track sendError = '';
+    @track showContactDropdown = false;
 
     connectedCallback() {
         const eligible = this.smsEligibleContacts;
@@ -35,17 +36,21 @@ export default class NbaDemoConversationView extends LightningElement {
         return this.smsEligibleContacts.length > 0;
     }
 
-    get contactPills() {
+    get contactDropdownItems() {
         return this.smsEligibleContacts.map(c => ({
             contactId: c.contactId,
             name: c.name,
             initials: c.initials || (c.name ? c.name.substring(0, 2).toUpperCase() : '??'),
             isSelected: c.contactId === this.selectedContactId,
-            pillClass: c.contactId === this.selectedContactId
-                ? 'contact-pill contact-pill-selected'
-                : 'contact-pill',
+            itemClass: c.contactId === this.selectedContactId
+                ? 'dropdown-item dropdown-item-selected'
+                : 'dropdown-item',
             optedOut: c.optedOut === true
         }));
+    }
+
+    get contactDropdownChevron() {
+        return this.showContactDropdown ? 'utility:chevronup' : 'utility:chevrondown';
     }
 
     get selectedContact() {
@@ -54,6 +59,12 @@ export default class NbaDemoConversationView extends LightningElement {
 
     get selectedContactName() {
         return this.selectedContact ? this.selectedContact.name : '';
+    }
+
+    get selectedContactInitials() {
+        const c = this.selectedContact;
+        if (!c) return '??';
+        return c.initials || (c.name ? c.name.substring(0, 2).toUpperCase() : '??');
     }
 
     get isSelectedOptedOut() {
@@ -130,8 +141,19 @@ export default class NbaDemoConversationView extends LightningElement {
 
     // ─── Event handlers ──────────────────────────────────
 
+    toggleContactDropdown() {
+        this.showContactDropdown = !this.showContactDropdown;
+        if (this.showContactDropdown) {
+            this._closeHandler = () => { this.showContactDropdown = false; };
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            setTimeout(() => document.addEventListener('click', this._closeHandler, { once: true }), 0);
+        }
+    }
+
     handleContactSelect(event) {
+        event.stopPropagation();
         const contactId = event.currentTarget.dataset.contactId;
+        this.showContactDropdown = false;
         if (contactId !== this.selectedContactId) {
             this.selectedContactId = contactId;
             this.messages = [];

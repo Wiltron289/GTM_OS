@@ -507,6 +507,26 @@ nbaDemoWorkspace (parent)
 - `'Incoming'` — inbound SMS from contacts. Set by Mogli's receive webhook.
 - Never use `'Outbound'` for SMS records intended for delivery.
 
+### Sprint 10 - Sidebar & UX Polish ✅ COMPLETED
+
+**What changed:** Three targeted UX improvements to the sidebar and workspace tab bar.
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | Messages contact picker | Replaced horizontal scrolling contact pills with a chevron dropdown selector. Shows selected contact with initials + name + chevron icon. Clicking opens a dropdown list with all SMS-eligible contacts, checkmark on selected, opted-out badges. Auto-closes on outside click. |
+| 2 | Sidebar header removed | Removed the "Notes & Activity" `<h3>` header and search icon. The pill segmented control (Notes \| Activity \| Messages) is now the top element with adjusted top margin. |
+| 3 | Hidden scrollbars | Removed visible scrollbar tracks from `.workspace-main` and `.tab-bar` using `scrollbar-width: none` (Firefox) and `::-webkit-scrollbar { display: none }` (Chrome/Edge). Content still scrolls via mouse wheel/trackpad. |
+
+**Files changed (7 total):**
+- 3 conversation view files: `nbaDemoConversationView` (HTML — dropdown markup, CSS — dropdown styles replacing pill styles, JS — `showContactDropdown` state, `toggleContactDropdown()`, `selectedContactInitials` getter, `contactDropdownItems` getter, close-on-click-outside)
+- 2 sidebar files: `nbaDemoSidebar` (HTML — removed header div, CSS — removed header/search/title styles, adjusted tab margin)
+- 1 workspace file: `nbaDemoWorkspace` (CSS — hidden scrollbars on `.workspace-main` and `.tab-bar`)
+
+**Dropdown close-on-click-outside pattern (for reference):**
+- On open: register a `{ once: true }` click listener on `document` via `setTimeout(..., 0)` (deferred to avoid capturing the opening click)
+- On item select: call `event.stopPropagation()` to prevent the document listener from firing, then close manually
+- The `{ once: true }` option auto-removes the listener after first invocation — no cleanup needed
+
 ### LWC Repo Structure Convention
 
 For future LWC development, use this naming convention:

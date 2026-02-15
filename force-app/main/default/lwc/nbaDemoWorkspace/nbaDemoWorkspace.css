@@ -114,6 +114,11 @@
     overflow-y: auto;
     height: 100%;
     padding: 0 16px 16px;
+    scrollbar-width: none; /* Firefox */
+}
+
+.workspace-main::-webkit-scrollbar {
+    display: none; /* Chrome/Edge/Safari */
 }
 
 .workspace-sidebar {
@@ -135,6 +140,11 @@
     border-radius: 0;
     padding: 0 16px;
     overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+    display: none;
 }
 
 .tab-button {
