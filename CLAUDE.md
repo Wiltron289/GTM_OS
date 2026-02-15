@@ -60,7 +60,7 @@ When developing features or debugging, update the appropriate doc file:
 | **Active Branch** | `feature/nba-v2-demo-lwc` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
 | **Apex Tests** | 44 Phase 4 trigger tests + 43 Phase 2 engine + 10 controller + 19 existing = 116 total |
-| **Current Phase** | **Phase 4 COMPLETE — Phase 5 (Blitz Mode + Polish) next** |
+| **Current Phase** | **Phase 5 IN PROGRESS — Cooldown, Escalation, Cadence, Polish (Sprint 15)** |
 | **Phase Plan** | `docs/nba-v2-phase-plan.md` |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
@@ -155,9 +155,30 @@ Added real-time trigger-based action creation so actions appear instantly when C
 #### Key Gotcha: Trigger-Test Interaction
 When testing `createTimeBoundAction()` directly, set `NbaTriggerContext.setEventHandlerRun()` BEFORE inserting the Event to prevent the EventTrigger from creating the action first (dedup would return null). Tests that rely on the trigger firing should NOT set this guard.
 
-### Next: Phase 5 — Blitz Mode + Polish (Sprint 15)
+### Phase 5 — Cooldown, Escalation, Cadence, Polish — IN PROGRESS (Sprint 15)
 
-Phase 5 adds mode switching (Pipeline vs Blitz), campaign-linked actions, method escalation (Call → SMS → Email), and production readiness. See `docs/nba-v2-phase-plan.md`.
+Activates dormant engine features and adds production readiness. Full plan: `.claude/plans/hashed-hopping-rose.md`.
+
+#### Scope Decisions
+- **Blitz campaigns**: DEFERRED. Layer 2 mode infrastructure built but Campaign linking + NbaBlitzService skipped for now.
+- **Method escalation**: On no-connect only (Attempted-LVM, Attempted-NVM). Connected calls don't escalate.
+- **Action bar UX**: Keep generic "Complete" button. Method shown as instruction text only.
+- **Manager dashboard**: DEFERRED to Sprint 16.
+
+#### Work Groups (6)
+| Group | Goal | New Files | Key Modified Files |
+|-------|------|-----------|-------------------|
+| **A. Cooldown** | Set CooldownUntil__c on completion, daily cap gate, midnight reset | NbaCooldownService + test | NbaActionStateService, NbaActionSelectionService, NbaActionExpirationSchedulable |
+| **B. Escalation** | Call→SMS→Email on no-connect dispositions | NbaMethodEscalationService + test | (standalone) |
+| **C. Cadence** | Auto-create next cadence step on completion | — | NbaActionCreationService (new method), NbaActionStateService |
+| **D. Layer 2** | Blitz-aware mode gate in selection engine | — | NbaActionSelectionService |
+| **E. LWC Polish** | Mode indicator badge, method/cadence display | — | NbaActionController, nbaDemoHeader, nbaDemoInsightsPanel |
+| **F. Permissions** | NBA_Queue__c field access for AEs + managers | NBA_Queue_AE + NBA_Queue_Manager permsets | — |
+
+#### Key Architecture Changes
+- **completeAction() flow** (NbaActionStateService): Update status → apply cooldown → increment attempt counter → create cadence follow-up (with escalation) → promote next. ~4 SOQL + ~4 DML.
+- **Selection gate** (NbaActionSelectionService): Cooldown gate (existing) + daily cap gate (new) + mode gate (rewritten for Blitz awareness).
+- **Cadence progression**: On completion, immediately checks NBA_Cadence_Rule__mdt for next stage. If no-connect, escalates method via Next_Method_On_Fail__c. If daily cap reached, defers to scheduled job.
 
 ### Signal Architecture Reference
 
