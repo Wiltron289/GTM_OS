@@ -91,7 +91,13 @@
 
             <!-- Right Column: Sidebar -->
             <div class="workspace-sidebar">
-                <c-nba-demo-sidebar sidebar-data={sidebarData} record-id={recordId} onnotesaved={handleNoteSaved}></c-nba-demo-sidebar>
+                <c-nba-demo-sidebar
+                    sidebar-data={sidebarData}
+                    record-id={recordId}
+                    contacts={contactsData}
+                    onnotesaved={handleNoteSaved}
+                    onsmssent={handleSmsSent}>
+                </c-nba-demo-sidebar>
             </div>
         </div>
 

@@ -561,4 +561,42 @@ private class NbaDemoControllerTest {
 
         System.assertNotEquals(null, templates, 'SMS templates list should not be null');
     }
+
+    // ─── getConversation Tests ──────────────────────────────────────
+
+    @isTest
+    static void testGetConversation_ReturnsSmsMessages() {
+        Contact con = [SELECT Id FROM Contact WHERE LastName = 'Smith' LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE Account.Name = 'Test Demo Account' AND StageName = 'Prospecting' LIMIT 1];
+
+        // Create a test SMS record
+        Id smsId = NbaDemoController.sendSms(con.Id, 'Test conversation message', opp.Id);
+
+        Test.startTest();
+        List<NbaDemoController.SmsMessageData> messages = NbaDemoController.getConversation(con.Id);
+        Test.stopTest();
+
+        System.assert(messages.size() >= 1, 'Should return at least 1 SMS message');
+        Boolean foundMsg = false;
+        for (NbaDemoController.SmsMessageData m : messages) {
+            if (m.message == 'Test conversation message') {
+                foundMsg = true;
+                System.assertEquals(true, m.isOutbound, 'Direction should be outbound');
+                System.assertNotEquals(null, m.createdDate, 'Created date should not be null');
+            }
+        }
+        System.assert(foundMsg, 'Should find the test message in conversation');
+    }
+
+    @isTest
+    static void testGetConversation_NoMessages_ReturnsEmpty() {
+        Contact con = [SELECT Id FROM Contact WHERE LastName = 'Jones' LIMIT 1];
+
+        Test.startTest();
+        List<NbaDemoController.SmsMessageData> messages = NbaDemoController.getConversation(con.Id);
+        Test.stopTest();
+
+        System.assertNotEquals(null, messages, 'Messages list should not be null');
+        System.assertEquals(0, messages.size(), 'Should return empty list for contact with no SMS');
+    }
 }

@@ -1,0 +1,102 @@
+<template>
+    <!-- No SMS contacts -->
+    <template if:false={hasSmsContacts}>
+        <div class="empty-state">
+            <lightning-icon icon-name="utility:chat" size="small" class="empty-icon"></lightning-icon>
+            <p class="empty-text">No contacts with SMS numbers found.</p>
+        </div>
+    </template>
+
+    <template if:true={hasSmsContacts}>
+        <!-- Contact picker pills -->
+        <div class="contact-picker">
+            <template for:each={contactPills} for:item="pill">
+                <button key={pill.contactId}
+                        class={pill.pillClass}
+                        data-contact-id={pill.contactId}
+                        onclick={handleContactSelect}>
+                    <span class="pill-initials">{pill.initials}</span>
+                    <span class="pill-name">{pill.name}</span>
+                    <template if:true={pill.optedOut}>
+                        <span class="pill-opted-out">Opted Out</span>
+                    </template>
+                </button>
+            </template>
+        </div>
+
+        <!-- Chat area -->
+        <div class="chat-area">
+            <template if:true={isLoading}>
+                <div class="chat-loading">
+                    <lightning-spinner alternative-text="Loading messages" size="small"></lightning-spinner>
+                </div>
+            </template>
+
+            <template if:false={isLoading}>
+                <template if:false={hasMessages}>
+                    <div class="chat-empty">
+                        <p class="empty-text">No messages yet with {selectedContactName}.</p>
+                    </div>
+                </template>
+
+                <template if:true={hasMessages}>
+                    <div class="chat-messages">
+                        <template for:each={computedMessages} for:item="item">
+                            <!-- Date header -->
+                            <template if:true={item.isDateHeader}>
+                                <div key={item.key} class="date-header">
+                                    <span class="date-label">{item.dateLabel}</span>
+                                </div>
+                            </template>
+                            <!-- Message bubble -->
+                            <template if:false={item.isDateHeader}>
+                                <div key={item.key} class={item.alignClass}>
+                                    <div class={item.bubbleClass}>
+                                        <p class="bubble-text">{item.message}</p>
+                                        <div class="bubble-meta">
+                                            <span class="bubble-time">{item.timeLabel}</span>
+                                            <template if:true={item.statusLabel}>
+                                                <span class="bubble-status">{item.statusLabel}</span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </template>
+                    </div>
+                </template>
+            </template>
+        </div>
+
+        <!-- Opted-out warning -->
+        <template if:true={isSelectedOptedOut}>
+            <div class="opt-out-banner">
+                <lightning-icon icon-name="utility:warning" size="xx-small"></lightning-icon>
+                <span>This contact has opted out of SMS.</span>
+            </div>
+        </template>
+
+        <!-- Compose area -->
+        <template if:false={isSelectedOptedOut}>
+            <div class="compose-area">
+                <div class="compose-input-row">
+                    <lightning-textarea
+                        value={messageBody}
+                        onchange={handleBodyChange}
+                        onkeydown={handleKeyDown}
+                        placeholder="Type a message..."
+                        variant="label-hidden"
+                        class="compose-textarea">
+                    </lightning-textarea>
+                    <button class="send-btn" onclick={handleSend} disabled={sendDisabled}>
+                        <lightning-icon icon-name="utility:send" size="xx-small" variant="inverse"></lightning-icon>
+                    </button>
+                </div>
+                <div class={characterCountClass}>{characterCountLabel}</div>
+                <template if:true={sendError}>
+                    <div class="send-error">{sendError}</div>
+                </template>
+            </div>
+        </template>
+    </template>
+</template>

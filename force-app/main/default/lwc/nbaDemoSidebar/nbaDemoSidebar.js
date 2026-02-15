@@ -4,6 +4,7 @@ import saveNote from '@salesforce/apex/NbaDemoController.saveNote';
 export default class NbaDemoSidebar extends LightningElement {
     @api sidebarData;
     @api recordId;
+    @api contacts;
     @track activeTab = 'notes';
     @track newNoteText = '';
     @track showAddNote = false;
@@ -11,8 +12,10 @@ export default class NbaDemoSidebar extends LightningElement {
 
     get isNotesTab() { return this.activeTab === 'notes'; }
     get isActivityTab() { return this.activeTab === 'activity'; }
+    get isMessagesTab() { return this.activeTab === 'messages'; }
     get notesTabClass() { return this.activeTab === 'notes' ? 'sidebar-tab active' : 'sidebar-tab'; }
     get activityTabClass() { return this.activeTab === 'activity' ? 'sidebar-tab active' : 'sidebar-tab'; }
+    get messagesTabClass() { return this.activeTab === 'messages' ? 'sidebar-tab active' : 'sidebar-tab'; }
     get notes() { return this.sidebarData?.notes || []; }
     get hasNotes() { return this.notes.length > 0; }
 
@@ -83,5 +86,9 @@ export default class NbaDemoSidebar extends LightningElement {
         } catch (error) {
             console.error('Error saving note:', error);
         }
+    }
+
+    handleSmsSent() {
+        this.dispatchEvent(new CustomEvent('smssent'));
     }
 }

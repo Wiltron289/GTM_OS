@@ -172,6 +172,17 @@ public with sharing class NbaDemoController {
         }
     }
 
+    public class SmsMessageData {
+        @AuraEnabled public String id;
+        @AuraEnabled public String message;
+        @AuraEnabled public String direction;
+        @AuraEnabled public String status;
+        @AuraEnabled public String contactName;
+        @AuraEnabled public String phoneNumber;
+        @AuraEnabled public Datetime createdDate;
+        @AuraEnabled public Boolean isOutbound;
+    }
+
     private class NoteDataComparator implements System.Comparator<NoteData> {
         public Integer compare(NoteData a, NoteData b) {
             if (a.createdDate == null && b.createdDate == null) return 0;
@@ -911,5 +922,34 @@ public with sharing class NbaDemoController {
 
         insert sms;
         return sms.Id;
+    }
+
+    @AuraEnabled
+    public static List<SmsMessageData> getConversation(Id contactId) {
+        List<SmsMessageData> messages = new List<SmsMessageData>();
+
+        for (Mogli_SMS__SMS__c sms : [
+            SELECT Id, Mogli_SMS__Message__c, Mogli_SMS__Direction__c,
+                   Mogli_SMS__Status__c, Mogli_SMS__Contact__r.Name,
+                   Mogli_SMS__Phone_Number__c, CreatedDate,
+                   Mogli_SMS__Send_Date__c
+            FROM Mogli_SMS__SMS__c
+            WHERE Mogli_SMS__Contact__c = :contactId
+            ORDER BY CreatedDate ASC
+            LIMIT 50
+        ]) {
+            SmsMessageData m = new SmsMessageData();
+            m.id = sms.Id;
+            m.message = sms.Mogli_SMS__Message__c;
+            m.direction = sms.Mogli_SMS__Direction__c;
+            m.status = sms.Mogli_SMS__Status__c;
+            m.contactName = sms.Mogli_SMS__Contact__r != null ? sms.Mogli_SMS__Contact__r.Name : '';
+            m.phoneNumber = sms.Mogli_SMS__Phone_Number__c;
+            m.createdDate = sms.Mogli_SMS__Send_Date__c != null ? sms.Mogli_SMS__Send_Date__c : sms.CreatedDate;
+            m.isOutbound = (sms.Mogli_SMS__Direction__c == 'Outgoing' || sms.Mogli_SMS__Direction__c == 'Outbound');
+            messages.add(m);
+        }
+
+        return messages;
     }
 }

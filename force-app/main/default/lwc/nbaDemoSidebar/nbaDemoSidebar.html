@@ -17,6 +17,10 @@
                 <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>
                 Activity
             </button>
+            <button class={messagesTabClass} data-tab="messages" onclick={handleTabClick}>
+                <lightning-icon icon-name="utility:chat" size="xx-small"></lightning-icon>
+                Messages
+            </button>
         </div>
 
         <!-- Notes Content -->
@@ -89,6 +93,17 @@
                 <template if:false={hasActivities}>
                     <p class="empty-text">No activities recorded.</p>
                 </template>
+            </div>
+        </template>
+
+        <!-- Messages Content -->
+        <template if:true={isMessagesTab}>
+            <div class="messages-content">
+                <c-nba-demo-conversation-view
+                    contacts={contacts}
+                    record-id={recordId}
+                    onsmssent={handleSmsSent}>
+                </c-nba-demo-conversation-view>
             </div>
         </template>
     </div>
