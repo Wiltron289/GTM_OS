@@ -12,7 +12,7 @@
                     <template for:each={snoozeDurationOptions} for:item="opt">
                         <button
                             key={opt.value}
-                            class={opt.selected ? 'duration-chip selected' : 'duration-chip'}
+                            class={opt.cssClass}
                             data-value={opt.value}
                             onclick={handleSnoozeDurationSelect}>
                             {opt.label}
@@ -46,7 +46,7 @@
                     <template for:each={dismissCategoryOptions} for:item="opt">
                         <button
                             key={opt.value}
-                            class={opt.selected ? 'category-chip selected' : 'category-chip'}
+                            class={opt.cssClass}
                             data-value={opt.value}
                             onclick={handleDismissCategorySelect}>
                             {opt.label}

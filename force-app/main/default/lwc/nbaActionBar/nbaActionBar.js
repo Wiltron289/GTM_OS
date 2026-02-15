@@ -19,9 +19,21 @@ export default class NbaActionBar extends LightningElement {
 
     get snoozeDurationOptions() {
         return [
-            { label: '15 min', value: 15, selected: this.snoozeDuration === 15 },
-            { label: '1 hour', value: 60, selected: this.snoozeDuration === 60 },
-            { label: '4 hours', value: 240, selected: this.snoozeDuration === 240 }
+            { 
+                label: '15 min', 
+                value: 15, 
+                cssClass: this.snoozeDuration === 15 ? 'duration-chip selected' : 'duration-chip'
+            },
+            { 
+                label: '1 hour', 
+                value: 60, 
+                cssClass: this.snoozeDuration === 60 ? 'duration-chip selected' : 'duration-chip'
+            },
+            { 
+                label: '4 hours', 
+                value: 240, 
+                cssClass: this.snoozeDuration === 240 ? 'duration-chip selected' : 'duration-chip'
+            }
         ];
     }
 
@@ -29,9 +41,21 @@ export default class NbaActionBar extends LightningElement {
 
     get dismissCategoryOptions() {
         return [
-            { label: 'Call Scheduled', value: 'Call Scheduled', selected: this.dismissCategory === 'Call Scheduled' },
-            { label: 'Time Zone', value: 'Time Zone', selected: this.dismissCategory === 'Time Zone' },
-            { label: 'Other', value: 'Other', selected: this.dismissCategory === 'Other' }
+            { 
+                label: 'Call Scheduled', 
+                value: 'Call Scheduled', 
+                cssClass: this.dismissCategory === 'Call Scheduled' ? 'category-chip selected' : 'category-chip'
+            },
+            { 
+                label: 'Time Zone', 
+                value: 'Time Zone', 
+                cssClass: this.dismissCategory === 'Time Zone' ? 'category-chip selected' : 'category-chip'
+            },
+            { 
+                label: 'Other', 
+                value: 'Other', 
+                cssClass: this.dismissCategory === 'Other' ? 'category-chip selected' : 'category-chip'
+            }
         ];
     }
 
