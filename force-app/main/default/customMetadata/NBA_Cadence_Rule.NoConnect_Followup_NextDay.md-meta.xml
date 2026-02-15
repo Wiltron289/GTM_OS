@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>No-Connect Followup Next Day</label>
+    <protected>false</protected>
+    <values>
+        <field>Rule_Name__c</field>
+        <value xsi:type="xsd:string">NoConnect_Followup_NextDay</value>
+    </values>
+    <values>
+        <field>Scenario__c</field>
+        <value xsi:type="xsd:string">Re-engage</value>
+    </values>
+    <values>
+        <field>Cadence_Stage__c</field>
+        <value xsi:type="xsd:double">3</value>
+    </values>
+    <values>
+        <field>Attempt_Spacing_Minutes__c</field>
+        <value xsi:type="xsd:double">1440</value>
+    </values>
+    <values>
+        <field>Max_Attempts_Per_Day__c</field>
+        <value xsi:type="xsd:double">3</value>
+    </values>
+    <values>
+        <field>Method__c</field>
+        <value xsi:type="xsd:string">Call</value>
+    </values>
+    <values>
+        <field>Next_Method_On_Fail__c</field>
+        <value xsi:type="xsd:string">Email</value>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">No-connect progression: third retry next day (1440 min spacing).</value>
+    </values>
+</CustomMetadata>

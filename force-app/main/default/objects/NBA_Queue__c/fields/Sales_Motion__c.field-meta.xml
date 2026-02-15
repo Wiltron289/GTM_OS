@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Sales_Motion__c</fullName>
+    <label>Sales Motion</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Clover Embedded Outreach Motion</fullName>
+                <default>false</default>
+                <label>Clover Embedded Outreach Motion</label>
+            </value>
+            <value>
+                <fullName>Call #1 + Text - Clover Embedded Outreach - Gusto</fullName>
+                <default>false</default>
+                <label>Call #1 + Text - Clover Embedded Outreach - Gusto</label>
+            </value>
+            <value>
+                <fullName>Free Trial Ending Next 3 Days</fullName>
+                <default>false</default>
+                <label>Free Trial Ending Next 3 Days</label>
+            </value>
+            <value>
+                <fullName>Call #2 - Clover Embedded Outreach</fullName>
+                <default>false</default>
+                <label>Call #2 - Clover Embedded Outreach</label>
+            </value>
+            <value>
+                <fullName>Call #3 - Clover Embedded Outreach</fullName>
+                <default>false</default>
+                <label>Call #3 - Clover Embedded Outreach</label>
+            </value>
+            <value>
+                <fullName>Call #4 + Text - Clover Embedded Outreach</fullName>
+                <default>false</default>
+                <label>Call #4 + Text - Clover Embedded Outreach</label>
+            </value>
+            <value>
+                <fullName>Call #5 - Clover Embedded Outreach</fullName>
+                <default>false</default>
+                <label>Call #5 - Clover Embedded Outreach</label>
+            </value>
+            <value>
+                <fullName>Call #6 - Clover Embedded Outreach</fullName>
+                <default>false</default>
+                <label>Call #6 - Clover Embedded Outreach</label>
+            </value>
+            <value>
+                <fullName>Call #7 + Text - Clover Embedded Outreach</fullName>
+                <default>false</default>
+                <label>Call #7 + Text - Clover Embedded Outreach</label>
+            </value>
+            <value>
+                <fullName>Call #1 + Text - Clover Embedded Outreach - QuickBooks</fullName>
+                <default>false</default>
+                <label>Call #1 + Text - Clover Embedded Outreach - QuickBooks</label>
+            </value>
+            <value>
+                <fullName>Call #1 + Text - Clover Embedded Outreach - ADP Run</fullName>
+                <default>false</default>
+                <label>Call #1 + Text - Clover Embedded Outreach - ADP Run</label>
+            </value>
+            <value>
+                <fullName>Call #1 + Text - Clover  Outreach - Email Engaged</fullName>
+                <default>false</default>
+                <label>Call #1 + Text - Clover  Outreach - Email Engaged</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

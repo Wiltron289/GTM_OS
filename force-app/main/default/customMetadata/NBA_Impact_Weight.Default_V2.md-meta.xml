@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Default V2</label>
+    <protected>false</protected>
+    <values>
+        <field>Config_Name__c</field>
+        <value xsi:type="xsd:string">Default_V2</value>
+    </values>
+    <values>
+        <field>MRR_Weight__c</field>
+        <value xsi:type="xsd:double">0.60</value>
+    </values>
+    <values>
+        <field>Close_Probability_Weight__c</field>
+        <value xsi:type="xsd:double">0.40</value>
+    </values>
+    <values>
+        <field>Impact_vs_Urgency_Impact_Weight__c</field>
+        <value xsi:type="xsd:double">0.50</value>
+    </values>
+    <values>
+        <field>Impact_vs_Urgency_Urgency_Weight__c</field>
+        <value xsi:type="xsd:double">0.50</value>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Default V2 impact weights: 60% MRR + 40% Close Probability for impact. 50/50 Impact vs Urgency balance.</value>
+    </values>
+</CustomMetadata>

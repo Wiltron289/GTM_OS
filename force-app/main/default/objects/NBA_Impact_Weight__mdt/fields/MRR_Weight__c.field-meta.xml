@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MRR_Weight__c</fullName>
+    <description>Weight applied to MRR score in impact calculation (0.00-1.00). Must sum to 1.00 with Close_Probability_Weight.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>MRR Weight</label>
+    <precision>3</precision>
+    <required>true</required>
+    <scale>2</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

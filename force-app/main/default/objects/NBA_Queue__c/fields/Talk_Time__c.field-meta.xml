@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Talk_Time__c</fullName>
+    <description>Total Talk Time from the related Talkdesk Activity</description>
+    <externalId>false</externalId>
+    <formula>Talkdesk_Activity__r.talkdesk__Total_Talk_Time__c</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <inlineHelpText>Total Talk Time from the related Talkdesk Activity</inlineHelpText>
+    <label>Talk Time</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

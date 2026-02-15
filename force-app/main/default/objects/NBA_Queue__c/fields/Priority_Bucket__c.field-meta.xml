@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Priority_Bucket__c</fullName>
+    <description>Selection Engine bucket assignment from Gate-Bucket-Rank pipeline.</description>
+    <label>Priority Bucket</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Cadence Due Today</fullName>
+                <default>false</default>
+                <label>Cadence Due Today</label>
+            </value>
+            <value>
+                <fullName>Late-Stage Stalled</fullName>
+                <default>false</default>
+                <label>Late-Stage Stalled</label>
+            </value>
+            <value>
+                <fullName>High Impact Focus</fullName>
+                <default>false</default>
+                <label>High Impact Focus</label>
+            </value>
+            <value>
+                <fullName>Neglected</fullName>
+                <default>false</default>
+                <label>Neglected</label>
+            </value>
+            <value>
+                <fullName>General Pipeline</fullName>
+                <default>false</default>
+                <label>General Pipeline</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

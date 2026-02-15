@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Defines scoring weights for the NBA V2 impact calculation. Single active config record controls MRR vs Close Probability balance and Impact vs Urgency balance.</description>
+    <label>NBA Impact Weight</label>
+    <pluralLabel>NBA Impact Weights</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

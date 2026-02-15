@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>NBA_Ownership_Transfer_Temp</fullName>
+    <columns>NAME</columns>
+    <columns>Opportunity__c</columns>
+    <columns>Opportunity_Stage__c</columns>
+    <columns>Priority_Score__c</columns>
+    <columns>Sales_Motion__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Sales_Rep__c</field>
+        <operation>contains</operation>
+        <value>Sierra</value>
+    </filters>
+    <filters>
+        <field>Sales_Motion__c</field>
+        <operation>equals</operation>
+        <value>,Call #1 + Text - Clover  Outreach - Email Engaged</value>
+    </filters>
+    <label>NBA Ownership Transfer (Temp)</label>
+</ListView>

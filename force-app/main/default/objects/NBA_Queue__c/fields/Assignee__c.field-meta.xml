@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Assignee__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Generic NBA assignee, independent of business-specific sales rep fields</description>
+    <label>Assignee</label>
+    <referenceTo>User</referenceTo>
+    <relationshipLabel>NBA Queue Items</relationshipLabel>
+    <relationshipName>NBA_Queue_Assigned</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

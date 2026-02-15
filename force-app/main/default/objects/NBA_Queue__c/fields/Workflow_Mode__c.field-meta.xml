@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Workflow_Mode__c</fullName>
+    <description>Layer 2 mode classification. Pipeline = standard day-to-day workflow. Blitz = campaign-driven high-velocity outreach.</description>
+    <label>Workflow Mode</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Pipeline</fullName>
+                <default>true</default>
+                <label>Pipeline</label>
+            </value>
+            <value>
+                <fullName>Blitz</fullName>
+                <default>false</default>
+                <label>Blitz</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
