@@ -465,6 +465,9 @@ private class NbaActionCreationServiceTest {
             AND StageName = 'New' LIMIT 1
         ];
 
+        // Block EventTrigger so it doesn't create the action before our direct test
+        NbaTriggerContext.setEventHandlerRun();
+
         // Create an Event to use its ID for the unique key
         Event evt = new Event(
             WhatId = opp.Id,
@@ -500,6 +503,8 @@ private class NbaActionCreationServiceTest {
             AND StageName = 'New' LIMIT 1
         ];
 
+        NbaTriggerContext.setEventHandlerRun();
+
         Event evt = new Event(
             WhatId = opp.Id,
             Subject = 'Dup Test Meeting',
@@ -534,6 +539,8 @@ private class NbaActionCreationServiceTest {
             AND StageName = 'New' LIMIT 1
         ];
 
+        NbaTriggerContext.setEventHandlerRun();
+
         Event evt = new Event(
             WhatId = opp.Id,
             Subject = 'Reschedule Test',
@@ -566,6 +573,8 @@ private class NbaActionCreationServiceTest {
             FROM Opportunity WHERE Account.Name = 'Creation Test Account 1'
             AND StageName = 'New' LIMIT 1
         ];
+
+        NbaTriggerContext.setEventHandlerRun();
 
         Event evt = new Event(
             WhatId = opp.Id,

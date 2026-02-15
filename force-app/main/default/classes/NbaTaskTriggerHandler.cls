@@ -74,7 +74,8 @@ public with sharing class NbaTaskTriggerHandler {
         }
 
         // Process each completed task
-        List<NBA_Queue__c> actionsToUpdate = new List<NBA_Queue__c>();
+        // Use Map to prevent duplicate IDs when multiple tasks target same action
+        Map<Id, NBA_Queue__c> actionsToUpdateMap = new Map<Id, NBA_Queue__c>();
         Set<Id> actionsToComplete = new Set<Id>();
 
         for (Task t : completedOppTasks) {
@@ -105,13 +106,13 @@ public with sharing class NbaTaskTriggerHandler {
                         ? action.Attempt_Count_Today__c : 0) + 1;
                     action.Last_Attempt_Method__c = 'Call';
                 }
-                actionsToUpdate.add(action);
+                actionsToUpdateMap.put(action.Id, action);
             }
         }
 
-        // Perform context updates (bulk DML)
-        if (!actionsToUpdate.isEmpty()) {
-            update actionsToUpdate;
+        // Perform context updates (bulk DML — Map ensures no duplicate IDs)
+        if (!actionsToUpdateMap.isEmpty()) {
+            update actionsToUpdateMap.values();
         }
 
         // Auto-complete actions where the AE did the work
