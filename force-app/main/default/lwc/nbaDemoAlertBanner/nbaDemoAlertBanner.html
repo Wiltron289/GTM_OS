@@ -1,5 +1,6 @@
 <template>
-    <template if:true={showBanner}>
+    <!-- Upcoming Meeting Banner (both modes) -->
+    <template lwc:if={showBanner}>
         <div class="alert-banner">
             <div class="banner-left">
                 <lightning-icon icon-name="utility:warning" size="x-small" variant="warning"></lightning-icon>
@@ -11,6 +12,17 @@
                 <a class="jump-link" onclick={handleJumpToOpp}>Jump to this opportunity &rarr;</a>
                 <button class="dismiss-btn" onclick={handleDismiss}>&times;</button>
             </div>
+        </div>
+    </template>
+
+    <!-- Time-Bound Urgency Banner (action mode only) -->
+    <template lwc:if={showUrgencyBanner}>
+        <div class="urgency-banner">
+            <div class="banner-left">
+                <lightning-icon icon-name="utility:clock" size="x-small"></lightning-icon>
+                <span class="urgency-text">{urgencyMessage}</span>
+            </div>
+            <button class="urgency-dismiss-btn" onclick={handleUrgencyDismiss}>&times;</button>
         </div>
     </template>
 </template>

@@ -57,3 +57,43 @@
 .dismiss-btn:hover {
     color: var(--nba-amber-700, #b45309);
 }
+
+/* ── Urgency Banner (time-bound actions) ─────────── */
+
+.urgency-banner {
+    width: 100%;
+    background: var(--nba-red-50, #fef2f2);
+    border-left: 4px solid var(--nba-red-600, #dc2626);
+    padding: 8px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+.urgency-banner lightning-icon {
+    --sds-c-icon-color-foreground-default: var(--nba-red-600, #dc2626);
+    --sds-c-icon-color-foreground: var(--nba-red-600, #dc2626);
+    --slds-c-icon-color-foreground-default: var(--nba-red-600, #dc2626);
+}
+
+.urgency-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--nba-red-600, #dc2626);
+}
+
+.urgency-dismiss-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--nba-red-600, #dc2626);
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.urgency-dismiss-btn:hover {
+    color: var(--nba-red-500, #ef4444);
+}

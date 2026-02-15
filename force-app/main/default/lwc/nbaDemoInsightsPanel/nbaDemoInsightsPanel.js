@@ -2,14 +2,32 @@ import { LightningElement, api, track } from 'lwc';
 
 export default class NbaDemoInsightsPanel extends LightningElement {
     @api insightsData;
+    @api currentAction;
+    @api isActionMode = false;
 
     @track isExpanded = false;
 
+    get panelTitle() {
+        return this.isActionMode ? 'Why This Action' : 'Why This Account';
+    }
+
     get hasInsights() {
+        if (this.isActionMode) {
+            return this.currentAction?.actionInstruction || this.currentAction?.reasonText;
+        }
         return this.insightsData?.drivers?.length > 0;
     }
 
+    get showDrivers() {
+        return !this.isActionMode && this.insightsData?.drivers?.length > 0;
+    }
+
+    get showActionContext() {
+        return this.isActionMode && this.currentAction;
+    }
+
     get insightCountLabel() {
+        if (this.isActionMode) return 'action context';
         return `${this.insightsData?.insightCount || 0} insights`;
     }
 

@@ -94,3 +94,22 @@
     background: var(--nba-border, #e2e8f0);
     color: var(--nba-text-500, #64748b);
 }
+
+/* ── Action Context (action mode) ────────────────── */
+
+.action-instruction {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--nba-indigo-900, #312e81);
+    line-height: 1.5;
+}
+
+.action-reason {
+    font-size: 13px;
+    color: var(--nba-text-700, #334155);
+    margin: 8px 0 0;
+    line-height: 1.5;
+}
