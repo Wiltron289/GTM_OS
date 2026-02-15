@@ -1,0 +1,85 @@
+<template>
+    <!-- Snooze Panel (slides up above bar) -->
+    <template lwc:if={showSnoozePanel}>
+        <div class="panel-overlay" onclick={handlePanelClose}></div>
+        <div class="action-panel snooze-panel">
+            <div class="panel-header">
+                <span class="panel-title">Snooze Action</span>
+                <button class="panel-close" onclick={handlePanelClose}>&times;</button>
+            </div>
+            <div class="panel-body">
+                <div class="duration-options">
+                    <template for:each={snoozeDurationOptions} for:item="opt">
+                        <button
+                            key={opt.value}
+                            class={opt.selected ? 'duration-chip selected' : 'duration-chip'}
+                            data-value={opt.value}
+                            onclick={handleSnoozeDurationSelect}>
+                            {opt.label}
+                        </button>
+                    </template>
+                </div>
+                <textarea
+                    class="reason-input"
+                    placeholder="Reason (optional)"
+                    value={snoozeReason}
+                    onchange={handleSnoozeReasonChange}
+                    rows="2"></textarea>
+                <button class="panel-submit snooze-submit" onclick={handleSnoozeSubmit}>
+                    <lightning-icon icon-name="utility:clock" size="xx-small" variant="inverse"></lightning-icon>
+                    Snooze
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Dismiss Panel (slides up above bar) -->
+    <template lwc:if={showDismissPanel}>
+        <div class="panel-overlay" onclick={handlePanelClose}></div>
+        <div class="action-panel dismiss-panel">
+            <div class="panel-header">
+                <span class="panel-title">Dismiss Action</span>
+                <button class="panel-close" onclick={handlePanelClose}>&times;</button>
+            </div>
+            <div class="panel-body">
+                <div class="category-options">
+                    <template for:each={dismissCategoryOptions} for:item="opt">
+                        <button
+                            key={opt.value}
+                            class={opt.selected ? 'category-chip selected' : 'category-chip'}
+                            data-value={opt.value}
+                            onclick={handleDismissCategorySelect}>
+                            {opt.label}
+                        </button>
+                    </template>
+                </div>
+                <textarea
+                    class="reason-input"
+                    placeholder="Reason (optional)"
+                    value={dismissReason}
+                    onchange={handleDismissReasonChange}
+                    rows="2"></textarea>
+                <button class="panel-submit dismiss-submit" onclick={handleDismissSubmit}>
+                    <lightning-icon icon-name="utility:ban" size="xx-small" variant="inverse"></lightning-icon>
+                    Dismiss
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Fixed Bottom Bar -->
+    <div class="bar-container">
+        <button class={completeBtnClass} onclick={handleComplete} disabled={isDisabled}>
+            <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
+            Complete
+        </button>
+        <button class={snoozeBtnClass} onclick={handleSnoozeToggle} disabled={isDisabled}>
+            <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>
+            Snooze
+        </button>
+        <button class={dismissBtnClass} onclick={handleDismissToggle} disabled={isDisabled}>
+            <lightning-icon icon-name="utility:ban" size="xx-small"></lightning-icon>
+            Dismiss
+        </button>
+    </div>
+</template>
