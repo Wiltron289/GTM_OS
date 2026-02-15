@@ -153,6 +153,12 @@ export default class NbaDemoConversationView extends LightningElement {
     handleContactSelect(event) {
         event.stopPropagation();
         const contactId = event.currentTarget.dataset.contactId;
+        // Remove the pending close-on-outside-click listener so it doesn't
+        // swallow the next toggle click and prevent the dropdown from reopening.
+        if (this._closeHandler) {
+            document.removeEventListener('click', this._closeHandler);
+            this._closeHandler = null;
+        }
         this.showContactDropdown = false;
         if (contactId !== this.selectedContactId) {
             this.selectedContactId = contactId;
