@@ -246,3 +246,45 @@
 .snooze-btn:hover {
     background: var(--nba-bg-hover, #f1f5f9);
 }
+
+/* ── Action Type Badge ───────────────────────────── */
+
+.action-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.action-badge-blue {
+    background: var(--nba-blue-50, #eff6ff);
+    color: var(--nba-blue-700, #1d4ed8);
+    border: 1px solid var(--nba-blue-200, #bfdbfe);
+}
+
+.action-badge-amber {
+    background: var(--nba-amber-50, #fffbeb);
+    color: var(--nba-amber-800, #92400e);
+    border: 1px solid var(--nba-amber-100, #fef3c7);
+}
+
+.action-badge-green {
+    background: var(--nba-emerald-50, #ecfdf5);
+    color: var(--nba-emerald-600, #059669);
+    border: 1px solid #a7f3d0;
+}
+
+.action-badge-red {
+    background: var(--nba-red-50, #fef2f2);
+    color: var(--nba-red-600, #dc2626);
+    border: 1px solid #fecaca;
+}
+
+.action-badge-purple {
+    background: var(--nba-purple-50, #faf5ff);
+    color: var(--nba-purple-700, #7e22ce);
+    border: 1px solid var(--nba-purple-100, #f3e8ff);
+}

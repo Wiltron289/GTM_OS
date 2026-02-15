@@ -14,6 +14,9 @@
                 <lightning-icon icon-name="utility:percent" size="xx-small"></lightning-icon>
                 {formattedCloseProb}
             </span>
+            <template lwc:if={isActionMode}>
+                <span class={actionTypeBadgeClass}>{currentAction.actionType}</span>
+            </template>
         </div>
         <div class="header-right">
             <div class="email-btn-wrapper">
@@ -75,11 +78,13 @@
                     </div>
                 </template>
             </div>
-            <button class="snooze-btn" onclick={handleSnooze}>
-                <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>
-                Snooze
-                <lightning-icon icon-name="utility:chevrondown" size="xx-small"></lightning-icon>
-            </button>
+            <template lwc:if={showSnoozeButton}>
+                <button class="snooze-btn" onclick={handleSnooze}>
+                    <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>
+                    Snooze
+                    <lightning-icon icon-name="utility:chevrondown" size="xx-small"></lightning-icon>
+                </button>
+            </template>
         </div>
     </div>
 </template>

@@ -1,10 +1,30 @@
 import { LightningElement, api, track } from 'lwc';
 
+// Action type → badge color mapping
+const ACTION_TYPE_STYLES = {
+    'First Touch': 'action-badge action-badge-blue',
+    'Re-engage': 'action-badge action-badge-amber',
+    'Stage Progression': 'action-badge action-badge-green',
+    'SLA Response': 'action-badge action-badge-red',
+    'Blitz Outreach': 'action-badge action-badge-purple'
+};
+
 export default class NbaDemoHeader extends LightningElement {
     @api headerData;
     @api contacts;
+    @api currentAction;
+    @api isActionMode = false;
     @track showContactDropdown = false;
     @track showSmsContactDropdown = false;
+
+    get actionTypeBadgeClass() {
+        if (!this.currentAction?.actionType) return 'action-badge';
+        return ACTION_TYPE_STYLES[this.currentAction.actionType] || 'action-badge';
+    }
+
+    get showSnoozeButton() {
+        return !this.isActionMode;
+    }
 
     get formattedMrr() {
         if (!this.headerData?.mrr) return '$0 MRR';
