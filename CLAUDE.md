@@ -74,14 +74,76 @@ When developing features or debugging, update the appropriate doc file:
 
 ### Current Work: Phase 2 — Engine Core (Sprint 12)
 
-See `docs/nba-v2-phase-plan.md` for full details. Summary:
-- NbaActionCreationService.cls — rule evaluation + candidate creation
-- NbaActionStateService.cls — lifecycle transitions + constraint enforcement
-- NbaActionSelectionService.cls — Gate → Bucket → Rank pipeline
-- NbaActionCreationSchedulable.cls — 10-minute scheduled job
-- NbaActionExpirationSchedulable.cls — expire stale actions, unsnooze due actions
-- Test classes for all services (75%+ coverage, bulk-safe)
-- Integration test: full cycle (create → promote → serve → complete → next)
+See `docs/nba-v2-phase-plan.md` for full phase plan. **Read this section first — it has critical signal mapping.**
+
+#### Signal Architecture — How the Engine Reads CRM Data
+
+The engine detects real-world events from 5 CRM data sources:
+
+**A. Phone Calls → Talkdesk Activities** (`talkdesk__Talkdesk_Activity__c`, ~2.09M records)
+- **Opp link**: `talkdesk__Opportunity__c` (DIRECT lookup exists — confirmed). Not all records have it (support reps use Talkdesk too), so filter by Opp ownership.
+- **Connected call**: `talkdesk__DispositionCode__r.talkdesk__Label__c LIKE 'Connected%'` AND `talkdesk__Total_Talk_Time_sec__c > 0`
+- **No-connect**: DispositionCode Label LIKE `'Attempted%'` OR Talk_Time = 0
+- **Voicemail**: `talkdesk__Type__c = 'Voicemail'`
+- **Not interested**: DispositionCode Label LIKE `'Not Interested%'`
+- **Type values**: Outbound (765K), Inbound (507K), Abandoned (166K), Voicemail (41K), Outbound_Missed (140K)
+- **30+ disposition codes**: Connected - Core Only, Connected - Call Scheduled, Connected - Not Interested, Attempted - Invalid Number, etc.
+- **NBA_Queue__c integration**: `Talkdesk_Activity__c` (lookup), `Talkdesk_Disposition__c` (formula), `Talk_Time_Sec__c` (formula) auto-populate when linked
+- **Name field gotcha**: Has "Contact" vs "Interaction" prefix — "Interaction" is correct but DON'T use Name for logic, use `talkdesk__Type__c`
+
+**B. Text Messages → Mogli SMS** (`Mogli_SMS__SMS__c`, ~193K records)
+- **Opp link**: `Mogli_SMS__Opportunity__c` (direct lookup, 36K linked)
+- **Direction**: `'Outgoing'` (75%), `'Incoming'` (25% — customer reply = strong engagement signal)
+- **Status**: Sent Successfully, Received Successfully, Error (10%)
+- **Gotcha**: Use `'Outgoing'` not `'Outbound'`. `Account__c` is non-namespaced.
+
+**C. Meetings → Events** (standard `Event`, ~25K records)
+- **Opp link**: `WhatId` (12K linked, mostly Calendly-generated)
+- **Suppression**: `StartDateTime` within 24h → suppress outreach
+
+**D. Activity History → Tasks** (standard `Task`, ~685K records)
+- Subtypes: Email (384K), Generic (267K), Call (8.5K, 68% missing disposition), Cadence (3.9K)
+- Use Talkdesk as PRIMARY call source, not Tasks
+
+**E. Opportunity Signals**
+- **Stages**: New (532), Connect (74), Consult (43), Closing (14), Verbal Commit (1), Ready to Convert (4), Evaluating (4), Hand-Off (803)
+- **Inactivity**: Use `Days_Since_Last_Interaction__c` (FORMULA on Opportunity) = `MIN(Days_Since_Last_Call__c, Days_Since_Last_Meeting__c)`. Returns 99999 if no interaction ever. **Use this, NOT LastActivityDate (70% NULL).**
+- **Stage history**: `OpportunityFieldHistory` available for stage change detection
+- **Account_Scoring__c**: Only 3 records (pilot) — must have fallback scoring via Opp.Amount + Opp.Probability
+
+#### Design Decisions (Confirmed)
+1. **Talkdesk→Opp**: Use `talkdesk__Opportunity__c` direct lookup. Filter out support activities.
+2. **Inactivity**: Use `Opportunity.Days_Since_Last_Interaction__c` formula (0 SOQL cost).
+3. **Eval scope**: Only AEs with < 2 active+pending actions (~50-100 opps per run).
+
+#### Apex Classes to Build
+
+| File | Purpose |
+|------|---------|
+| `NbaSignalService.cls` + test | Signal detection — queries Talkdesk, SMS, Events per Opp batch |
+| `NbaActionCreationService.cls` + test | Rule evaluation + candidate creation (Status='Pending') |
+| `NbaActionStateService.cls` + test | Lifecycle: complete, snooze, dismiss, expire, unsnooze, promote |
+| `NbaActionSelectionService.cls` + test | Gate → Bucket → Rank prioritization |
+| `NbaActionCreationSchedulable.cls` | 10-min scheduled job |
+| `NbaActionExpirationSchedulable.cls` | Expire stale + unsnooze due actions |
+
+#### NbaSignalService Query Plan (7 SOQL per batch of 200)
+1. Opportunity data (stage, amount, Days_Since_Last_Interaction__c)
+2. Recent Talkdesk Activity per Opp (`talkdesk__Opportunity__c`)
+3. Recent SMS per Opp (`Mogli_SMS__Opportunity__c`)
+4. Upcoming Events per Opp (`WhatId`)
+5. Recent Task per Opp (`WhatId`)
+6. Account_Scoring__c per Account
+7. Existing active NBA_Queue__c per Opp (dedup check)
+
+#### Creation Engine Flow
+```
+Schedulable (10 min) → AEs with < 2 active+pending
+  → Per AE's open Opps (batch 200):
+    1. SignalService.getSignals(oppIds)
+    2. Per Opp: suppress? → cooldown? → determine type → score → create
+    3. SelectionService.selectTop(aeId) → promote to In Progress
+```
 
 ### Pending Actions (from Demo LWC phase)
 - Share data contract with Data Engineering for Account_Scoring__c pipeline
@@ -160,6 +222,9 @@ See `docs/nba-v2-phase-plan.md` for full details. Summary:
 - **Mogli SMS**: Use `'Outgoing'` not `'Outbound'` for Direction. `Account__c` field on SMS__c is non-namespaced.
 - **MRR__c**: Formula field — queryable but NOT writable. Use `Amount` in tests.
 - **Source__c**: Required picklist on Opportunity — set to `'N/A'` in test data.
+- **Days_Since_Last_Interaction__c**: Formula on Opportunity — queryable, NOT writable. MIN of Days_Since_Last_Call__c and Days_Since_Last_Meeting__c. Returns 99999 if both null.
+- **Talkdesk Activity naming**: Name field has "Contact"/"Interaction" prefix — use `talkdesk__Type__c` for logic, not Name. "Interaction" is correct convention.
+- **Talkdesk Opp link**: `talkdesk__Opportunity__c` exists but not all records have it (support reps). Filter by Opp ownership or null check.
 
 ## Detailed Patterns, Agents & Commands
 
