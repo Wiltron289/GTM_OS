@@ -142,6 +142,146 @@ public with sharing class NbaActionCreationService {
         return result;
     }
 
+    // ─── Time-Bound Action Creation (Phase 4 — Trigger-Based) ────────
+
+    /**
+     * Create a Layer 1 time-bound action for an upcoming meeting.
+     * Used by EventTriggerHandler when a meeting is scheduled on an Opportunity.
+     * Does NOT insert the record — caller handles DML for bulkification.
+     *
+     * @param oppId Opportunity ID the meeting is linked to
+     * @param accountId Account ID for the action
+     * @param aeId Sales Rep (AE) User ID
+     * @param dueAt The meeting start time (sets DueAt__c)
+     * @param eventId Event record ID (used in UniqueKey for dedup)
+     * @param instruction Human-readable action instruction
+     * @return NBA_Queue__c record ready for insert, or null if duplicate exists
+     */
+    public static NBA_Queue__c createTimeBoundAction(
+        Id oppId, Id accountId, Id aeId, Datetime dueAt, Id eventId, String instruction
+    ) {
+        // Dedup check: one action per Event
+        String uniqueKey = 'V2|' + oppId + '|Meeting|' + eventId;
+        List<NBA_Queue__c> existing = [
+            SELECT Id FROM NBA_Queue__c
+            WHERE UniqueKey__c = :uniqueKey
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+        if (!existing.isEmpty()) {
+            return null;
+        }
+
+        // Simplified scoring: query Opp Amount for impact, use high urgency for time-bound
+        Decimal impactScore = 0.5; // default mid-range
+        Decimal urgencyScore = 1.5; // high — time-bound actions are urgent
+        Decimal oppAmount = 0;
+        String stageName = '';
+
+        List<Opportunity> opps = [
+            SELECT Amount, MRR__c, StageName
+            FROM Opportunity
+            WHERE Id = :oppId
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+        if (!opps.isEmpty()) {
+            Opportunity opp = opps[0];
+            oppAmount = opp.MRR__c != null ? opp.MRR__c : (opp.Amount != null ? opp.Amount : 0);
+            stageName = opp.StageName;
+            // Simple impact: normalize against ceiling
+            impactScore = Math.min(oppAmount / DEFAULT_MRR_CEILING, 1.0);
+        }
+
+        Decimal finalScore = (0.5 * impactScore) + (0.5 * urgencyScore);
+
+        NBA_Queue__c action = new NBA_Queue__c(
+            Opportunity__c = oppId,
+            Account__c = accountId,
+            Sales_Rep__c = aeId,
+            Status__c = 'Pending',
+            Action_Type__c = 'Meeting',
+            Impact_Score__c = impactScore,
+            Urgency_Score__c = urgencyScore,
+            Priority_Score__c = finalScore,
+            Priority_Bucket__c = 'Cadence Due Today',
+            Priority_Layer__c = 'Layer 1 - Time Bound',
+            Is_Time_Bound__c = true,
+            DueAt__c = dueAt,
+            Cadence_Stage__c = 1,
+            Attempt_Count_Today__c = 0,
+            Source_Path__c = 'Immediate',
+            Rule_Name__c = 'Meeting_TimeBound',
+            Action_Instruction__c = instruction != null ? instruction.left(255) : 'Prepare for upcoming meeting',
+            Workflow_Mode__c = 'Pipeline',
+            ReasonText__c = 'Time-bound meeting action. Prepare context before the call.',
+            LastEvaluatedAt__c = Datetime.now(),
+            UniqueKey__c = uniqueKey,
+            Opportunity_Stage__c = stageName,
+            Due_Date__c = dueAt.date()
+        );
+
+        return action;
+    }
+
+    /**
+     * Update an existing time-bound action's due time (meeting rescheduled).
+     * @param eventId The Event record ID to look up the action
+     * @param oppId The Opportunity the event is linked to
+     * @param newDueAt The new meeting start time
+     * @return Updated NBA_Queue__c, or null if no matching action found
+     */
+    public static NBA_Queue__c updateTimeBoundAction(Id eventId, Id oppId, Datetime newDueAt) {
+        String uniqueKey = 'V2|' + oppId + '|Meeting|' + eventId;
+        List<NBA_Queue__c> actions = [
+            SELECT Id, DueAt__c, Due_Date__c, Status__c
+            FROM NBA_Queue__c
+            WHERE UniqueKey__c = :uniqueKey
+              AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+
+        if (actions.isEmpty()) {
+            return null;
+        }
+
+        NBA_Queue__c action = actions[0];
+        action.DueAt__c = newDueAt;
+        action.Due_Date__c = newDueAt.date();
+        action.LastEvaluatedAt__c = Datetime.now();
+        return action;
+    }
+
+    /**
+     * Cancel a time-bound action (meeting deleted/cancelled).
+     * Sets Status to 'Expired' so it no longer surfaces.
+     * @param eventId The Event record ID
+     * @param oppId The Opportunity the event was linked to
+     * @return Expired NBA_Queue__c, or null if no matching action found
+     */
+    public static NBA_Queue__c cancelTimeBoundAction(Id eventId, Id oppId) {
+        String uniqueKey = 'V2|' + oppId + '|Meeting|' + eventId;
+        List<NBA_Queue__c> actions = [
+            SELECT Id, Status__c, UniqueKey__c
+            FROM NBA_Queue__c
+            WHERE UniqueKey__c = :uniqueKey
+              AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+
+        if (actions.isEmpty()) {
+            return null;
+        }
+
+        NBA_Queue__c action = actions[0];
+        action.Status__c = 'Expired';
+        action.UniqueKey__c = null; // Clear so it can be recreated if meeting is re-added
+        action.LastEvaluatedAt__c = Datetime.now();
+        return action;
+    }
+
     // ─── Suppression Logic ────────────────────────────────────────────
 
     /**

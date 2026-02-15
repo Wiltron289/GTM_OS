@@ -32,6 +32,7 @@ export default class NbaDemoWorkspace extends LightningElement {
     currentAction = null;
     showEmptyState = false;
     isTransitioning = false;
+    _pollInterval = null;
 
     // Data properties populated from the Apex wrapper
     headerData;
@@ -58,6 +59,21 @@ export default class NbaDemoWorkspace extends LightningElement {
             // App Page mode — no recordId injected
             this.isActionMode = true;
             this._loadActiveAction();
+
+            // Poll every 60s for new actions (e.g., trigger-created Layer 1 time-bound)
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            this._pollInterval = setInterval(() => {
+                if (!this.isTransitioning && !this.isLoading) {
+                    this._refreshActiveAction();
+                }
+            }, 60000);
+        }
+    }
+
+    disconnectedCallback() {
+        if (this._pollInterval) {
+            clearInterval(this._pollInterval);
+            this._pollInterval = null;
         }
     }
 
@@ -118,6 +134,35 @@ export default class NbaDemoWorkspace extends LightningElement {
         } finally {
             this.isLoading = false;
             this.isTransitioning = false;
+        }
+    }
+
+    // ────────────────────────────────────────────
+    // App Page: silent refresh (polling, no loading spinner)
+    // ────────────────────────────────────────────
+    async _refreshActiveAction() {
+        try {
+            const action = await getActiveAction();
+            if (action) {
+                const prevActionId = this.currentAction?.actionId;
+                const prevOppId = this.currentAction?.opportunityId;
+
+                // Only update if the action changed (new action or different opp)
+                if (action.actionId !== prevActionId) {
+                    this.currentAction = action;
+                    this.showEmptyState = false;
+                    if (action.opportunityId !== prevOppId) {
+                        const data = await getPageData({ oppId: action.opportunityId });
+                        this._applyPageData(data);
+                    }
+                }
+            } else if (this.currentAction) {
+                // Actions cleared — show empty state
+                this.currentAction = null;
+                this.showEmptyState = true;
+            }
+        } catch (err) {
+            // Silent fail on polling — don't disrupt the UI
         }
     }
 

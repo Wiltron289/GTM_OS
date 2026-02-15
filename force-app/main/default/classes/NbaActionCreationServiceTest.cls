@@ -454,4 +454,156 @@ private class NbaActionCreationServiceTest {
         System.assertEquals(expectedKey, action.UniqueKey__c,
             'UniqueKey should follow V2|oppId|actionType format');
     }
+
+    // ─── Time-Bound Action Tests (Phase 4) ──────────────────────────
+
+    @isTest
+    static void testCreateTimeBoundAction_Success() {
+        Opportunity opp = [
+            SELECT Id, AccountId, OwnerId, StageName, Amount, IsClosed
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 1'
+            AND StageName = 'New' LIMIT 1
+        ];
+
+        // Create an Event to use its ID for the unique key
+        Event evt = new Event(
+            WhatId = opp.Id,
+            Subject = 'Test Meeting',
+            StartDateTime = Datetime.now().addHours(2),
+            EndDateTime = Datetime.now().addHours(3)
+        );
+        insert evt;
+
+        Test.startTest();
+        NBA_Queue__c action = NbaActionCreationService.createTimeBoundAction(
+            opp.Id, opp.AccountId, opp.OwnerId,
+            Datetime.now().addHours(2), evt.Id,
+            'Review context before demo meeting'
+        );
+        Test.stopTest();
+
+        System.assertNotEquals(null, action, 'Should create a time-bound action');
+        System.assertEquals('Meeting', action.Action_Type__c, 'Type should be Meeting');
+        System.assertEquals('Layer 1 - Time Bound', action.Priority_Layer__c, 'Layer should be Layer 1');
+        System.assertEquals(true, action.Is_Time_Bound__c, 'Should be time-bound');
+        System.assertEquals('Immediate', action.Source_Path__c, 'Source should be Immediate');
+        System.assertEquals('Pending', action.Status__c, 'Status should be Pending');
+        System.assertNotEquals(null, action.DueAt__c, 'DueAt should be set');
+        System.assert(action.UniqueKey__c.contains('Meeting'), 'UniqueKey should contain Meeting');
+    }
+
+    @isTest
+    static void testCreateTimeBoundAction_DuplicatePrevented() {
+        Opportunity opp = [
+            SELECT Id, AccountId, OwnerId
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 1'
+            AND StageName = 'New' LIMIT 1
+        ];
+
+        Event evt = new Event(
+            WhatId = opp.Id,
+            Subject = 'Dup Test Meeting',
+            StartDateTime = Datetime.now().addHours(3),
+            EndDateTime = Datetime.now().addHours(4)
+        );
+        insert evt;
+
+        // Create first action and insert it
+        NBA_Queue__c first = NbaActionCreationService.createTimeBoundAction(
+            opp.Id, opp.AccountId, opp.OwnerId,
+            Datetime.now().addHours(3), evt.Id, 'First'
+        );
+        insert first;
+
+        Test.startTest();
+        // Second call with same event → should return null (duplicate)
+        NBA_Queue__c second = NbaActionCreationService.createTimeBoundAction(
+            opp.Id, opp.AccountId, opp.OwnerId,
+            Datetime.now().addHours(3), evt.Id, 'Duplicate'
+        );
+        Test.stopTest();
+
+        System.assertEquals(null, second, 'Duplicate should return null');
+    }
+
+    @isTest
+    static void testUpdateTimeBoundAction_ReschedulesMeeting() {
+        Opportunity opp = [
+            SELECT Id, AccountId, OwnerId
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 1'
+            AND StageName = 'New' LIMIT 1
+        ];
+
+        Event evt = new Event(
+            WhatId = opp.Id,
+            Subject = 'Reschedule Test',
+            StartDateTime = Datetime.now().addHours(2),
+            EndDateTime = Datetime.now().addHours(3)
+        );
+        insert evt;
+
+        NBA_Queue__c action = NbaActionCreationService.createTimeBoundAction(
+            opp.Id, opp.AccountId, opp.OwnerId,
+            Datetime.now().addHours(2), evt.Id, 'Original time'
+        );
+        insert action;
+
+        Datetime newTime = Datetime.now().addHours(5);
+        Test.startTest();
+        NBA_Queue__c updated = NbaActionCreationService.updateTimeBoundAction(
+            evt.Id, opp.Id, newTime
+        );
+        Test.stopTest();
+
+        System.assertNotEquals(null, updated, 'Should find the action to update');
+        System.assertEquals(newTime, updated.DueAt__c, 'DueAt should be updated');
+    }
+
+    @isTest
+    static void testCancelTimeBoundAction_ExpiresMeetingAction() {
+        Opportunity opp = [
+            SELECT Id, AccountId, OwnerId
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 1'
+            AND StageName = 'New' LIMIT 1
+        ];
+
+        Event evt = new Event(
+            WhatId = opp.Id,
+            Subject = 'Cancel Test',
+            StartDateTime = Datetime.now().addHours(2),
+            EndDateTime = Datetime.now().addHours(3)
+        );
+        insert evt;
+
+        NBA_Queue__c action = NbaActionCreationService.createTimeBoundAction(
+            opp.Id, opp.AccountId, opp.OwnerId,
+            Datetime.now().addHours(2), evt.Id, 'Will be cancelled'
+        );
+        insert action;
+
+        Test.startTest();
+        NBA_Queue__c cancelled = NbaActionCreationService.cancelTimeBoundAction(evt.Id, opp.Id);
+        Test.stopTest();
+
+        System.assertNotEquals(null, cancelled, 'Should find the action to cancel');
+        System.assertEquals('Expired', cancelled.Status__c, 'Status should be Expired');
+        System.assertEquals(null, cancelled.UniqueKey__c, 'UniqueKey should be cleared');
+    }
+
+    @isTest
+    static void testCancelTimeBoundAction_NoMatchReturnsNull() {
+        Opportunity opp = [
+            SELECT Id FROM Opportunity
+            WHERE Account.Name = 'Creation Test Account 1'
+            AND StageName = 'New' LIMIT 1
+        ];
+
+        // Use a fake event ID — no matching action exists
+        Id fakeEventId = opp.Id; // reuse an ID just to have a valid one for the query
+        Test.startTest();
+        NBA_Queue__c result = NbaActionCreationService.cancelTimeBoundAction(fakeEventId, opp.Id);
+        Test.stopTest();
+
+        System.assertEquals(null, result, 'No matching action should return null');
+    }
 }
