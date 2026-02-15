@@ -59,15 +59,15 @@ When developing features or debugging, update the appropriate doc file:
 |------|-------|
 | **Active Branch** | `feature/nba-v2-demo-lwc` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
-| **Apex Tests** | 43 passing (Phase 2 engine) + 19 existing = 62 total |
-| **Current Phase** | **Sprint 13 — NBA V2 LWC Integration (Phase 3 IN PROGRESS)** |
+| **Apex Tests** | 43 passing (Phase 2 engine) + 10 controller + 19 existing = 72 total |
+| **Current Phase** | **Phase 3 COMPLETE — Phase 4 (Triggers + Real-Time) next** |
 | **Phase Plan** | `docs/nba-v2-phase-plan.md` |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
 ### What Exists
 
 - **Feature 1**: Account Scoring Data Layer -- `Account_Scoring__c` custom object + permission sets (deployed)
-- **Feature 2**: NBA V2 Demo LWC -- 18 LWC components, 1 Apex controller (~955 lines), 1 test class (~560 lines), 1 FlexiPage (deployed through Sprint 10)
+- **Feature 2**: NBA V2 Demo LWC -- 20 LWC components (18 original + nbaEmptyState + nbaActionBar), 2 Apex controllers (NbaDemoController + NbaActionController), 2 FlexiPages (Record Page + App Page). Deployed through Sprint 13.
 - **Feature 3**: NBA_Queue__c -- 108-field custom object deployed to UAT (96 original + 12 V2 fields: Impact_Score, Urgency_Score, Priority_Bucket, Priority_Layer, Is_Time_Bound, Cadence_Stage, Attempt_Count_Today, Last_Attempt_Method, Source_Path, Rule_Name, Action_Instruction, Workflow_Mode). Action_Type__c updated with 5 new values (First Touch, Re-engage, Stage Progression, SLA Response, Blitz Outreach).
 - **Feature 4**: 5 Custom Metadata Types for NBA V2 rule engine -- NBA_Cadence_Rule__mdt (7 records), NBA_Urgency_Rule__mdt (4 records), NBA_Suppression_Rule__mdt (4 records), NBA_Impact_Weight__mdt (1 record), NBA_Cooldown_Rule__mdt (3 records). All deployed to UAT.
 - **Feature 5**: 5 sample NBA_Queue__c records with V2 fields populated (First Touch/Time-Bound, Re-engage, Stage Progression, Snoozed, Blitz Outreach)
@@ -98,56 +98,38 @@ All 6 Apex service classes built, deployed, and tested. 43/43 tests passing.
 
 **Schedulables**: 6 jobs each at fixed minute offsets (SF cron doesn't support step/comma syntax). Creation: 0,10,20,30,40,50. Expiration: 5,15,25,35,45,55.
 
-### Current Work: Phase 3 — LWC Integration (Sprint 13)
+### Phase 3 — LWC Integration — COMPLETE (Sprint 13)
 
-Wire the engine into the Demo LWC so AEs can see and interact with V2 actions on a dedicated App Page.
+Wired the engine into the Demo LWC so AEs can see and interact with V2 actions on a dedicated App Page.
 
-**Goal**: AE opens App Page → sees top-priority action with full Opp context → Complete/Snooze/Dismiss → next action loads → "All caught up!" when done.
+**UX**: AE opens App Page → sees top-priority action with full Opp context → Complete/Snooze/Dismiss → next action loads → "All caught up!" when done.
+
+#### What Was Built
+
+| Component | Purpose |
+|-----------|---------|
+| `NbaActionController.cls` + test (10 tests, 96% coverage) | Thin controller: getActiveAction, complete, snooze, dismiss. Delegates to NbaActionStateService. |
+| `nbaEmptyState` LWC | "All caught up!" display when AE has no actions |
+| `nbaActionBar` LWC | Fixed bottom bar: Complete (green), Snooze (panel 15m/1h/4h + reason), Dismiss (panel with category + reason) |
+| `nbaDemoWorkspace` dual-mode refactor | connectedCallback detects App Page, imperative getActiveAction + getPageData, effectiveRecordId getter, transition overlay |
+| `nbaDemoHeader` action badge | Color-coded action type badge (5 types), snooze hidden in action mode |
+| `nbaDemoInsightsPanel` "Why This Action" | Dual title, shows action instruction + reason in action mode |
+| `nbaDemoAlertBanner` urgency banner | Red time-bound urgency banner with countdown |
+| `NBA_V2_Workspace.flexipage-meta.xml` | App Page FlexiPage (defaultAppHomeTemplate) |
 
 #### Architecture: Dual-Mode Workspace
 
-The workspace supports two modes:
-- **Record Page mode** (existing): `@api recordId` auto-set → `@wire(getPageData)` fires normally → no changes
-- **App Page mode** (new): No recordId → `connectedCallback` calls `getActiveAction()` → gets NBA_Queue__c action → imperatively calls `getPageData(action.oppId)` → action bar shows at bottom
+- **Record Page mode**: `@api recordId` auto-set → `@wire(getPageData)` fires normally → unchanged from Sprint 10
+- **App Page mode**: No recordId → `connectedCallback` → `getActiveAction()` → imperative `getPageData(action.oppId)` → `_applyPageData(data)` helper → action bar at bottom
 
-Key design: imperative Apex calls in App Page mode (not wire), because `$recordId` won't fire without a Record Page context. Both paths share `_applyPageData(data)` helper.
+Both paths share `_applyPageData(data)`. Children receive `effectiveRecordId` (action's oppId or recordId). Action lifecycle dispatches events up from `nbaActionBar` → workspace handlers call controller → reload if different Opp.
 
-#### Build Order (6 steps)
+#### Key Gotcha: LWC Template Ternary
+LWC does not allow ternary operators in HTML `class={}` attributes. Use computed `cssClass` properties in JS getters instead. Example: `{ label: '15 min', value: 15, cssClass: this.snoozeDuration === 15 ? 'selected' : '' }`.
 
-| Step | What | Files |
-|------|------|-------|
-| 1 | `NbaActionController.cls` + test | Thin controller: getActiveAction, complete, snooze, dismiss. Delegates to NbaActionStateService. Returns ActionWrapper/ActionResultWrapper. |
-| 2 | `nbaEmptyState` + `nbaActionBar` LWCs | Empty state ("All caught up!") + fixed bottom bar with Complete (green), Snooze (neutral+panel), Dismiss (red+panel). |
-| 3 | `nbaDemoWorkspace` dual-mode refactor | Add action loading, lifecycle handlers, `effectiveRecordId` getter, transition overlay. Keep existing wire for Record Page. |
-| 4 | `nbaDemoHeader` refactor | Add action type badge (color-coded), hide Snooze in action mode. |
-| 5 | `nbaDemoInsightsPanel` + `nbaDemoAlertBanner` | "Why This Action" title + instruction. Time-bound urgency banner. |
-| 6 | `NBA_V2_Workspace.flexipage-meta.xml` + deploy + test | App Page FlexiPage, deploy all, run tests. |
+### Next: Phase 4 — Triggers + Real-Time Events (Sprint 14)
 
-#### NbaActionController Methods
-- `getActiveAction()` — queries In Progress NBA_Queue__c for current user. If none, promotes Pending. Returns ActionWrapper (actionId, opportunityId, actionType, actionInstruction, reasonText, priorityLayer, priorityBucket, priorityScore, isTimeBound, dueAt, status) or null.
-- `completeAction(Id)` / `snoozeAction(Id, String, Integer)` / `dismissAction(Id, String, String)` — delegate to NbaActionStateService, return ActionResultWrapper { nextAction, hasNext }.
-
-#### Key LWC Changes
-- `nbaDemoWorkspace.js`: imports NbaActionController methods + userId. New properties: currentAction, isActionMode, _actionOppId, showEmptyState, isTransitioning. `connectedCallback()` detects App Page. Action handlers call controller → update currentAction → reload if different Opp.
-- `nbaDemoWorkspace.html`: empty state conditional, action bar at bottom, transition overlay, `record-id={effectiveRecordId}` on children.
-- `nbaDemoWorkspace.js-meta.xml`: add `lightning__AppPage` target.
-- `nbaDemoHeader`: `@api currentAction`, `@api isActionMode`. Action type badge, conditional snooze button.
-- `nbaActionBar`: `@api currentAction`, `@api isTransitioning`. Dispatches complete/snooze/dismiss events.
-
-#### Files to Create (13 new)
-- `NbaActionController.cls` + meta + test + test meta (4)
-- `nbaEmptyState/` — html, js, css, meta (4)
-- `nbaActionBar/` — html, js, css, meta (4)
-- `NBA_V2_Workspace.flexipage-meta.xml` (1)
-
-#### Files to Modify (~12)
-- `nbaDemoWorkspace` — js, html, css, meta.xml
-- `nbaDemoHeader` — js, html, css
-- `nbaDemoInsightsPanel` — js, html, css
-- `nbaDemoAlertBanner` — js, html, css
-
-#### Phase 4 (Next): Triggers + Real-Time Events
-After Phase 3, Phase 4 adds triggers on Opportunity, Event, Task for real-time action creation (new opp → SLA First Touch, meeting → time-bound action, activity → context update). See `docs/nba-v2-phase-plan.md`.
+Phase 4 adds triggers on Opportunity, Event, Task for real-time action creation (new opp → SLA First Touch, meeting → time-bound action, activity → context update). See `docs/nba-v2-phase-plan.md`.
 
 ### Signal Architecture Reference
 
