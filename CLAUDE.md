@@ -59,8 +59,8 @@ When developing features or debugging, update the appropriate doc file:
 |------|-------|
 | **Active Branch** | `feature/nba-v2-demo-lwc` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
-| **Apex Tests** | 43 passing (Phase 2 engine) + 10 controller + 19 existing = 72 total |
-| **Current Phase** | **Phase 3 COMPLETE — Phase 4 (Triggers + Real-Time) next** |
+| **Apex Tests** | 44 Phase 4 trigger tests + 43 Phase 2 engine + 10 controller + 19 existing = 116 total |
+| **Current Phase** | **Phase 4 COMPLETE — Phase 5 (Blitz Mode + Polish) next** |
 | **Phase Plan** | `docs/nba-v2-phase-plan.md` |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
@@ -72,6 +72,7 @@ When developing features or debugging, update the appropriate doc file:
 - **Feature 4**: 5 Custom Metadata Types for NBA V2 rule engine -- NBA_Cadence_Rule__mdt (7 records), NBA_Urgency_Rule__mdt (4 records), NBA_Suppression_Rule__mdt (4 records), NBA_Impact_Weight__mdt (1 record), NBA_Cooldown_Rule__mdt (3 records). All deployed to UAT.
 - **Feature 5**: 5 sample NBA_Queue__c records with V2 fields populated (First Touch/Time-Bound, Re-engage, Stage Progression, Snoozed, Blitz Outreach)
 - **Feature 6**: NBA V2 Engine Core (Phase 2) -- 6 Apex service classes + 6 test classes, all deployed to UAT (43/43 tests passing). See details below.
+- **Feature 7**: NBA V2 Triggers (Phase 4) -- 3 triggers (Opportunity, Event, Task) + 3 handler classes + 1 Queueable + 1 utility class + 4 test classes. All deployed to UAT (44/44 tests passing).
 
 ### Phase 2 Engine Core — COMPLETE (Sprint 12)
 
@@ -127,9 +128,36 @@ Both paths share `_applyPageData(data)`. Children receive `effectiveRecordId` (a
 #### Key Gotcha: LWC Template Ternary
 LWC does not allow ternary operators in HTML `class={}` attributes. Use computed `cssClass` properties in JS getters instead. Example: `{ label: '15 min', value: 15, cssClass: this.snoozeDuration === 15 ? 'selected' : '' }`.
 
-### Next: Phase 4 — Triggers + Real-Time Events (Sprint 14)
+### Phase 4 — Triggers + Real-Time Events — COMPLETE (Sprint 14)
 
-Phase 4 adds triggers on Opportunity, Event, Task for real-time action creation (new opp → SLA First Touch, meeting → time-bound action, activity → context update). See `docs/nba-v2-phase-plan.md`.
+Added real-time trigger-based action creation so actions appear instantly when CRM events occur.
+
+#### What Was Built
+
+| Component | Purpose |
+|-----------|---------|
+| `OpportunityTrigger` + `NbaOpportunityTriggerHandler` | New opp → SLA First Touch, stage change → re-evaluation via async Queueable |
+| `EventTrigger` + `NbaEventTriggerHandler` | Meeting scheduled → Layer 1 time-bound action (synchronous), reschedule/cancel support |
+| `TaskTrigger` + `NbaTaskTriggerHandler` | Activity logged → context update, auto-completes First Touch/Re-engage on connected calls |
+| `NbaRealTimeEvaluationQueueable` | Async wrapper reusing full engine pipeline (signal → evaluate → create → promote) |
+| `NbaTriggerContext` | Recursion guards, shared constants, helper methods for all trigger handlers |
+| `NbaActionCreationService` additions | `createTimeBoundAction()`, `updateTimeBoundAction()`, `cancelTimeBoundAction()` |
+| `nbaDemoWorkspace` polling | 60s auto-refresh on App Page for real-time action detection |
+
+#### Architecture: Trigger → Handler → Engine
+
+- **Opportunity triggers** (heavy — full signal evaluation): Enqueue `NbaRealTimeEvaluationQueueable` → runs in async context with fresh governor limits → reuses `NbaSignalService.getSignals()` + `NbaActionCreationService.evaluateAndCreate()`.
+- **Event triggers** (lightweight — synchronous): Call `NbaActionCreationService.createTimeBoundAction()` directly in trigger context (2-3 SOQL + 1-2 DML).
+- **Task triggers** (lightweight — synchronous): Query existing actions for affected Opps, update context fields or auto-complete.
+- **Recursion prevention**: `NbaTriggerContext` static booleans prevent re-entry when NBA_Queue__c DML causes cascading triggers.
+- **Dedup**: Time-bound actions use UniqueKey `'V2|' + oppId + '|Meeting|' + eventId`.
+
+#### Key Gotcha: Trigger-Test Interaction
+When testing `createTimeBoundAction()` directly, set `NbaTriggerContext.setEventHandlerRun()` BEFORE inserting the Event to prevent the EventTrigger from creating the action first (dedup would return null). Tests that rely on the trigger firing should NOT set this guard.
+
+### Next: Phase 5 — Blitz Mode + Polish (Sprint 15)
+
+Phase 5 adds mode switching (Pipeline vs Blitz), campaign-linked actions, method escalation (Call → SMS → Email), and production readiness. See `docs/nba-v2-phase-plan.md`.
 
 ### Signal Architecture Reference
 

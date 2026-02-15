@@ -308,3 +308,67 @@ Built the complete NBA V2 Action Orchestration Engine core: 6 Apex service class
 | Cron `0/10` and comma syntax | SF `System.schedule()` doesn't support step/comma | 6 separate `System.schedule()` calls |
 
 **Files created (24 total):** 12 Apex classes + 12 meta.xml files under `force-app/main/default/classes/`
+
+---
+
+## Sprint 14 — Phase 4: Triggers + Real-Time Events (2026-02-15)
+
+**Goal**: Actions created in real-time from CRM events, not just scheduled batch.
+
+### What Changed
+
+**New Apex Classes (7):**
+- `NbaTriggerContext.cls` — Shared recursion guards, constants, helpers for all trigger handlers
+- `NbaRealTimeEvaluationQueueable.cls` — Async wrapper: signal → evaluate → create → promote
+- `NbaOpportunityTriggerHandler.cls` — After insert (new opp → First Touch), after update (stage change → re-evaluation)
+- `NbaEventTriggerHandler.cls` — After insert/update/delete: meeting → Layer 1 time-bound action
+- `NbaTaskTriggerHandler.cls` — After insert/update: activity → context update, auto-complete on connected calls
+
+**New Test Classes (4):**
+- `NbaRealTimeEvaluationQueueableTest.cls` — 3 tests
+- `NbaOpportunityTriggerHandlerTest.cls` — 6 tests
+- `NbaEventTriggerHandlerTest.cls` — 5 tests
+- `NbaTaskTriggerHandlerTest.cls` — 6 tests
+
+**New Triggers (3):**
+- `OpportunityTrigger.trigger` — after insert, after update → NbaOpportunityTriggerHandler
+- `EventTrigger.trigger` — after insert, after update, after delete → NbaEventTriggerHandler
+- `TaskTrigger.trigger` — after insert, after update → NbaTaskTriggerHandler
+
+**Modified Apex (2):**
+- `NbaActionCreationService.cls` — Added `createTimeBoundAction()`, `updateTimeBoundAction()`, `cancelTimeBoundAction()`
+- `NbaActionCreationServiceTest.cls` — Added 5 time-bound action tests (19 → 24 total)
+
+**Modified LWC (1):**
+- `nbaDemoWorkspace.js` — Added 60s polling interval + `_refreshActiveAction()` + `disconnectedCallback` cleanup
+
+### Architecture Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Opp trigger execution model | Queueable (async) | Full signal eval uses ~12 SOQL; Queueable gets fresh governor limits |
+| Event trigger execution model | Synchronous | Only 2-3 SOQL + 1-2 DML; safe in trigger context |
+| Task trigger execution model | Synchronous | Only 1-2 SOQL + 1-2 DML; context updates are lightweight |
+| Recursion prevention | Static booleans in NbaTriggerContext | Prevents re-entry when NBA_Queue__c DML causes cascading triggers |
+| Time-bound dedup key | `'V2|' + oppId + '\|Meeting\|' + eventId` | One action per Event, not per Opp (multiple meetings can coexist) |
+| LWC real-time updates | 60s polling (not Platform Events) | Simple, no infrastructure overhead; acceptable for ~minute latency |
+| Task auto-complete | Connected-DM/GK dispositions | Fulfills First Touch/Re-engage actions when AE already made the call |
+
+### Test Results
+
+44 new tests passing (100% pass rate). Key coverage:
+- NbaOpportunityTriggerHandler: 100%
+- NbaEventTriggerHandler: 94%
+- NbaTaskTriggerHandler: 79%
+- NbaRealTimeEvaluationQueueable: 95%
+- NbaActionCreationService: 77% (with new time-bound methods)
+
+### Bugs Encountered & Fixed
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| Empty Queueable test creates action | @TestSetup Opp insert fires trigger → enqueues async → Test.stopTest() flushes it | Compare delta counts instead of asserting zero |
+| Duplicate ID in bulk Task test | 200 Tasks on same Opp → same action added to update list 200 times | Use `Map<Id, NBA_Queue__c>` to deduplicate before DML |
+| Time-bound creation tests return null | Event insert fires trigger → creates action → direct call finds dedup → returns null | Set `NbaTriggerContext.setEventHandlerRun()` before Event insert in direct method tests |
+
+**Files created (27 total):** 7 Apex classes + 4 test classes + 3 triggers + 13 meta.xml files

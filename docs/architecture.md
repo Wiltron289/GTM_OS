@@ -170,9 +170,74 @@ On open: register a `{ once: true }` click listener on `document` via `setTimeou
 
 ---
 
+## Trigger Architecture (Phase 4)
+
+### Overview
+
+Three triggers create/update NBA actions in real-time:
+
+```
+                    ┌──────────────────────────────────────┐
+                    │        Trigger Framework             │
+                    ├──────────┬──────────┬────────────────┤
+                    │ Opp      │ Event    │ Task           │
+                    │ (async)  │ (sync)   │ (sync)         │
+                    └────┬─────┴────┬─────┴───────┬────────┘
+                         │          │             │
+                    ┌────▼─────┐    │        ┌────▼────────┐
+                    │Queueable │    │        │Context Upd  │
+                    │Signal→   │    │        │Auto-Complete│
+                    │Create→   │    │        └─────────────┘
+                    │Promote   │    │
+                    └──────────┘    │
+                              ┌─────▼──────────┐
+                              │TimeBound Action │
+                              │createTimeBound  │
+                              │updateTimeBound  │
+                              │cancelTimeBound  │
+                              └────────────────┘
+```
+
+### Execution Models
+
+| Trigger | Model | Why | SOQL Budget |
+|---------|-------|-----|-------------|
+| Opportunity | Queueable (async) | Full signal eval ~12 SOQL | Fresh limits in async |
+| Event | Synchronous | 2-3 SOQL + 1-2 DML | Safe in trigger |
+| Task | Synchronous | 1-2 SOQL + 1-2 DML | Safe in trigger |
+
+### Recursion Prevention
+
+`NbaTriggerContext` provides per-object static boolean guards:
+- `hasOppHandlerRun()` / `setOppHandlerRun()`
+- `hasEventHandlerRun()` / `setEventHandlerRun()`
+- `hasTaskHandlerRun()` / `setTaskHandlerRun()`
+- `resetAll()` -- `@TestVisible` for test reset between scenarios
+
+Reset per transaction. Prevents re-entry when NBA_Queue__c DML triggers downstream cascades.
+
+### Time-Bound Actions (Layer 1)
+
+Events trigger Layer 1 time-bound actions:
+- **Created**: Event insert with `WhatId = Opportunity`, `StartDateTime` within 24h
+- **Updated**: Event StartDateTime changes → update `DueAt__c`
+- **Cancelled**: Event deleted → expire action (`Status = 'Expired'`)
+- **UniqueKey**: `'V2|' + oppId + '|Meeting|' + eventId`
+
+### Task Context Updates
+
+Tasks DON'T create new actions. They update existing ones:
+1. `LastEvaluatedAt__c = now()` on all active actions for the Opp
+2. Call tasks: increment `Attempt_Count_Today__c`, set `Last_Attempt_Method__c`
+3. Connected calls (Connected-DM/GK): auto-complete First Touch / Re-engage / Follow Up actions
+
+### LWC Polling
+
+`nbaDemoWorkspace` polls `getActiveAction()` every 60 seconds in App Page mode. Silent refresh — no loading spinner, no error display. Only updates if the action ID changed.
+
+---
+
 ## Pending Actions
 
-- **Assign NBA_V2_Demo FlexiPage** -- Currently unassigned; activate via Setup > Object Manager > Opportunity > Lightning Record Pages > NBA V2 Demo > Activation
-- **Not connected to NBA Queue** -- This is standalone record page UX, not wired to an action queue yet
 - **Share data contract** with Data Engineering for Account_Scoring__c pipeline
 - **Merge feature branch** to master + push to GitHub
