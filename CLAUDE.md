@@ -59,8 +59,8 @@ When developing features or debugging, update the appropriate doc file:
 |------|-------|
 | **Active Branch** | `feature/nba-v2-demo-lwc` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
-| **Apex Tests** | 19 passing |
-| **Current Phase** | **Sprint 11 — NBA V2 Action Orchestration Engine (Phase 1 COMPLETE, Phase 2 next)** |
+| **Apex Tests** | 43 passing (Phase 2 engine) + 19 existing = 62 total |
+| **Current Phase** | **Sprint 12 — NBA V2 Action Orchestration Engine (Phase 2 COMPLETE, Phase 3 next)** |
 | **Phase Plan** | `docs/nba-v2-phase-plan.md` |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
@@ -71,79 +71,50 @@ When developing features or debugging, update the appropriate doc file:
 - **Feature 3**: NBA_Queue__c -- 108-field custom object deployed to UAT (96 original + 12 V2 fields: Impact_Score, Urgency_Score, Priority_Bucket, Priority_Layer, Is_Time_Bound, Cadence_Stage, Attempt_Count_Today, Last_Attempt_Method, Source_Path, Rule_Name, Action_Instruction, Workflow_Mode). Action_Type__c updated with 5 new values (First Touch, Re-engage, Stage Progression, SLA Response, Blitz Outreach).
 - **Feature 4**: 5 Custom Metadata Types for NBA V2 rule engine -- NBA_Cadence_Rule__mdt (7 records), NBA_Urgency_Rule__mdt (4 records), NBA_Suppression_Rule__mdt (4 records), NBA_Impact_Weight__mdt (1 record), NBA_Cooldown_Rule__mdt (3 records). All deployed to UAT.
 - **Feature 5**: 5 sample NBA_Queue__c records with V2 fields populated (First Touch/Time-Bound, Re-engage, Stage Progression, Snoozed, Blitz Outreach)
+- **Feature 6**: NBA V2 Engine Core (Phase 2) -- 6 Apex service classes + 6 test classes, all deployed to UAT (43/43 tests passing). See details below.
 
-### Current Work: Phase 2 — Engine Core (Sprint 12)
+### Phase 2 Engine Core — COMPLETE (Sprint 12)
 
-See `docs/nba-v2-phase-plan.md` for full phase plan. **Read this section first — it has critical signal mapping.**
+All 6 Apex service classes built, deployed, and tested. 43/43 tests passing.
 
-#### Signal Architecture — How the Engine Reads CRM Data
+| Class | Purpose | Coverage | Tests |
+|-------|---------|----------|-------|
+| `NbaSignalService` | CRM signal detection (7 SOQL/batch) | 84% | 8 |
+| `NbaActionCreationService` | Rule evaluation + candidate creation | 89% | 14 |
+| `NbaActionStateService` | Lifecycle: complete, snooze, dismiss, expire, promote | 85% | 12 |
+| `NbaActionSelectionService` | Gate → Rank prioritization | 91% | 5 |
+| `NbaActionCreationSchedulable` | 10-min creation job (6 scheduled jobs) | 89% | 2 |
+| `NbaActionExpirationSchedulable` | Expire stale + unsnooze due (6 scheduled jobs) | 100% | 2 |
 
-The engine detects real-world events from 5 CRM data sources:
+#### Key Engine Architecture
 
-**A. Phone Calls → Talkdesk Activities** (`talkdesk__Talkdesk_Activity__c`, ~2.09M records)
-- **Opp link**: `talkdesk__Opportunity__c` (DIRECT lookup exists — confirmed). Not all records have it (support reps use Talkdesk too), so filter by Opp ownership.
-- **Connected call**: `talkdesk__DispositionCode__r.talkdesk__Label__c LIKE 'Connected%'` AND `talkdesk__Total_Talk_Time_sec__c > 0`
-- **No-connect**: DispositionCode Label LIKE `'Attempted%'` OR Talk_Time = 0
-- **Voicemail**: `talkdesk__Type__c = 'Voicemail'`
-- **Not interested**: DispositionCode Label LIKE `'Not Interested%'`
-- **Type values**: Outbound (765K), Inbound (507K), Abandoned (166K), Voicemail (41K), Outbound_Missed (140K)
-- **30+ disposition codes**: Connected - Core Only, Connected - Call Scheduled, Connected - Not Interested, Attempted - Invalid Number, etc.
-- **NBA_Queue__c integration**: `Talkdesk_Activity__c` (lookup), `Talkdesk_Disposition__c` (formula), `Talk_Time_Sec__c` (formula) auto-populate when linked
-- **Name field gotcha**: Has "Contact" vs "Interaction" prefix — "Interaction" is correct but DON'T use Name for logic, use `talkdesk__Type__c`
+**Signal Detection** (NbaSignalService): Queries 7 CRM data sources per Opp batch — Opportunity, Talkdesk Activity, Mogli SMS, Events, Tasks, Account_Scoring__c, existing NBA_Queue__c. Returns `Map<Id, OpportunitySignal>`.
 
-**B. Text Messages → Mogli SMS** (`Mogli_SMS__SMS__c`, ~193K records)
-- **Opp link**: `Mogli_SMS__Opportunity__c` (direct lookup, 36K linked)
-- **Direction**: `'Outgoing'` (75%), `'Incoming'` (25% — customer reply = strong engagement signal)
-- **Status**: Sent Successfully, Received Successfully, Error (10%)
-- **Gotcha**: Use `'Outgoing'` not `'Outbound'`. `Account__c` is non-namespaced.
+**Action Creation** (NbaActionCreationService): Evaluates signals through pipeline: suppress? → determine type (First Touch/Stage Progression/Re-engage/Follow Up) → score (Impact + Urgency) → assign bucket/layer → create NBA_Queue__c with Status='Pending'. UniqueKey: `'V2|' + oppId + '|' + actionType`.
 
-**C. Meetings → Events** (standard `Event`, ~25K records)
-- **Opp link**: `WhatId` (12K linked, mostly Calendly-generated)
-- **Suppression**: `StartDateTime` within 24h → suppress outreach
+**State Management** (NbaActionStateService): AE-invoked transitions (complete, snooze, dismiss) + system-invoked (expire, unsnooze). Promotion: Layer 1 > 2 > 3, then score DESC. Constraint: max 2 active+pending per AE.
 
-**D. Activity History → Tasks** (standard `Task`, ~685K records)
-- Subtypes: Email (384K), Generic (267K), Call (8.5K, 68% missing disposition), Cadence (3.9K)
-- Use Talkdesk as PRIMARY call source, not Tasks
+**Selection** (NbaActionSelectionService): Gate (cooldown, mode filter) → Rank (layer + score sort). Lightweight — most scoring happens at creation time.
 
-**E. Opportunity Signals**
-- **Stages**: New (532), Connect (74), Consult (43), Closing (14), Verbal Commit (1), Ready to Convert (4), Evaluating (4), Hand-Off (803)
-- **Inactivity**: Use `Days_Since_Last_Interaction__c` (FORMULA on Opportunity) = `MIN(Days_Since_Last_Call__c, Days_Since_Last_Meeting__c)`. Returns 99999 if no interaction ever. **Use this, NOT LastActivityDate (70% NULL).**
-- **Stage history**: `OpportunityFieldHistory` available for stage change detection
-- **Account_Scoring__c**: Only 3 records (pilot) — must have fallback scoring via Opp.Amount + Opp.Probability
+**Schedulables**: 6 jobs each at fixed minute offsets (SF cron doesn't support step/comma syntax). Creation: 0,10,20,30,40,50. Expiration: 5,15,25,35,45,55.
 
-#### Design Decisions (Confirmed)
-1. **Talkdesk→Opp**: Use `talkdesk__Opportunity__c` direct lookup. Filter out support activities.
-2. **Inactivity**: Use `Opportunity.Days_Since_Last_Interaction__c` formula (0 SOQL cost).
-3. **Eval scope**: Only AEs with < 2 active+pending actions (~50-100 opps per run).
+### Next Phase: Phase 3 — LWC Integration
 
-#### Apex Classes to Build
+Wire the engine into the Demo LWC so AEs can see and interact with V2 actions. See `docs/nba-v2-phase-plan.md`.
 
-| File | Purpose |
-|------|---------|
-| `NbaSignalService.cls` + test | Signal detection — queries Talkdesk, SMS, Events per Opp batch |
-| `NbaActionCreationService.cls` + test | Rule evaluation + candidate creation (Status='Pending') |
-| `NbaActionStateService.cls` + test | Lifecycle: complete, snooze, dismiss, expire, unsnooze, promote |
-| `NbaActionSelectionService.cls` + test | Gate → Bucket → Rank prioritization |
-| `NbaActionCreationSchedulable.cls` | 10-min scheduled job |
-| `NbaActionExpirationSchedulable.cls` | Expire stale + unsnooze due actions |
+### Signal Architecture Reference
 
-#### NbaSignalService Query Plan (7 SOQL per batch of 200)
-1. Opportunity data (stage, amount, Days_Since_Last_Interaction__c)
-2. Recent Talkdesk Activity per Opp (`talkdesk__Opportunity__c`)
-3. Recent SMS per Opp (`Mogli_SMS__Opportunity__c`)
-4. Upcoming Events per Opp (`WhatId`)
-5. Recent Task per Opp (`WhatId`)
-6. Account_Scoring__c per Account
-7. Existing active NBA_Queue__c per Opp (dedup check)
+Keep this reference for future phases — describes how the engine reads CRM data.
 
-#### Creation Engine Flow
-```
-Schedulable (10 min) → AEs with < 2 active+pending
-  → Per AE's open Opps (batch 200):
-    1. SignalService.getSignals(oppIds)
-    2. Per Opp: suppress? → cooldown? → determine type → score → create
-    3. SelectionService.selectTop(aeId) → promote to In Progress
-```
+**Phone Calls → Talkdesk Activities** (`talkdesk__Talkdesk_Activity__c`): `talkdesk__Opportunity__c` direct lookup. Connected = `DispositionCode Label LIKE 'Connected%' AND Talk_Time > 0`.
+
+**Text Messages → Mogli SMS** (`Mogli_SMS__SMS__c`): `Mogli_SMS__Opportunity__c` direct lookup. Direction: `'Outgoing'`/`'Incoming'`.
+
+**Meetings → Events**: `WhatId` link. Suppression: `StartDateTime` within 24h.
+
+**Tasks**: `WhatId` link. Use Talkdesk as PRIMARY call source, not Tasks.
+
+**Opportunity Signals**: `Days_Since_Last_Interaction__c` formula (0 SOQL cost, returns 99999 if no interaction). Account_Scoring__c has only 3 records — fallback via `Opp.Amount + Opp.Probability`.
 
 ### Pending Actions (from Demo LWC phase)
 - Share data contract with Data Engineering for Account_Scoring__c pipeline
@@ -225,6 +196,13 @@ Schedulable (10 min) → AEs with < 2 active+pending
 - **Days_Since_Last_Interaction__c**: Formula on Opportunity — queryable, NOT writable. MIN of Days_Since_Last_Call__c and Days_Since_Last_Meeting__c. Returns 99999 if both null.
 - **Talkdesk Activity naming**: Name field has "Contact"/"Interaction" prefix — use `talkdesk__Type__c` for logic, not Name. "Interaction" is correct convention.
 - **Talkdesk Opp link**: `talkdesk__Opportunity__c` exists but not all records have it (support reps). Filter by Opp ownership or null check.
+- **NBA_Queue__c relationship paths**: Custom lookup fields use `__r` syntax — `Account__r.Name`, `Opportunity__r.Name`, NOT `Account.Name`.
+- **Dismissal_Category__c picklist**: Restricted values — `'Call Scheduled'`, `'Time Zone'`, `'Other'`. Don't use arbitrary strings.
+- **One Payroll Opp per Account**: Validation rule prevents multiple open Payroll Opps on same Account. In tests, use separate Accounts per Opportunity.
+- **Decimal.subtract()**: Not visible in Apex. Use `-` operator on Long/Integer instead: `Long ms = Math.abs(dt1.getTime() - dt2.getTime())`.
+- **SOQL CASE in ORDER BY**: Not supported in Apex SOQL. Query with simple ORDER BY, then sort in-memory with `System.Comparator`.
+- **System.schedule() cron syntax**: Doesn't support step (`0/10`) or comma-separated (`0,10,20`) in minutes field. Create separate scheduled jobs at each fixed minute.
+- **AuraHandledException message**: `e.getMessage()` doesn't reliably return the constructor message. Test that exception is thrown, not its text.
 
 ## Detailed Patterns, Agents & Commands
 

@@ -225,3 +225,86 @@ Commit 12: `style: Design polish - 8 changes to align with Magic Patterns protot
 | 3 | Hidden scrollbars | Removed visible scrollbar tracks from `.workspace-main` and `.tab-bar` |
 
 **Files changed (7 total):** 3 conversationView (HTML/CSS/JS), 2 sidebar (HTML/CSS), 1 workspace (CSS)
+
+---
+
+## Sprint 11 - NBA V2 Phase 1: Data Foundation (19 tests passing)
+
+**Commits:**
+- `feat: Sprint 11 Phase 1 — NBA V2 data foundation`
+- `feat: Complete Sprint 11 Phase 1 — seed V2 sample data + update docs`
+- `docs: Update CLAUDE.md with Phase 2 signal architecture context`
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | NBA_Queue__c V2 fields | 12 new fields added: Impact_Score, Urgency_Score, Priority_Bucket, Priority_Layer, Is_Time_Bound, Cadence_Stage, Attempt_Count_Today, Last_Attempt_Method, Source_Path, Rule_Name, Action_Instruction, Workflow_Mode |
+| 2 | Action_Type__c expansion | 5 new picklist values: First Touch, Re-engage, Stage Progression, SLA Response, Blitz Outreach |
+| 3 | Custom Metadata Types | 5 CMDTs deployed: NBA_Cadence_Rule__mdt (7 records), NBA_Urgency_Rule__mdt (4), NBA_Suppression_Rule__mdt (4), NBA_Impact_Weight__mdt (1), NBA_Cooldown_Rule__mdt (3) |
+| 4 | Sample data | 5 NBA_Queue__c records with V2 fields populated for UAT testing |
+| 5 | Signal architecture docs | Added comprehensive CRM signal mapping to CLAUDE.md |
+
+---
+
+## Sprint 12 - NBA V2 Phase 2: Engine Core (43 new tests, 62 total)
+
+**Commits:**
+- `feat: Add NbaSignalService — CRM signal detection for NBA V2 engine`
+- `feat: Add NbaActionCreationService — rule evaluation and action candidate creation`
+- `feat: Add NbaActionStateService — action lifecycle management and constraints`
+- `feat: Add SelectionService + Schedulables — complete Phase 2 engine core`
+
+### Overview
+Built the complete NBA V2 Action Orchestration Engine core: 6 Apex service classes + 6 test classes (12 files, ~2,100 lines). All 43 tests passing with 84-100% coverage per class.
+
+### Classes Built
+
+| Class | Lines | Coverage | Tests | Purpose |
+|-------|-------|----------|-------|---------|
+| NbaSignalService | ~250 | 84% | 8 | CRM signal detection — 7 SOQL per batch |
+| NbaActionCreationService | ~350 | 89% | 14 | Rule evaluation + candidate creation |
+| NbaActionStateService | ~280 | 85% | 12 | Lifecycle management + promotion |
+| NbaActionSelectionService | ~150 | 91% | 5 | Gate → Rank prioritization |
+| NbaActionCreationSchedulable | ~120 | 89% | 2 | 10-min creation job |
+| NbaActionExpirationSchedulable | ~30 | 100% | 2 | Expire + unsnooze job |
+
+### Engine Architecture
+
+**Signal Detection Pipeline** (NbaSignalService):
+- Queries 7 CRM data sources in one batch (Opportunity, Talkdesk, SMS, Events, Tasks, Account_Scoring, existing NBA_Queue)
+- Returns `Map<Id, OpportunitySignal>` wrapper with all signal data per Opp
+- Stage mapping: New=1, Connect=2, Consult=3, Evaluating=3, Closing=4, Verbal Commit=5, Ready to Convert=5, Hand-Off=0
+
+**Action Creation Pipeline** (NbaActionCreationService):
+- Suppression: 4 CMDT-driven rules (closed opp, active action exists, meeting <24h, recent touch <4h)
+- Type determination: First Touch (never contacted) > Stage Progression (late-stage) > Re-engage (5d+ inactive) > Follow Up
+- Scoring: Impact = (0.6 × normalizedMRR) + (0.4 × closeProb); Urgency = base 0.5 × multipliers; Final = 0.5 × Impact + 0.5 × Urgency
+- 5 Priority Buckets: Cadence Due Today, Late-Stage Stalled, High Impact Focus, Neglected, General Pipeline
+- 3 Priority Layers: Layer 1 (Time Bound) > Layer 2 (Mode) > Layer 3 (Impact+Urgency)
+- UniqueKey format: `'V2|' + oppId + '|' + actionType`
+
+**State Management** (NbaActionStateService):
+- AE transitions: complete, snooze (with reason + duration), dismiss (with reason + category)
+- System transitions: expire stale (non-timebound >1hr, timebound >DueAt+15min), unsnooze due
+- Promotion: Layer precedence (1>2>3) then score DESC, max 2 active+pending per AE
+- In-memory sort via `ActionLayerComparator` (SOQL CASE in ORDER BY not supported)
+
+**Selection** (NbaActionSelectionService): Gate (cooldown, mode) → Rank → return top action
+
+**Schedulables**: 6 jobs each (SF cron syntax limitation). Creation at :00/:10/:20/:30/:40/:50, Expiration at :05/:15/:25/:35/:45/:55.
+
+### Bugs Encountered & Fixed
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| Opp query by Name fails | Org trigger renames Opportunities | Query by `Account__r.Name + StageName` |
+| `Decimal.subtract()` not visible | Apex Decimal doesn't expose `subtract()` | Use `Long` arithmetic with `-` operator |
+| Multiple Opps on same Account fails | "One open Payroll Opp per Account" validation | Separate Accounts per Opp in tests |
+| SOQL CASE in ORDER BY | Not supported in Apex SOQL | In-memory sort with `System.Comparator` |
+| `Account.Name` on NBA_Queue__c | Custom lookup uses `__r` syntax | Changed to `Account__r.Name` |
+| AuraHandledException message | `getMessage()` unreliable for custom messages | Test exception thrown, not message text |
+| Invalid Dismissal_Category__c | Restricted picklist: Call Scheduled, Time Zone, Other | Changed test to use 'Other' |
+| Promote at capacity | 2 Pending = at cap, promote returns null | Simplified test to use 1 Pending |
+| Non-timebound expire test | Threshold=0 doesn't catch just-created records | Set threshold to -60 (future cutoff) |
+| Cron `0/10` and comma syntax | SF `System.schedule()` doesn't support step/comma | 6 separate `System.schedule()` calls |
+
+**Files created (24 total):** 12 Apex classes + 12 meta.xml files under `force-app/main/default/classes/`
