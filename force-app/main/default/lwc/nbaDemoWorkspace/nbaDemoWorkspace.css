@@ -236,6 +236,27 @@
     }
 }
 
+/* ── Action Bar bottom padding ───────────────────── */
+
+.workspace-body-with-bar {
+    padding-bottom: 72px;
+}
+
+/* ── Transition Overlay ──────────────────────────── */
+
+.transition-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(248, 250, 252, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+}
+
 /* Mobile: single column everything */
 @media (max-width: 768px) {
     .workspace-body {

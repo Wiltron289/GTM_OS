@@ -1,18 +1,38 @@
 <template>
-    <template if:true={isLoading}>
+    <!-- Loading State -->
+    <template lwc:if={isLoading}>
         <div class="loading-container">
             <lightning-spinner alternative-text="Loading" size="large"></lightning-spinner>
         </div>
     </template>
 
-    <template if:false={isLoading}>
+    <!-- Empty State (App Page, no actions) -->
+    <template lwc:if={showEmptyState}>
+        <c-nba-empty-state></c-nba-empty-state>
+    </template>
+
+    <!-- Workspace Content -->
+    <template lwc:if={showWorkspace}>
+        <!-- Transition Overlay (during action complete/snooze/dismiss) -->
+        <template lwc:if={isTransitioning}>
+            <div class="transition-overlay">
+                <lightning-spinner alternative-text="Loading next action" size="medium"></lightning-spinner>
+            </div>
+        </template>
+
         <!-- Alert Banner -->
-        <c-nba-demo-alert-banner upcoming-event={upcomingEvent}></c-nba-demo-alert-banner>
+        <c-nba-demo-alert-banner
+            upcoming-event={upcomingEvent}
+            current-action={currentAction}
+            is-action-mode={isActionMode}>
+        </c-nba-demo-alert-banner>
 
         <!-- Header -->
         <c-nba-demo-header
             header-data={headerData}
             contacts={contactsData}
+            current-action={currentAction}
+            is-action-mode={isActionMode}
             onemailnow={handleEmailNow}
             oncontactemail={handleContactEmail}
             onsmsnow={handleSmsNow}
@@ -21,10 +41,14 @@
         </c-nba-demo-header>
 
         <!-- Insights Panel -->
-        <c-nba-demo-insights-panel insights-data={insightsData}></c-nba-demo-insights-panel>
+        <c-nba-demo-insights-panel
+            insights-data={insightsData}
+            current-action={currentAction}
+            is-action-mode={isActionMode}>
+        </c-nba-demo-insights-panel>
 
         <!-- Two Column Layout: Tabs + Sidebar -->
-        <div class="workspace-body">
+        <div class={workspaceBodyClass}>
             <!-- Left Column: Tabs -->
             <div class="workspace-main">
                 <!-- Tab Bar -->
@@ -57,7 +81,7 @@
 
                 <!-- Tab Content -->
                 <div class="tab-content">
-                    <template if:true={isOverview}>
+                    <template lwc:if={isOverview}>
                         <!-- Overview: 3 cards in a row -->
                         <div class="overview-cards">
                             <c-nba-demo-account-details account-data={accountData}></c-nba-demo-account-details>
@@ -67,23 +91,23 @@
                         <c-nba-demo-sales-engagement engagement-data={engagementData}></c-nba-demo-sales-engagement>
                     </template>
 
-                    <template if:true={isUpdates}>
-                        <c-nba-demo-updates-tab record-id={recordId}></c-nba-demo-updates-tab>
+                    <template lwc:if={isUpdates}>
+                        <c-nba-demo-updates-tab record-id={effectiveRecordId}></c-nba-demo-updates-tab>
                     </template>
 
-                    <template if:true={isPayroll}>
+                    <template lwc:if={isPayroll}>
                         <c-nba-demo-payroll-tab payroll-tab-data={payrollTabData}></c-nba-demo-payroll-tab>
                     </template>
 
-                    <template if:true={isProducts}>
-                        <c-nba-demo-products-tab products-data={productsData} record-id={recordId}></c-nba-demo-products-tab>
+                    <template lwc:if={isProducts}>
+                        <c-nba-demo-products-tab products-data={productsData} record-id={effectiveRecordId}></c-nba-demo-products-tab>
                     </template>
 
-                    <template if:true={isContacts}>
+                    <template lwc:if={isContacts}>
                         <c-nba-demo-contacts-tab contacts-data={contactsData} oncontactemail={handleContactEmail} oncontactsms={handleContactSms}></c-nba-demo-contacts-tab>
                     </template>
 
-                    <template if:true={isAdmin}>
+                    <template lwc:if={isAdmin}>
                         <c-nba-demo-admin-tab admin-data={adminData}></c-nba-demo-admin-tab>
                     </template>
                 </div>
@@ -93,7 +117,7 @@
             <div class="workspace-sidebar">
                 <c-nba-demo-sidebar
                     sidebar-data={sidebarData}
-                    record-id={recordId}
+                    record-id={effectiveRecordId}
                     contacts={contactsData}
                     onnotesaved={handleNoteSaved}
                     onsmssent={handleSmsSent}>
@@ -101,11 +125,22 @@
             </div>
         </div>
 
+        <!-- Action Bar (App Page mode only) -->
+        <template lwc:if={showActionBar}>
+            <c-nba-action-bar
+                current-action={currentAction}
+                is-transitioning={isTransitioning}
+                oncomplete={handleCompleteAction}
+                onsnooze={handleSnoozeAction}
+                ondismiss={handleDismissAction}>
+            </c-nba-action-bar>
+        </template>
+
         <!-- Email Modal (conditional) -->
-        <template if:true={showEmailModal}>
+        <template lwc:if={showEmailModal}>
             <c-nba-demo-email-modal
                 contacts={contactsData}
-                record-id={recordId}
+                record-id={effectiveRecordId}
                 selected-contact={selectedEmailContact}
                 onclose={handleEmailModalClose}
                 onemailsent={handleEmailSent}>
@@ -113,18 +148,18 @@
         </template>
 
         <!-- SMS Modal (conditional) -->
-        <template if:true={showSmsModal}>
+        <template lwc:if={showSmsModal}>
             <c-nba-demo-sms-modal
                 contacts={contactsData}
-                record-id={recordId}
+                record-id={effectiveRecordId}
                 selected-contact={selectedSmsContact}
                 onclose={handleSmsModalClose}
                 onsmssent={handleSmsSent}>
             </c-nba-demo-sms-modal>
         </template>
 
-        <!-- Snooze Dropdown (conditional) -->
-        <template if:true={showSnoozeDropdown}>
+        <!-- Snooze Dropdown (conditional, Record Page mode only) -->
+        <template lwc:if={showSnoozeDropdown}>
             <c-nba-demo-snooze-dropdown onclose={handleSnoozeClose}></c-nba-demo-snooze-dropdown>
         </template>
     </template>
