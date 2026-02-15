@@ -125,7 +125,7 @@ All project infrastructure and tooling has been configured.
 **Current State:**
 - **Active Branch**: `feature/nba-v2-demo-lwc` (branched from `feature/account-scoring-data-layer`)
 - **Deployment Target**: vscodeOrg (Homebase UAT sandbox)
-- **Status**: Feature 2 (Demo LWC) through Sprint 8 deployed to vscodeOrg, all 18 tests passing
+- **Status**: Feature 2 (Demo LWC) through Sprint 9 deployed to vscodeOrg, all 19 tests passing
 
 ### Feature 2: NBA V2 Demo LWC UX ✅ (deployed to vscodeOrg, tests passing)
 
@@ -451,6 +451,62 @@ nbaDemoWorkspace (parent)
 └── nbaDemoEmailModal (existing - email composer)
 ```
 
+### Sprint 9 - SMS Delivery Fix + Conversation View ✅ COMPLETED (deployed to vscodeOrg, 19 tests passing)
+
+**What changed:** Fixed SMS delivery bug and added a chat-style conversation view as a third sidebar tab.
+
+**Part 1: SMS Delivery Fix**
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | Direction value | `sendSms()`: `'Outbound'` → `'Outgoing'`. Mogli's managed package triggers only process records with Direction = `'Outgoing'`. All 125,907 successfully sent org records use `'Outgoing'`. |
+| 2 | Sidebar direction check | `buildSidebar()`: Now handles both `'Outgoing'` and legacy `'Outbound'` for display |
+| 3 | Test assertion | Updated `testSendSms_CreatesRecord` to assert `'Outgoing'` |
+
+**Part 2: Conversation View in Sidebar**
+
+| # | Change | Summary |
+|---|--------|---------|
+| 1 | New LWC `nbaDemoConversationView` | Chat-style SMS conversation component: contact picker pills, chat bubbles (outbound=blue/right, inbound=gray/left), date headers, compose area with character counter, Enter-to-send |
+| 2 | Sidebar Messages tab | Third tab in pill segmented control (Notes \| Activity \| Messages). Renders conversation view with contacts + recordId. Relays `smssent` event to workspace. |
+| 3 | Workspace wiring | Passes `contacts={contactsData}` and `onsmssent={handleSmsSent}` to sidebar |
+| 4 | Apex `SmsMessageData` class | New inner class: id, message, direction, status, contactName, phoneNumber, createdDate (Datetime), isOutbound (Boolean) |
+| 5 | Apex `getConversation()` method | Queries `Mogli_SMS__SMS__c` by Contact (not Opportunity) — conversations are contact-centric. Returns last 50 messages ordered by CreatedDate ASC. |
+| 6 | 2 new test methods | `testGetConversation_ReturnsSmsMessages`, `testGetConversation_NoMessages_ReturnsEmpty` |
+
+**Conversation View Architecture:**
+- Contact picker at top filters to SMS-eligible contacts (has `mogliNumber`)
+- Chat area auto-scrolls to bottom on load
+- Compose area hidden when contact is opted out (shows warning banner)
+- Imperative Apex calls (not `@wire`) for dynamic contact switching
+- Reuses existing `sendSms` method for sending
+- `refreshConversation()` public method for external refresh triggers
+
+**Component tree update:**
+```
+nbaDemoWorkspace (parent)
+├── ... (existing components)
+├── nbaDemoSidebar
+│   ├── Notes tab (existing)
+│   ├── Activity tab (existing)
+│   └── Messages tab (NEW)
+│       └── nbaDemoConversationView (NEW - chat-style SMS thread)
+├── nbaDemoSmsModal (existing - SMS composer modal)
+└── nbaDemoEmailModal (existing - email composer)
+```
+
+**Files changed (10 total):**
+- 4 new files: `lwc/nbaDemoConversationView/` (JS, HTML, CSS, meta)
+- 3 sidebar files: `nbaDemoSidebar` (JS, HTML, CSS — third tab + contacts @api)
+- 1 workspace file: `nbaDemoWorkspace` (HTML — pass contacts/smssent to sidebar)
+- 2 Apex files: `NbaDemoController.cls` (direction fix + SmsMessageData + getConversation), `NbaDemoControllerTest.cls` (direction assertion + 2 new tests)
+
+**Mogli SMS Direction Values (for reference):**
+- `'Outgoing'` — correct value for programmatic outbound SMS. Mogli triggers process this.
+- `'Outbound'` — incorrect legacy value we were using. Mogli ignores this.
+- `'Incoming'` — inbound SMS from contacts. Set by Mogli's receive webhook.
+- Never use `'Outbound'` for SMS records intended for delivery.
+
 ### LWC Repo Structure Convention
 
 For future LWC development, use this naming convention:
@@ -599,6 +655,12 @@ This is a Salesforce DX project named **GTM_OS** using Salesforce API version 65
 - **Root Cause**: The Account lookup field on `Mogli_SMS__SMS__c` was created manually (not by the managed package), so it uses the non-namespaced API name `Account__c` instead of `Mogli_SMS__Account__c`
 - **Fix**: Changed to `sms.Account__c = con.AccountId;`
 - **Prevention**: Always verify field API names via MCP Tooling API query before referencing managed package object fields — some fields may have been added manually and won't have the namespace prefix
+
+### Mogli SMS Direction Value 'Outbound' vs 'Outgoing' (2026-02-14) ✅ RESOLVED
+- **Problem**: SMS records created programmatically were stuck at `'Queued'` status and never delivered via Telnyx
+- **Root Cause**: Our code set `Mogli_SMS__Direction__c = 'Outbound'`, but Mogli's managed package triggers only process records with `Direction = 'Outgoing'`. Org data confirmed: 125,907 successfully sent messages all use `'Outgoing'`, while our programmatic record had `'Outbound'` and was stuck.
+- **Fix**: Changed `sendSms()` to set `Direction__c = 'Outgoing'`
+- **Prevention**: Always use `'Outgoing'` (not `'Outbound'`) for outbound Mogli SMS records. When in doubt, query existing successful records to verify the correct picklist values.
 
 ### LWC HTML Ternary Operators (2026-02-13)
 - **Problem**: `nbaDemoSnoozeDropdown` deploy failed with `LWC1058: Invalid HTML syntax: unexpected-character-in-attribute-name`
