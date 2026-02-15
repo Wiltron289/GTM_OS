@@ -3,7 +3,7 @@
 **Created**: 2026-02-14
 **Branch**: `feature/nba-v2-demo-lwc` (continuing from Demo LWC work)
 **PRD Source**: PRD - Next Best Action (NBA) V2.pdf
-**Status**: Planning
+**Status**: Phase 1 Complete — Phase 2 Next
 
 ---
 
@@ -415,13 +415,13 @@ dismissAction(actionId, reason) → calls NbaActionStateService.dismissAction()
 ### Phase 1: Data Foundation (Sprint 11)
 **Goal**: Extend existing NBA_Queue__c with V2 fields + deploy rule framework.
 
-- [ ] Add ~12 new fields to NBA_Queue__c (Impact_Score, Urgency_Score, Priority_Bucket, Priority_Layer, etc.)
-- [ ] Add new picklist values to Action_Type__c (First Touch, Re-engage, Stage Progression, SLA Response, Blitz Outreach)
-- [ ] Add Workflow_Mode__c picklist (Pipeline, Blitz)
-- [ ] Create Custom Metadata Types (5 types with default rule records)
-- [ ] Seed default cadence/urgency/suppression/impact/cooldown rules
-- [ ] Deploy field additions + CMDTs to UAT sandbox
-- [ ] Seed sample NBA_Queue__c records with V2 fields populated for development
+- [x] Add ~12 new fields to NBA_Queue__c (Impact_Score, Urgency_Score, Priority_Bucket, Priority_Layer, etc.)
+- [x] Add new picklist values to Action_Type__c (First Touch, Re-engage, Stage Progression, SLA Response, Blitz Outreach)
+- [x] Add Workflow_Mode__c picklist (Pipeline, Blitz)
+- [x] Create Custom Metadata Types (5 types with default rule records)
+- [x] Seed default cadence/urgency/suppression/impact/cooldown rules
+- [x] Deploy field additions + CMDTs to UAT sandbox
+- [x] Seed sample NBA_Queue__c records with V2 fields populated for development
 
 ### Phase 2: Engine Core (Sprint 12)
 **Goal**: Working action creation + state management + selection.

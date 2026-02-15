@@ -60,7 +60,7 @@ When developing features or debugging, update the appropriate doc file:
 | **Active Branch** | `feature/nba-v2-demo-lwc` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
 | **Apex Tests** | 19 passing |
-| **Current Phase** | **Sprint 11 — NBA V2 Action Orchestration Engine (Phase 1: Data Foundation)** |
+| **Current Phase** | **Sprint 11 — NBA V2 Action Orchestration Engine (Phase 1 COMPLETE, Phase 2 next)** |
 | **Phase Plan** | `docs/nba-v2-phase-plan.md` |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
@@ -68,16 +68,20 @@ When developing features or debugging, update the appropriate doc file:
 
 - **Feature 1**: Account Scoring Data Layer -- `Account_Scoring__c` custom object + permission sets (deployed)
 - **Feature 2**: NBA V2 Demo LWC -- 18 LWC components, 1 Apex controller (~955 lines), 1 test class (~560 lines), 1 FlexiPage (deployed through Sprint 10)
-- **Feature 3**: NBA_Queue__c -- 96-field custom object deployed to UAT (V1 action record with relationships, status lifecycle, priority scoring, call disposition, sales motions, timing/cooldown fields, explainability). Metadata retrieved to local project.
+- **Feature 3**: NBA_Queue__c -- 108-field custom object deployed to UAT (96 original + 12 V2 fields: Impact_Score, Urgency_Score, Priority_Bucket, Priority_Layer, Is_Time_Bound, Cadence_Stage, Attempt_Count_Today, Last_Attempt_Method, Source_Path, Rule_Name, Action_Instruction, Workflow_Mode). Action_Type__c updated with 5 new values (First Touch, Re-engage, Stage Progression, SLA Response, Blitz Outreach).
+- **Feature 4**: 5 Custom Metadata Types for NBA V2 rule engine -- NBA_Cadence_Rule__mdt (7 records), NBA_Urgency_Rule__mdt (4 records), NBA_Suppression_Rule__mdt (4 records), NBA_Impact_Weight__mdt (1 record), NBA_Cooldown_Rule__mdt (3 records). All deployed to UAT.
+- **Feature 5**: 5 sample NBA_Queue__c records with V2 fields populated (First Touch/Time-Bound, Re-engage, Stage Progression, Snoozed, Blitz Outreach)
 
-### Current Work: Phase 1 — Data Foundation (Sprint 11)
+### Current Work: Phase 2 — Engine Core (Sprint 12)
 
 See `docs/nba-v2-phase-plan.md` for full details. Summary:
-- Add ~12 new fields to NBA_Queue__c (Impact_Score, Urgency_Score, Priority_Bucket, Priority_Layer, Cadence_Stage, etc.)
-- Add new picklist values to Action_Type__c (First Touch, Re-engage, Stage Progression, SLA Response, Blitz Outreach)
-- Create 5 Custom Metadata Types for rule configuration (cadence, urgency, suppression, impact weights, cooldown)
-- Seed default rule records
-- Deploy to UAT
+- NbaActionCreationService.cls — rule evaluation + candidate creation
+- NbaActionStateService.cls — lifecycle transitions + constraint enforcement
+- NbaActionSelectionService.cls — Gate → Bucket → Rank pipeline
+- NbaActionCreationSchedulable.cls — 10-minute scheduled job
+- NbaActionExpirationSchedulable.cls — expire stale actions, unsnooze due actions
+- Test classes for all services (75%+ coverage, bulk-safe)
+- Integration test: full cycle (create → promote → serve → complete → next)
 
 ### Pending Actions (from Demo LWC phase)
 - Share data contract with Data Engineering for Account_Scoring__c pipeline
