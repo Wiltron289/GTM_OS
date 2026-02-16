@@ -4,12 +4,13 @@
  * When a Task is completed on an Opportunity that has active/pending
  * NBA_Queue__c actions, this handler updates context on those actions:
  *
- * 1. Updates LastEvaluatedAt__c (signals are stale, next scheduled run re-scores)
+ * 1. Updates LastEvaluatedAt__c on Layer 1 time-bound actions
  * 2. Increments Attempt_Count_Today__c and sets Last_Attempt_Method__c for calls
- * 3. Auto-completes "First Touch" or "Re-engage" actions if the logged activity
- *    represents a connected call (the AE already did the work)
+ * 3. Invalidates Platform Cache for affected AEs so the next on-demand
+ *    evaluation reflects the new activity
  *
- * Does NOT create new actions — the scheduled job handles creation.
+ * Phase 5: Auto-complete removed — in the on-demand model, activity is detected
+ * by the signal service during evaluation. Cache invalidation ensures freshness.
  * Runs synchronously (lightweight — 1-2 SOQL, 1-2 DML).
  */
 public with sharing class NbaTaskTriggerHandler {
@@ -73,10 +74,9 @@ public with sharing class NbaTaskTriggerHandler {
             actionsByOpp.get(action.Opportunity__c).add(action);
         }
 
-        // Process each completed task
-        // Use Map to prevent duplicate IDs when multiple tasks target same action
+        // Process each completed task — update context on Layer 1 time-bound actions
         Map<Id, NBA_Queue__c> actionsToUpdateMap = new Map<Id, NBA_Queue__c>();
-        Set<Id> actionsToComplete = new Set<Id>();
+        Set<Id> affectedAeIds = new Set<Id>();
 
         for (Task t : completedOppTasks) {
             Id oppId = t.WhatId;
@@ -85,20 +85,7 @@ public with sharing class NbaTaskTriggerHandler {
                 continue;
             }
 
-            Boolean isConnectedCall = isConnectedCallTask(t);
-
             for (NBA_Queue__c action : oppActions) {
-                // Skip if we already marked this action for completion
-                if (actionsToComplete.contains(action.Id)) {
-                    continue;
-                }
-
-                // Auto-complete if connected call + completable action type
-                if (isConnectedCall && COMPLETABLE_TYPES.contains(action.Action_Type__c)) {
-                    actionsToComplete.add(action.Id);
-                    continue;
-                }
-
                 // Context update: mark as stale, increment attempt count for calls
                 action.LastEvaluatedAt__c = Datetime.now();
                 if (isCallTask(t)) {
@@ -107,6 +94,9 @@ public with sharing class NbaTaskTriggerHandler {
                     action.Last_Attempt_Method__c = 'Call';
                 }
                 actionsToUpdateMap.put(action.Id, action);
+                if (action.Sales_Rep__c != null) {
+                    affectedAeIds.add(action.Sales_Rep__c);
+                }
             }
         }
 
@@ -115,17 +105,18 @@ public with sharing class NbaTaskTriggerHandler {
             update actionsToUpdateMap.values();
         }
 
-        // Auto-complete actions where the AE did the work
-        // Use NbaActionStateService for proper lifecycle management
-        for (Id actionId : actionsToComplete) {
-            try {
-                NbaActionStateService.completeAction(actionId);
-            } catch (Exception e) {
-                // Swallow — the action may have been completed/expired already
-                System.debug(LoggingLevel.WARN,
-                    'NbaTaskTriggerHandler: Could not auto-complete action ' + actionId + ': ' + e.getMessage());
-            }
+        // Also collect AE IDs from Opps without existing actions —
+        // activity logged means signal state changed, cache should refresh
+        Set<Id> allOppOwnerIds = new Set<Id>();
+        for (Opportunity opp : [
+            SELECT OwnerId FROM Opportunity WHERE Id IN :oppIds WITH SECURITY_ENFORCED
+        ]) {
+            allOppOwnerIds.add(opp.OwnerId);
         }
+        affectedAeIds.addAll(allOppOwnerIds);
+
+        // Invalidate cache so next on-demand evaluation reflects new activity
+        NbaCacheService.invalidateForUsers(affectedAeIds);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────

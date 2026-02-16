@@ -6,6 +6,10 @@
  * After Update: Meeting rescheduled → updates DueAt on existing action.
  * After Delete: Meeting cancelled → expires the time-bound action.
  *
+ * Phase 5: Layer 1 time-bound actions are the ONLY actions persisted to DB.
+ * After each operation, invalidates Platform Cache for affected AEs so the
+ * 15-second LWC poll picks up the change.
+ *
  * Runs synchronously (lightweight — 2-3 SOQL, 1-2 DML per batch).
  */
 public with sharing class NbaEventTriggerHandler {
@@ -77,18 +81,14 @@ public with sharing class NbaEventTriggerHandler {
         if (!actionsToInsert.isEmpty()) {
             Database.insert(actionsToInsert, false);
 
-            // Promote for each AE with new time-bound action
+            // Invalidate cache for affected AEs so 15s LWC poll picks up Layer 1
             Set<Id> aeIds = new Set<Id>();
             for (NBA_Queue__c a : actionsToInsert) {
                 if (a.Id != null && a.Sales_Rep__c != null) {
                     aeIds.add(a.Sales_Rep__c);
                 }
             }
-            for (Id aeId : aeIds) {
-                if (NbaActionStateService.hasCapacity(aeId)) {
-                    NbaActionStateService.promoteNextAction(aeId);
-                }
-            }
+            NbaCacheService.invalidateForUsers(aeIds);
         }
     }
 
@@ -96,6 +96,7 @@ public with sharing class NbaEventTriggerHandler {
 
     private static void handleUpdate(List<Event> events, Map<Id, Event> oldMap) {
         List<NBA_Queue__c> actionsToUpdate = new List<NBA_Queue__c>();
+        Set<Id> affectedOppIds = new Set<Id>();
 
         for (Event evt : events) {
             Event old = oldMap.get(evt.Id);
@@ -113,11 +114,13 @@ public with sharing class NbaEventTriggerHandler {
             );
             if (updated != null) {
                 actionsToUpdate.add(updated);
+                affectedOppIds.add(whatId);
             }
         }
 
         if (!actionsToUpdate.isEmpty()) {
             update actionsToUpdate;
+            invalidateCacheForOpps(affectedOppIds);
         }
     }
 
@@ -125,6 +128,7 @@ public with sharing class NbaEventTriggerHandler {
 
     private static void handleDelete(List<Event> deletedEvents) {
         List<NBA_Queue__c> actionsToUpdate = new List<NBA_Queue__c>();
+        Set<Id> affectedOppIds = new Set<Id>();
 
         for (Event evt : deletedEvents) {
             Id whatId = evt.WhatId;
@@ -137,11 +141,13 @@ public with sharing class NbaEventTriggerHandler {
             );
             if (cancelled != null) {
                 actionsToUpdate.add(cancelled);
+                affectedOppIds.add(whatId);
             }
         }
 
         if (!actionsToUpdate.isEmpty()) {
             update actionsToUpdate;
+            invalidateCacheForOpps(affectedOppIds);
         }
     }
 
@@ -165,6 +171,22 @@ public with sharing class NbaEventTriggerHandler {
             }
         }
         return result;
+    }
+
+    /**
+     * Invalidate Platform Cache for AEs who own the given Opportunities.
+     */
+    private static void invalidateCacheForOpps(Set<Id> oppIds) {
+        if (oppIds.isEmpty()) {
+            return;
+        }
+        Set<Id> aeIds = new Set<Id>();
+        for (Opportunity opp : [
+            SELECT OwnerId FROM Opportunity WHERE Id IN :oppIds WITH SECURITY_ENFORCED
+        ]) {
+            aeIds.add(opp.OwnerId);
+        }
+        NbaCacheService.invalidateForUsers(aeIds);
     }
 
     private static String buildMeetingInstruction(Event evt, Opportunity opp) {

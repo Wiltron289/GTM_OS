@@ -1,19 +1,18 @@
 /**
  * NbaOpportunityTriggerHandler — Handles Opportunity trigger events for NBA V2.
  *
- * After Insert: New open Opportunity → enqueues async evaluation that produces
- *               a "First Touch" action via the full engine pipeline.
- * After Update: Stage change on open Opportunity → enqueues re-evaluation that
- *               may produce "Stage Progression" or other actions.
+ * Phase 5: In the on-demand model, Opportunity triggers no longer create actions
+ * or enqueue async evaluation. Instead, they invalidate the Platform Cache for
+ * affected AEs so the next getActiveAction() call reflects the new CRM state.
  *
- * Heavy signal evaluation runs in NbaRealTimeEvaluationQueueable (async)
- * to avoid governor limit pressure in the trigger transaction.
+ * After Insert: New open Opportunity → invalidate cache for the AE owner.
+ * After Update: Stage change on open Opportunity → invalidate cache for the AE owner.
  */
 public with sharing class NbaOpportunityTriggerHandler {
 
     /**
      * Entry point called by OpportunityTrigger.
-     * Filters affected Opps, collects IDs, enqueues a single Queueable.
+     * Filters affected Opps, collects owner IDs, invalidates their cache.
      */
     public static void handle(
         List<Opportunity> newList,
@@ -26,52 +25,64 @@ public with sharing class NbaOpportunityTriggerHandler {
         }
         NbaTriggerContext.setOppHandlerRun();
 
-        Set<Id> oppIdsToEvaluate = new Set<Id>();
+        Set<Id> aeIdsToInvalidate = new Set<Id>();
 
         if (operationType == System.TriggerOperation.AFTER_INSERT) {
-            oppIdsToEvaluate = filterNewOpps(newList);
+            aeIdsToInvalidate = collectOwnerIds(filterNewOpps(newList));
         } else if (operationType == System.TriggerOperation.AFTER_UPDATE) {
-            oppIdsToEvaluate = filterStageChanges(newList, oldMap);
+            aeIdsToInvalidate = collectOwnerIds(filterStageChanges(newList, oldMap));
         }
 
-        if (!oppIdsToEvaluate.isEmpty()) {
-            System.enqueueJob(new NbaRealTimeEvaluationQueueable(oppIdsToEvaluate));
+        if (!aeIdsToInvalidate.isEmpty()) {
+            NbaCacheService.invalidateForUsers(aeIdsToInvalidate);
         }
     }
 
     /**
-     * After Insert: Return IDs of new open Opps in non-excluded stages.
+     * After Insert: Return new open Opps in non-excluded stages.
      */
     @TestVisible
-    private static Set<Id> filterNewOpps(List<Opportunity> newOpps) {
-        Set<Id> ids = new Set<Id>();
+    private static List<Opportunity> filterNewOpps(List<Opportunity> newOpps) {
+        List<Opportunity> filtered = new List<Opportunity>();
         for (Opportunity opp : newOpps) {
             if (!opp.IsClosed
                 && !NbaTriggerContext.EXCLUDED_STAGES.contains(opp.StageName)) {
-                ids.add(opp.Id);
+                filtered.add(opp);
             }
         }
-        return ids;
+        return filtered;
     }
 
     /**
-     * After Update: Return IDs of Opps where StageName changed and the Opp
-     * is still open and not in an excluded stage.
+     * After Update: Return Opps where StageName changed and still open.
      */
     @TestVisible
-    private static Set<Id> filterStageChanges(
+    private static List<Opportunity> filterStageChanges(
         List<Opportunity> newOpps,
         Map<Id, Opportunity> oldMap
     ) {
-        Set<Id> ids = new Set<Id>();
+        List<Opportunity> filtered = new List<Opportunity>();
         for (Opportunity opp : newOpps) {
             Opportunity old = oldMap.get(opp.Id);
             if (opp.StageName != old.StageName
                 && !opp.IsClosed
                 && !NbaTriggerContext.EXCLUDED_STAGES.contains(opp.StageName)) {
-                ids.add(opp.Id);
+                filtered.add(opp);
             }
         }
-        return ids;
+        return filtered;
+    }
+
+    /**
+     * Collect unique OwnerId values from a list of Opportunities.
+     */
+    private static Set<Id> collectOwnerIds(List<Opportunity> opps) {
+        Set<Id> ownerIds = new Set<Id>();
+        for (Opportunity opp : opps) {
+            if (opp.OwnerId != null) {
+                ownerIds.add(opp.OwnerId);
+            }
+        }
+        return ownerIds;
     }
 }
