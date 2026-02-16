@@ -53,14 +53,14 @@ When developing features or debugging, update the appropriate doc file:
 
 ## Current Project State
 
-**Last Updated**: 2026-02-15
+**Last Updated**: 2026-02-16
 
 | Item | Value |
 |------|-------|
 | **Active Branch** | `feature/nba-v2-demo-lwc` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
-| **Apex Tests** | 44 Phase 4 trigger tests + 43 Phase 2 engine + 10 controller + 19 existing = 116 total |
-| **Current Phase** | **Phase 5 IN PROGRESS — On-Demand Engine + Platform Cache (Sprint 15)** |
+| **Apex Tests** | 93 total (8 cache + 10 controller + 11 state + 8 signal + 14 creation + 5 selection + 6 opp trigger + 5 event trigger + 7 task trigger + 3 creation sched + 2 expiration sched + 2 queueable + 19 existing) |
+| **Current Phase** | **Phase 5 COMPLETE — On-Demand Engine + Platform Cache (Sprint 15)** |
 | **Phase Plan** | `docs/nba-v2-phase-plan.md` |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
@@ -71,8 +71,9 @@ When developing features or debugging, update the appropriate doc file:
 - **Feature 3**: NBA_Queue__c -- 108-field custom object deployed to UAT (96 original + 12 V2 fields: Impact_Score, Urgency_Score, Priority_Bucket, Priority_Layer, Is_Time_Bound, Cadence_Stage, Attempt_Count_Today, Last_Attempt_Method, Source_Path, Rule_Name, Action_Instruction, Workflow_Mode). Action_Type__c updated with 5 new values (First Touch, Re-engage, Stage Progression, SLA Response, Blitz Outreach).
 - **Feature 4**: 5 Custom Metadata Types for NBA V2 rule engine -- NBA_Cadence_Rule__mdt (7 records), NBA_Urgency_Rule__mdt (4 records), NBA_Suppression_Rule__mdt (4 records), NBA_Impact_Weight__mdt (1 record), NBA_Cooldown_Rule__mdt (3 records). All deployed to UAT.
 - **Feature 5**: 5 sample NBA_Queue__c records with V2 fields populated (First Touch/Time-Bound, Re-engage, Stage Progression, Snoozed, Blitz Outreach)
-- **Feature 6**: NBA V2 Engine Core (Phase 2) -- 6 Apex service classes + 6 test classes, all deployed to UAT (43/43 tests passing). See details below.
-- **Feature 7**: NBA V2 Triggers (Phase 4) -- 3 triggers (Opportunity, Event, Task) + 3 handler classes + 1 Queueable + 1 utility class + 4 test classes. All deployed to UAT (44/44 tests passing).
+- **Feature 6**: NBA V2 Engine Core (Phase 2) -- 6 Apex service classes + 6 test classes, all deployed to UAT. See details below.
+- **Feature 7**: NBA V2 Triggers (Phase 4) -- 3 triggers (Opportunity, Event, Task) + 3 handler classes + 1 utility class + 4 test classes. All deployed to UAT.
+- **Feature 8**: NBA V2 On-Demand Engine (Phase 5) -- NbaCacheService (Platform Cache), rewritten NbaActionController (on-demand evaluation), simplified NbaActionStateService (audit writer), LWC dual polling (15s/5min), cache invalidation in all triggers. Schedulables archived, Queueable no-op'd. NBA_Queue_AE permission set. All deployed to UAT (93/93 tests passing).
 
 ### Phase 2 Engine Core — COMPLETE (Sprint 12)
 
@@ -155,9 +156,9 @@ Added real-time trigger-based action creation so actions appear instantly when C
 #### Key Gotcha: Trigger-Test Interaction
 When testing `createTimeBoundAction()` directly, set `NbaTriggerContext.setEventHandlerRun()` BEFORE inserting the Event to prevent the EventTrigger from creating the action first (dedup would return null). Tests that rely on the trigger firing should NOT set this guard.
 
-### Phase 5 — On-Demand Engine + Platform Cache — IN PROGRESS (Sprint 15)
+### Phase 5 — On-Demand Engine + Platform Cache — COMPLETE (Sprint 15)
 
-**PIVOTED** from persist-first to on-demand architecture. Full plan: `.claude/plans/hashed-hopping-rose.md`.
+**PIVOTED** from persist-first to on-demand architecture. Full plan: `.claude/plans/cosmic-wondering-parasol.md`.
 
 The persist-first model (scheduled jobs pre-create NBA_Queue__c records) had fundamental issues: capacity cap friction (MAX_ACTIVE_PENDING_PER_AE = 2 blocks promotion), stale records between batch runs, and actions not reflecting real-time CRM state. The new model evaluates on-demand, caches in Platform Cache, and persists NBA_Queue__c only as audit records on AE interaction.
 
@@ -175,16 +176,16 @@ NEW:  LWC requests action → evaluate signals NOW → Platform Cache → serve
 - **Action bar UX**: Keep generic "Complete" button. Method shown as instruction text only.
 - **Manager dashboard**: DEFERRED to Sprint 16.
 
-#### Work Groups (7)
-| Group | Goal | New Files | Key Modified Files |
-|-------|------|-----------|-------------------|
-| **A. Platform Cache** | NbaCacheService for per-AE action caching (5min TTL) | NbaCacheService + test | — |
-| **B. On-Demand Controller** | Rewrite getActiveAction as evaluation entry point, checkTimeBound for 15s poll | — | NbaActionController |
-| **C. Simplified State** | NbaActionStateService → audit record writer + cache invalidation | — | NbaActionStateService |
-| **D. Trigger Updates** | Add cache invalidation to all triggers, remove Queueable | — | NbaOpportunityTriggerHandler, NbaEventTriggerHandler, NbaTaskTriggerHandler |
-| **E. LWC Polling** | Dual poll (15s time-bound + 5min full refresh), pass full action context | — | nbaDemoWorkspace.js, nbaActionBar.js |
-| **F. Cooldown + Escalation** | Integrated into on-demand evaluation pipeline | — | NbaSignalService, NbaActionCreationService |
-| **G. Cleanup + Permissions** | Archive schedulables, add permission sets | NBA_Queue_AE + NBA_Queue_Manager permsets | NbaActionCreationSchedulable, NbaActionExpirationSchedulable |
+#### Work Groups (7) — ALL COMPLETE
+| Group | Goal | Status |
+|-------|------|--------|
+| **A. Platform Cache** | NbaCacheService for per-AE action caching (5min TTL) | DONE |
+| **B. Cooldown + Escalation** | Snooze/completion suppression + method escalation in evaluation pipeline | DONE |
+| **C. Simplified State** | NbaActionStateService → audit record writer + cache invalidation | DONE |
+| **D. On-Demand Controller** | Rewrite getActiveAction as evaluation entry point, checkTimeBound for 15s poll | DONE |
+| **E. Trigger Updates** | Add cache invalidation to all triggers, remove Queueable | DONE |
+| **F. LWC Polling** | Dual poll (15s time-bound + 5min full refresh), pass full action context | DONE |
+| **G. Cleanup + Permissions** | Archive schedulables, add NBA_Queue_AE permission set | DONE |
 
 #### Key Architecture Changes
 - **getActiveAction() flow** (NbaActionController): Check Layer 1 time-bound (1 SOQL) → check Platform Cache → cache miss: full evaluation (NbaSignalService + NbaActionCreationService + NbaActionSelectionService) ~12 SOQL → cache result → return.
