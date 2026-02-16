@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customSettingsType>Hierarchy</customSettingsType>
+    <description>NBA V2 per-AE configuration. Hierarchy: Org default → Profile → User override. Used to assign cadence variant (A/B) per AE.</description>
+    <enableFeeds>false</enableFeeds>
+    <label>NBA AE Config</label>
+    <visibility>Public</visibility>
+</CustomObject>

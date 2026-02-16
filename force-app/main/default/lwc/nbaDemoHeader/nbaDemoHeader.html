@@ -16,6 +16,9 @@
             </span>
             <template lwc:if={isActionMode}>
                 <span class={actionTypeBadgeClass}>{currentAction.actionType}</span>
+                <template lwc:if={showCadenceStep}>
+                    <span class="cadence-step-badge">{cadenceStepLabel}</span>
+                </template>
             </template>
         </div>
         <div class="header-right">

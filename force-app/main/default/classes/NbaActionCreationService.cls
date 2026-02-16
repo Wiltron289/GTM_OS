@@ -94,6 +94,27 @@ public with sharing class NbaActionCreationService {
             // Step 2: Determine action type
             String actionType = determineActionType(signal);
 
+            // Phase 6: Cadence integration for First Touch
+            NbaCadenceService.CadenceStep cadenceStep = null;
+            if (actionType == 'First Touch') {
+                // Resolve AE variant from Hierarchy Custom Setting (0 SOQL)
+                String variant = 'A';
+                NBA_AE_Config__c aeConfig = NBA_AE_Config__c.getInstance(signal.ownerId);
+                if (aeConfig != null && String.isNotBlank(aeConfig.Cadence_Variant__c)) {
+                    variant = aeConfig.Cadence_Variant__c;
+                }
+                cadenceStep = NbaCadenceService.getCurrentStep(signal, variant);
+                // If cadence suppresses (spacing/cap/complete), fall through to non-cadence type
+                if (cadenceStep == null) {
+                    actionType = determineNonCadenceActionType(signal);
+                    if (actionType == null) {
+                        result.suppressedReasons.add(signal.oppId + ': Cadence suppressed, no fallback');
+                        result.suppressedCount++;
+                        continue;
+                    }
+                }
+            }
+
             // Step 3: Calculate scores
             Decimal impactScore = calculateImpactScore(signal, maxMrr, weights);
             Decimal urgencyScore = calculateUrgencyScore(signal, actionType, urgencyRules);
@@ -105,9 +126,25 @@ public with sharing class NbaActionCreationService {
             String layer = assignLayer(signal, actionType);
 
             // Step 5: Build the action record
-            String instruction = buildInstruction(signal, actionType);
+            String instruction;
+            String ruleName;
+            Integer cadenceStageVal = 1;
+            Integer attemptCountVal = 0;
+            String lastMethodVal = 'Call';
+
+            if (cadenceStep != null) {
+                // Use cadence step values
+                instruction = cadenceStep.instruction;
+                ruleName = cadenceStep.ruleName;
+                cadenceStageVal = cadenceStep.cadenceStage;
+                attemptCountVal = cadenceStep.todayCalls != null ? cadenceStep.todayCalls : 0;
+                lastMethodVal = cadenceStep.method;
+            } else {
+                instruction = buildInstruction(signal, actionType);
+                ruleName = actionType + '_Auto';
+            }
+
             String reasonText = buildReasonText(signal, actionType, impactScore, urgencyScore);
-            String ruleName = actionType + '_Auto';
 
             NBA_Queue__c action = new NBA_Queue__c(
                 Opportunity__c = signal.oppId,
@@ -121,9 +158,9 @@ public with sharing class NbaActionCreationService {
                 Priority_Bucket__c = bucket,
                 Priority_Layer__c = layer,
                 Is_Time_Bound__c = (layer == 'Layer 1 - Time Bound'),
-                Cadence_Stage__c = 1,
-                Attempt_Count_Today__c = 0,
-                Last_Attempt_Method__c = 'Call',
+                Cadence_Stage__c = cadenceStageVal,
+                Attempt_Count_Today__c = attemptCountVal,
+                Last_Attempt_Method__c = lastMethodVal,
                 Source_Path__c = 'Pipeline Cadence',
                 Rule_Name__c = ruleName,
                 Action_Instruction__c = instruction,
@@ -375,6 +412,39 @@ public with sharing class NbaActionCreationService {
 
         // Default: General follow-up
         return 'Follow Up';
+    }
+
+    /**
+     * Determine a non-cadence action type when cadence suppresses First Touch.
+     * Skips First Touch checks, only returns Stage Progression / Re-engage / Follow Up.
+     * Returns null if no alternative action type applies (signal too fresh).
+     */
+    @TestVisible
+    private static String determineNonCadenceActionType(NbaSignalService.OpportunitySignal signal) {
+        // Connected follow-up within 4 hours
+        if (signal.hadConnectedCall && signal.lastCallDate != null) {
+            Long msSinceCall = Datetime.now().getTime() - signal.lastCallDate.getTime();
+            Decimal hoursSinceCall = Decimal.valueOf(msSinceCall).divide(3600000, 2);
+            if (hoursSinceCall <= CONNECTED_FOLLOWUP_HOURS) {
+                return 'Stage Progression';
+            }
+        }
+
+        // Late-stage inactivity
+        if (signal.stageNumber >= LATE_STAGE_MIN
+            && signal.daysSinceLastInteraction != null
+            && signal.daysSinceLastInteraction >= LATE_STAGE_INACTIVITY_DAYS) {
+            return 'Stage Progression';
+        }
+
+        // Re-engage
+        if (signal.daysSinceLastInteraction != null
+            && signal.daysSinceLastInteraction >= REENGAGE_INACTIVITY_DAYS) {
+            return 'Re-engage';
+        }
+
+        // No fallback available — suppress entirely
+        return null;
     }
 
     // ─── Scoring ──────────────────────────────────────────────────────

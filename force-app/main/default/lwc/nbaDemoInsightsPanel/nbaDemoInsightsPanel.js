@@ -26,6 +26,15 @@ export default class NbaDemoInsightsPanel extends LightningElement {
         return this.isActionMode && this.currentAction;
     }
 
+    get showCadenceContext() {
+        return this.isActionMode && this.currentAction?.cadenceProgress;
+    }
+
+    get cadenceMethodHint() {
+        if (!this.currentAction?.methodHints) return null;
+        return 'If no connect: ' + this.currentAction.methodHints;
+    }
+
     get insightCountLabel() {
         if (this.isActionMode) return 'action context';
         return `${this.insightsData?.insightCount || 0} insights`;

@@ -211,6 +211,15 @@ public with sharing class NbaActionStateService {
             audit.CooldownUntil__c = cooldownUntil;
         }
 
+        // Phase 6: Write cadence metadata from last evaluation if available
+        if (opportunityId != null
+            && NbaCadenceService.lastEvaluatedSteps.containsKey(opportunityId)) {
+            NbaCadenceService.CadenceStep step =
+                NbaCadenceService.lastEvaluatedSteps.get(opportunityId);
+            audit.Cadence_Stage__c = step.cadenceStage;
+            audit.Attempt_Count_Today__c = step.todayCalls;
+        }
+
         insert audit;
         return audit;
     }

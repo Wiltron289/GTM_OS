@@ -23,6 +23,21 @@
                     <template lwc:if={currentAction.reasonText}>
                         <p class="action-reason">{currentAction.reasonText}</p>
                     </template>
+                    <!-- Phase 6: Cadence context -->
+                    <template lwc:if={showCadenceContext}>
+                        <div class="cadence-context">
+                            <div class="cadence-progress">
+                                <lightning-icon icon-name="utility:steps" size="xx-small"></lightning-icon>
+                                <span>{currentAction.cadenceProgress}</span>
+                            </div>
+                            <template lwc:if={cadenceMethodHint}>
+                                <div class="cadence-hint">
+                                    <lightning-icon icon-name="utility:forward" size="xx-small"></lightning-icon>
+                                    <span>{cadenceMethodHint}</span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
                 </template>
 
                 <!-- Record Page Mode: drivers + tags -->

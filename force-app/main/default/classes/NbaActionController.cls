@@ -226,7 +226,7 @@ public with sharing class NbaActionController {
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
                    Action_Instruction__c, ReasonText__c, Priority_Layer__c,
                    Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
-                   DueAt__c, Status__c,
+                   DueAt__c, Status__c, Cadence_Stage__c, Attempt_Count_Today__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
             WHERE Sales_Rep__c = :userId
@@ -274,6 +274,15 @@ public with sharing class NbaActionController {
         w.accountName = action.Account__r?.Name;
         w.opportunityName = action.Opportunity__r?.Name;
         w.oppStage = action.Opportunity__r?.StageName;
+
+        // Phase 6: Map cadence fields from DB record
+        if (action.Cadence_Stage__c != null) {
+            w.cadenceStage = action.Cadence_Stage__c.intValue();
+        }
+        if (action.Attempt_Count_Today__c != null) {
+            w.todayCallCount = action.Attempt_Count_Today__c.intValue();
+        }
+
         return w;
     }
 
@@ -302,6 +311,19 @@ public with sharing class NbaActionController {
         w.accountName = null;
         w.opportunityName = null;
         w.oppStage = candidate.Opportunity_Stage__c;
+
+        // Phase 6: Map cadence fields from transaction-scoped cache
+        NbaCadenceService.CadenceStep step =
+            NbaCadenceService.lastEvaluatedSteps.get(candidate.Opportunity__c);
+        if (step != null) {
+            w.cadenceStage = step.cadenceStage;
+            w.cadenceDay = step.cadenceDay;
+            w.todayCallCount = step.todayCalls;
+            w.maxCallsToday = step.maxCallsToday;
+            w.methodHints = step.hintText;
+            w.cadenceProgress = step.progressText;
+        }
+
         return w;
     }
 
@@ -339,6 +361,13 @@ public with sharing class NbaActionController {
         @AuraEnabled public String accountName;
         @AuraEnabled public String opportunityName;
         @AuraEnabled public String oppStage;
+        // Phase 6: Cadence fields
+        @AuraEnabled public Integer cadenceStage;
+        @AuraEnabled public Integer cadenceDay;
+        @AuraEnabled public Integer todayCallCount;
+        @AuraEnabled public Integer maxCallsToday;
+        @AuraEnabled public String methodHints;
+        @AuraEnabled public String cadenceProgress;
     }
 
     public class ActionResultWrapper {

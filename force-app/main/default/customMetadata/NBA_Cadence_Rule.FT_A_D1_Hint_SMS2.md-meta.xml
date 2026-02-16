@@ -1,34 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>Day1 Pressure Call 2</label>
+    <label>FT A D1 Hint SMS2</label>
     <protected>false</protected>
     <values>
         <field>Rule_Name__c</field>
-        <value xsi:type="xsd:string">Day1_Pressure_Call_2</value>
+        <value xsi:type="xsd:string">FT_A_D1_Hint_SMS2</value>
     </values>
     <values>
         <field>Scenario__c</field>
         <value xsi:type="xsd:string">First Touch</value>
     </values>
     <values>
-        <field>Cadence_Stage__c</field>
-        <value xsi:type="xsd:double">2</value>
+        <field>Variant__c</field>
+        <value xsi:type="xsd:string">A</value>
     </values>
     <values>
-        <field>Attempt_Spacing_Minutes__c</field>
-        <value xsi:type="xsd:double">60</value>
+        <field>Cadence_Day__c</field>
+        <value xsi:type="xsd:double">1</value>
     </values>
     <values>
-        <field>Max_Attempts_Per_Day__c</field>
+        <field>Step_Order__c</field>
         <value xsi:type="xsd:double">3</value>
     </values>
     <values>
+        <field>Cadence_Stage__c</field>
+        <value xsi:type="xsd:double">8</value>
+    </values>
+    <values>
+        <field>Attempt_Spacing_Minutes__c</field>
+        <value xsi:type="xsd:double">0</value>
+    </values>
+    <values>
+        <field>Max_Attempts_Per_Day__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
         <field>Method__c</field>
-        <value xsi:type="xsd:string">Call</value>
+        <value xsi:type="xsd:string">SMS</value>
     </values>
     <values>
         <field>Next_Method_On_Fail__c</field>
-        <value xsi:type="xsd:string">SMS</value>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Is_Primary__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Hint_Text__c</field>
+        <value xsi:type="xsd:string">Send SMS #2 midday</value>
     </values>
     <values>
         <field>Is_Active__c</field>
@@ -36,6 +56,6 @@
     </values>
     <values>
         <field>Description__c</field>
-        <value xsi:type="xsd:string">Second call attempt on Day 1, 1-hour after first attempt.</value>
+        <value xsi:type="xsd:string">Day 1 SMS hint: Send second SMS midday.</value>
     </values>
 </CustomMetadata>

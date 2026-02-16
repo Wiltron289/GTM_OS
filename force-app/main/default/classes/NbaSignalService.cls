@@ -71,6 +71,11 @@ public with sharing class NbaSignalService {
         // Computed: most recent valid touch
         public Datetime lastValidTouchDate;
 
+        // Cadence signals (Phase 6)
+        public Decimal daysSinceCreation;
+        public Integer todayCallCount;
+        public List<Datetime> todayCallDates;
+
         public OpportunitySignal() {
             this.hadConnectedCall = false;
             this.hadNoConnect = false;
@@ -80,6 +85,8 @@ public with sharing class NbaSignalService {
             this.hasActiveAction = false;
             this.existingActiveActions = new List<NBA_Queue__c>();
             this.hasSnoozedAction = false;
+            this.todayCallCount = 0;
+            this.todayCallDates = new List<Datetime>();
         }
     }
 
@@ -109,7 +116,7 @@ public with sharing class NbaSignalService {
         }
 
         // Queries 2-7 (all batched, outside loops)
-        Map<Id, talkdesk__Talkdesk_Activity__c> talkdeskMap = queryRecentTalkdesk(oppIds);
+        Map<Id, List<talkdesk__Talkdesk_Activity__c>> talkdeskMap = queryRecentTalkdesk(oppIds);
         Map<Id, Mogli_SMS__SMS__c> smsMap = queryRecentSms(oppIds);
         Map<Id, Event> eventMap = queryUpcomingEvents(oppIds);
         Map<Id, Task> taskMap = queryRecentTasks(oppIds);
@@ -135,10 +142,13 @@ public with sharing class NbaSignalService {
             sig.daysSinceLastInteraction = opp.Days_Since_Last_Interaction__c;
             sig.hoursSinceAssignment = opp.Hours_Since_Assignment__c;
             sig.isClosed = opp.IsClosed;
+            sig.daysSinceCreation = opp.Days_Since_Creation__c;
 
-            // Talkdesk signals
-            talkdesk__Talkdesk_Activity__c call = talkdeskMap.get(oppId);
-            if (call != null) {
+            // Talkdesk signals — process activity list
+            List<talkdesk__Talkdesk_Activity__c> callList = talkdeskMap.get(oppId);
+            if (callList != null && !callList.isEmpty()) {
+                // Most recent call (list is ordered DESC)
+                talkdesk__Talkdesk_Activity__c call = callList[0];
                 sig.lastCallDate = call.CreatedDate;
                 sig.lastCallTalkTimeSec = call.talkdesk__Total_Talk_Time_sec__c;
                 String disposition = call.talkdesk__DispositionCode__r != null
@@ -153,6 +163,15 @@ public with sharing class NbaSignalService {
                     && (disposition.startsWithIgnoreCase('Attempted')
                         || (call.talkdesk__Total_Talk_Time_sec__c == null
                             || call.talkdesk__Total_Talk_Time_sec__c == 0));
+
+                // Phase 6: Count today's calls + collect timestamps
+                Date todayDate = Date.today();
+                for (talkdesk__Talkdesk_Activity__c a : callList) {
+                    if (a.CreatedDate != null && a.CreatedDate.date() == todayDate) {
+                        sig.todayCallCount++;
+                        sig.todayCallDates.add(a.CreatedDate);
+                    }
+                }
             }
 
             // SMS signals
@@ -250,8 +269,9 @@ public with sharing class NbaSignalService {
         ]);
     }
 
-    private static Map<Id, talkdesk__Talkdesk_Activity__c> queryRecentTalkdesk(Set<Id> oppIds) {
-        Map<Id, talkdesk__Talkdesk_Activity__c> resultMap = new Map<Id, talkdesk__Talkdesk_Activity__c>();
+    private static Map<Id, List<talkdesk__Talkdesk_Activity__c>> queryRecentTalkdesk(Set<Id> oppIds) {
+        Map<Id, List<talkdesk__Talkdesk_Activity__c>> resultMap =
+            new Map<Id, List<talkdesk__Talkdesk_Activity__c>>();
         List<talkdesk__Talkdesk_Activity__c> activities = [
             SELECT Id, talkdesk__Opportunity__c, talkdesk__Type__c,
                    talkdesk__DispositionCode__r.talkdesk__Label__c,
@@ -264,11 +284,12 @@ public with sharing class NbaSignalService {
             ORDER BY CreatedDate DESC
             LIMIT 1000
         ];
-        // Keep only the most recent per Opp
+        // Keep all activities per Opp (ordered by most recent first)
         for (talkdesk__Talkdesk_Activity__c a : activities) {
             if (!resultMap.containsKey(a.talkdesk__Opportunity__c)) {
-                resultMap.put(a.talkdesk__Opportunity__c, a);
+                resultMap.put(a.talkdesk__Opportunity__c, new List<talkdesk__Talkdesk_Activity__c>());
             }
+            resultMap.get(a.talkdesk__Opportunity__c).add(a);
         }
         return resultMap;
     }

@@ -26,6 +26,18 @@ export default class NbaDemoHeader extends LightningElement {
         return !this.isActionMode;
     }
 
+    get showCadenceStep() {
+        return this.isActionMode && this.currentAction?.cadenceProgress
+            && this.currentAction?.todayCallCount != null
+            && this.currentAction?.maxCallsToday != null;
+    }
+
+    get cadenceStepLabel() {
+        const current = (this.currentAction?.todayCallCount || 0) + 1;
+        const max = this.currentAction?.maxCallsToday || 0;
+        return `${current}/${max}`;
+    }
+
     get formattedMrr() {
         if (!this.headerData?.mrr) return '$0 MRR';
         const val = Number(this.headerData.mrr);
