@@ -1,17 +1,28 @@
 /**
- * Test class for NbaRealTimeEvaluationQueueable.
- * Verifies that the queueable runs the full engine pipeline
- * (signal → evaluate → create → promote) and sets Source_Path to 'Immediate'.
+ * Test class for NbaRealTimeEvaluationQueueable (Phase 5 — archived, no-op).
+ * Verifies the no-op execute runs without error.
  */
 @isTest
 private class NbaRealTimeEvaluationQueueableTest {
 
-    @TestSetup
-    static void setupData() {
+    @isTest
+    static void testExecute_NoOp() {
+        Test.startTest();
+        System.enqueueJob(
+            new NbaRealTimeEvaluationQueueable(new Set<Id>())
+        );
+        Test.stopTest();
+
+        // No-op — just verify it executes without error
+        System.assert(true, 'Archived queueable should execute as no-op');
+    }
+
+    @isTest
+    static void testExecute_WithIds_NoOp() {
+        // Even with real IDs, the execute body is a no-op
         Account acc = new Account(
-            Name = 'RT Eval Test Account',
-            Employee_Count__c = 50,
-            Entity_ID__c = 'RT-EVAL-001'
+            Name = 'RT Eval No-Op Account',
+            Entity_ID__c = 'RT-NOOP-001'
         );
         insert acc;
 
@@ -25,25 +36,19 @@ private class NbaRealTimeEvaluationQueueableTest {
             payrollRtId = rts[0].Id;
         }
 
-        // New Opp — should produce First Touch action
         Opportunity opp = new Opportunity(
-            Name = 'RT Eval Opp',
+            Name = 'RT Eval No-Op Opp',
             AccountId = acc.Id,
             StageName = 'New',
             CloseDate = Date.today().addDays(30),
-            Amount = 10000,
+            Amount = 5000,
             Source__c = 'N/A'
         );
         if (payrollRtId != null) opp.RecordTypeId = payrollRtId;
         insert opp;
-    }
 
-    @isTest
-    static void testExecute_createsActionWithImmediateSource() {
-        Opportunity opp = [
-            SELECT Id FROM Opportunity
-            WHERE Account.Name = 'RT Eval Test Account' LIMIT 1
-        ];
+        // Count actions created by the Opp insert trigger
+        Integer beforeCount = [SELECT COUNT() FROM NBA_Queue__c WHERE Opportunity__c = :opp.Id];
 
         Test.startTest();
         System.enqueueJob(
@@ -51,80 +56,9 @@ private class NbaRealTimeEvaluationQueueableTest {
         );
         Test.stopTest();
 
-        List<NBA_Queue__c> actions = [
-            SELECT Id, Action_Type__c, Source_Path__c, Status__c, Opportunity__c
-            FROM NBA_Queue__c
-            WHERE Opportunity__c = :opp.Id
-        ];
-
-        System.assert(!actions.isEmpty(), 'Should create at least one action');
-        NBA_Queue__c action = actions[0];
-        System.assertEquals('Immediate', action.Source_Path__c,
-            'Source path should be Immediate for trigger-created actions');
-        System.assertNotEquals(null, action.Action_Type__c,
-            'Action type should be set');
-    }
-
-    @isTest
-    static void testExecute_emptyOppIds() {
-        // Count actions that already exist (from @TestSetup trigger activity)
-        Integer existingCount = [SELECT COUNT() FROM NBA_Queue__c];
-
-        Test.startTest();
-        System.enqueueJob(
-            new NbaRealTimeEvaluationQueueable(new Set<Id>())
-        );
-        Test.stopTest();
-
-        // The empty queueable should not add any NEW actions beyond what the
-        // @TestSetup Opp insert trigger may have already created.
-        Integer afterCount = [SELECT COUNT() FROM NBA_Queue__c];
-        System.assert(afterCount <= existingCount + 1,
-            'Empty oppIds queueable should not create additional actions beyond trigger activity. ' +
-            'Before: ' + existingCount + ', After: ' + afterCount);
-    }
-
-    @isTest
-    static void testExecute_closedOppSuppressed() {
-        Account acc = new Account(
-            Name = 'RT Eval Closed Account',
-            Employee_Count__c = 30,
-            Entity_ID__c = 'RT-EVAL-002'
-        );
-        insert acc;
-
-        Id payrollRtId;
-        List<RecordType> rts = [
-            SELECT Id FROM RecordType
-            WHERE SObjectType = 'Opportunity' AND DeveloperName = 'Payroll'
-            LIMIT 1
-        ];
-        if (!rts.isEmpty()) {
-            payrollRtId = rts[0].Id;
-        }
-
-        Opportunity closedOpp = new Opportunity(
-            Name = 'Closed RT Eval Opp',
-            AccountId = acc.Id,
-            StageName = 'Closed Won',
-            CloseDate = Date.today(),
-            Amount = 5000,
-            Source__c = 'N/A'
-        );
-        if (payrollRtId != null) closedOpp.RecordTypeId = payrollRtId;
-        insert closedOpp;
-
-        Test.startTest();
-        System.enqueueJob(
-            new NbaRealTimeEvaluationQueueable(new Set<Id>{ closedOpp.Id })
-        );
-        Test.stopTest();
-
-        List<NBA_Queue__c> actions = [
-            SELECT Id FROM NBA_Queue__c
-            WHERE Opportunity__c = :closedOpp.Id AND Source_Path__c = 'Immediate'
-        ];
-        System.assertEquals(0, actions.size(),
-            'Closed opp should be suppressed — no actions created');
+        // No-op should not create any additional actions
+        Integer afterCount = [SELECT COUNT() FROM NBA_Queue__c WHERE Opportunity__c = :opp.Id];
+        System.assertEquals(beforeCount, afterCount,
+            'Archived queueable should not create any actions');
     }
 }

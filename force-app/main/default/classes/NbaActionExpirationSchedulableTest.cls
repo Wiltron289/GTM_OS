@@ -1,6 +1,6 @@
 /**
- * Test class for NbaActionExpirationSchedulable.
- * Verifies scheduled execution runs expire + unsnooze without errors.
+ * Test class for NbaActionExpirationSchedulable (Phase 5 — Layer 1 expiry only).
+ * Verifies scheduled execution runs expireStaleActions without errors.
  */
 @isTest
 private class NbaActionExpirationSchedulableTest {
@@ -34,38 +34,40 @@ private class NbaActionExpirationSchedulableTest {
         if (payrollRtId != null) opp.RecordTypeId = payrollRtId;
         insert opp;
 
-        // Snoozed action with Snoozed_Until in the past
-        NBA_Queue__c snoozedAction = new NBA_Queue__c(
+        // Layer 1 time-bound action with DueAt well in the past (should be expired)
+        NBA_Queue__c staleTimeBound = new NBA_Queue__c(
             Opportunity__c = opp.Id,
             Account__c = acc.Id,
             Sales_Rep__c = UserInfo.getUserId(),
-            Status__c = 'Snoozed',
-            Snoozed_Until__c = Datetime.now().addMinutes(-10),
-            Action_Type__c = 'Follow Up',
-            Priority_Score__c = 0.50,
-            Priority_Layer__c = 'Layer 3 - Impact+Urgency',
-            Priority_Bucket__c = 'General Pipeline',
+            Status__c = 'Pending',
+            Action_Type__c = 'Meeting',
+            Priority_Score__c = 0.90,
+            Priority_Layer__c = 'Layer 1 - Time Bound',
+            Priority_Bucket__c = 'Cadence Due Today',
+            Is_Time_Bound__c = true,
+            DueAt__c = Datetime.now().addHours(-1),
             Workflow_Mode__c = 'Pipeline'
         );
-        insert snoozedAction;
+        insert staleTimeBound;
     }
 
     @isTest
-    static void testSchedulableExecution() {
+    static void testSchedulableExecution_ExpiresStaleTimeBound() {
         Test.startTest();
         NbaActionExpirationSchedulable sched = new NbaActionExpirationSchedulable();
         sched.execute(null);
         Test.stopTest();
 
-        // Verify snoozed action was moved to Pending
-        List<NBA_Queue__c> unsnoozed = [
+        // Verify stale time-bound action was expired
+        List<NBA_Queue__c> actions = [
             SELECT Status__c FROM NBA_Queue__c
             WHERE Account__r.Name = 'Expire Test Account'
-              AND Action_Type__c = 'Follow Up'
+              AND Action_Type__c = 'Meeting'
+              AND Is_Time_Bound__c = true
         ];
-        System.assertEquals(1, unsnoozed.size(), 'Should find the unsnoozed action');
-        System.assertEquals('Pending', unsnoozed[0].Status__c,
-            'Snoozed action with past due date should be unsnoozed to Pending');
+        System.assertEquals(1, actions.size(), 'Should find the time-bound action');
+        System.assertEquals('Expired', actions[0].Status__c,
+            'Stale Layer 1 time-bound action should be expired');
     }
 
     @isTest

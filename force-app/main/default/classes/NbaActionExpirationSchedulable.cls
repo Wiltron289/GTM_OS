@@ -1,19 +1,17 @@
 /**
  * NbaActionExpirationSchedulable — Housekeeping job for NBA V2 engine.
  *
- * Expires stale In Progress actions and unsnoozes due Snoozed actions.
- * Runs on a 10-minute cadence, offset from the creation schedulable.
+ * Phase 5: Only expires stale Layer 1 time-bound actions (DueAt + 15min).
+ * Unsnooze is no longer needed — snooze suppression is handled by
+ * on-demand evaluation checking Snoozed_Until on audit records.
  *
  * CRON: '0 5/10 * * * ?' (every 10 minutes, offset by 5 from creation)
  */
 public with sharing class NbaActionExpirationSchedulable implements Schedulable {
 
     public void execute(SchedulableContext sc) {
-        // Expire stale actions (non-timebound > 1hr, timebound > DueAt + 15min)
+        // Expire stale Layer 1 time-bound actions (DueAt + 15min past)
         NbaActionStateService.expireStaleActions();
-
-        // Unsnooze due actions (Snoozed_Until <= now → Pending)
-        NbaActionStateService.unsnoozeDueActions();
     }
 
     // ─── Schedule Helper ──────────────────────────────────────────────

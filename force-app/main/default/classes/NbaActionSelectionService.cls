@@ -5,7 +5,7 @@
  * time in NbaActionCreationService. This service applies final gating (cooldown,
  * mode filter) and selects the top-ranked Pending action for an AE.
  *
- * Called by NbaActionCreationSchedulable and NbaActionStateService.promoteNextAction.
+ * Called by NbaActionController.evaluateOnDemand() during on-demand evaluation.
  */
 public with sharing class NbaActionSelectionService {
 
