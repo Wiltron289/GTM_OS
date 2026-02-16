@@ -10,10 +10,11 @@ Sprint-by-sprint change logs, architecture details, and resolved bugs live in se
 - **`docs/sprint-history.md`** -- Detailed sprint logs (Sprints 2-10), commit history, files changed per sprint
 - **`docs/troubleshooting.md`** -- All resolved bugs with root causes, fixes, and prevention notes
 - **`docs/nba-v2-field-mapping.csv`** -- 107 field mappings across all 13 visual sections
-- **`docs/nba-v2-phase-plan.md`** -- **READ THIS FIRST for new work.** Full implementation plan for NBA V2 Action Orchestration Engine. Covers NBA_Queue__c data model, Custom Metadata rule framework, 3-engine architecture (Creation, State, Selection), Demo LWC refactor, App Page setup, and phased sprint plan.
+- **`docs/nba-v2-phase-plan.md`** -- Full implementation plan for NBA V2 Action Orchestration Engine (Phases 1-5). Covers NBA_Queue__c data model, Custom Metadata rule framework, 3-engine architecture (Creation, State, Selection), Demo LWC refactor, App Page setup, and phased sprint plan.
+- **`docs/nba-v2-phase6-cadence-plan.md`** -- **READ THIS FIRST for Phase 6 work.** Approved plan to integrate NBA_Cadence_Rule__mdt into the engine. Covers First Touch cadence (5-Day Variant A), CMDT redesign (12 step-sequence records), NbaCadenceService, signal enrichment, spacing enforcement, ActionWrapper extension, LWC display updates, and NBA_AE_Config__c variant assignment.
 
 Read these when needed (debugging, building new features, understanding history). Don't load them every session.
-**Exception**: Always read `docs/nba-v2-phase-plan.md` when starting work on the NBA V2 engine (Sprints 11+).
+**Exception**: Always read `docs/nba-v2-phase6-cadence-plan.md` when starting work on Phase 6 cadence integration.
 
 ## Working Rules
 
@@ -60,8 +61,8 @@ When developing features or debugging, update the appropriate doc file:
 | **Active Branch** | `feature/nba-v2-demo-lwc` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
 | **Apex Tests** | 93 total (8 cache + 10 controller + 11 state + 8 signal + 14 creation + 5 selection + 6 opp trigger + 5 event trigger + 7 task trigger + 3 creation sched + 2 expiration sched + 2 queueable + 19 existing) |
-| **Current Phase** | **Phase 5 COMPLETE — On-Demand Engine + Platform Cache (Sprint 15, hotfix Sprint 16)** |
-| **Phase Plan** | `docs/nba-v2-phase-plan.md` |
+| **Current Phase** | **Phase 6 PLANNED — Cadence Rule Integration (Sprint 17)** |
+| **Phase Plan** | `docs/nba-v2-phase6-cadence-plan.md` (Phase 6), `docs/nba-v2-phase-plan.md` (Phases 1-5) |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
 ### What Exists
