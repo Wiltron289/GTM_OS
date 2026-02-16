@@ -1,7 +1,8 @@
 /**
  * Test class for NbaTaskTriggerHandler + TaskTrigger.
- * Verifies context updates and auto-completion of actions when
+ * Phase 5: Verifies context updates and cache invalidation when
  * activities are logged on Opportunities with active NBA actions.
+ * Auto-completion removed — on-demand model detects activity during evaluation.
  */
 @isTest
 private class NbaTaskTriggerHandlerTest {
@@ -112,21 +113,27 @@ private class NbaTaskTriggerHandlerTest {
             'LastEvaluatedAt should be updated');
     }
 
-    // ─── Connected Call → Auto-Complete First Touch ──────────────────
+    // ─── Connected Call → Context Update + Cache Invalidation ─────────
 
     @isTest
-    static void testConnectedCall_autoCompletesFirstTouch() {
+    static void testConnectedCall_updatesContextAndInvalidatesCache() {
         Opportunity opp = [
             SELECT Id FROM Opportunity WHERE Account.Name = 'TaskTrig Test Account 1' LIMIT 1
         ];
 
-        // Verify First Touch action is active
         NBA_Queue__c actionBefore = [
-            SELECT Id, Status__c, Action_Type__c FROM NBA_Queue__c
+            SELECT Id, Status__c, Attempt_Count_Today__c FROM NBA_Queue__c
             WHERE Opportunity__c = :opp.Id AND Action_Type__c = 'First Touch' LIMIT 1
         ];
         System.assertEquals('In Progress', actionBefore.Status__c,
             'Action should be In Progress before test');
+
+        // Pre-populate cache to verify invalidation
+        Id userId = UserInfo.getUserId();
+        NbaActionController.ActionWrapper cached = new NbaActionController.ActionWrapper();
+        cached.actionType = 'Stale Action';
+        cached.status = 'Evaluated';
+        NbaCacheService.cacheAction(userId, cached);
 
         NbaTriggerContext.resetAll();
 
@@ -142,19 +149,26 @@ private class NbaTaskTriggerHandlerTest {
         insert t;
         Test.stopTest();
 
+        // Phase 5: Action stays In Progress (no auto-complete), but context is updated
         NBA_Queue__c actionAfter = [
-            SELECT Id, Status__c FROM NBA_Queue__c
-            WHERE Id = :actionBefore.Id
+            SELECT Id, Status__c, Attempt_Count_Today__c, Last_Attempt_Method__c
+            FROM NBA_Queue__c WHERE Id = :actionBefore.Id
         ];
+        System.assertEquals('In Progress', actionAfter.Status__c,
+            'Phase 5: Action should remain In Progress (no auto-complete)');
+        System.assertEquals(1, actionAfter.Attempt_Count_Today__c,
+            'Attempt count should increment for call task');
+        System.assertEquals('Call', actionAfter.Last_Attempt_Method__c,
+            'Last attempt method should be Call');
 
-        System.assertEquals('Completed', actionAfter.Status__c,
-            'First Touch action should be auto-completed after connected call');
+        // Cache should be invalidated
+        NbaActionController.ActionWrapper afterCache = NbaCacheService.getCachedAction(userId);
+        System.assertEquals(null, afterCache,
+            'Cache should be invalidated after task completion');
     }
 
-    // ─── Connected Call → Auto-Complete Re-engage ────────────────────
-
     @isTest
-    static void testConnectedCall_autoCompletesReengage() {
+    static void testConnectedCall_invalidatesCacheForReengage() {
         Opportunity opp = [
             SELECT Id FROM Opportunity WHERE Account.Name = 'TaskTrig Test Account 2' LIMIT 1
         ];
@@ -177,13 +191,13 @@ private class NbaTaskTriggerHandlerTest {
         insert t;
         Test.stopTest();
 
+        // Phase 5: Action stays In Progress — on-demand evaluation will detect the activity
         NBA_Queue__c actionAfter = [
             SELECT Id, Status__c FROM NBA_Queue__c
             WHERE Id = :actionBefore.Id
         ];
-
-        System.assertEquals('Completed', actionAfter.Status__c,
-            'Re-engage action should be auto-completed after connected call');
+        System.assertEquals('In Progress', actionAfter.Status__c,
+            'Phase 5: Re-engage action should remain In Progress (no auto-complete)');
     }
 
     // ─── Task on Non-Opportunity → No Action ─────────────────────────
