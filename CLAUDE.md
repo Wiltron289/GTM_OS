@@ -112,7 +112,7 @@ Wired the engine into the Demo LWC so AEs can see and interact with V2 actions o
 |-----------|---------|
 | `NbaActionController.cls` + test (10 tests, 96% coverage) | Thin controller: getActiveAction, complete, snooze, dismiss. Delegates to NbaActionStateService. |
 | `nbaEmptyState` LWC | "All caught up!" display when AE has no actions |
-| `nbaActionBar` LWC | Fixed bottom bar: Complete (green), Snooze (panel 15m/1h/4h + reason), Dismiss (panel with category + reason) |
+| `nbaActionBar` LWC | Fixed bottom bar (viewport-pinned, clears SF utility bar): Complete (green), Snooze (modal overlay 15m/1h/4h + reason), Dismiss (modal overlay with category + reason) |
 | `nbaDemoWorkspace` dual-mode refactor | connectedCallback detects App Page, imperative getActiveAction + getPageData, effectiveRecordId getter, transition overlay |
 | `nbaDemoHeader` action badge | Color-coded action type badge (5 types), snooze hidden in action mode |
 | `nbaDemoInsightsPanel` "Why This Action" | Dual title, shows action instruction + reason in action mode |
@@ -128,6 +128,9 @@ Both paths share `_applyPageData(data)`. Children receive `effectiveRecordId` (a
 
 #### Key Gotcha: LWC Template Ternary
 LWC does not allow ternary operators in HTML `class={}` attributes. Use computed `cssClass` properties in JS getters instead. Example: `{ label: '15 min', value: 15, cssClass: this.snoozeDuration === 15 ? 'selected' : '' }`.
+
+#### Key Gotcha: SF Utility Bar Offset
+The Salesforce utility bar (app tabs at the bottom) is ~44px tall and sits at the viewport bottom. Any `position: fixed; bottom: 0` element will be hidden behind it. The action bar uses `bottom: 44px` to clear it, and snooze/dismiss panels use `bottom: 116px` (44px utility + 72px bar).
 
 ### Phase 4 — Triggers + Real-Time Events — COMPLETE (Sprint 14)
 
