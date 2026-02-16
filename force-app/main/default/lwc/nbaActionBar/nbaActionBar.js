@@ -87,7 +87,11 @@ export default class NbaActionBar extends LightningElement {
         if (this.isDisabled) return;
         this.closeAllPanels();
         this.dispatchEvent(new CustomEvent('complete', {
-            detail: { actionId: this.currentAction.actionId }
+            detail: {
+                actionId: this.currentAction.actionId,
+                opportunityId: this.currentAction.opportunityId,
+                actionType: this.currentAction.actionType
+            }
         }));
     }
 
@@ -116,6 +120,8 @@ export default class NbaActionBar extends LightningElement {
         this.dispatchEvent(new CustomEvent('snooze', {
             detail: {
                 actionId: this.currentAction.actionId,
+                opportunityId: this.currentAction.opportunityId,
+                actionType: this.currentAction.actionType,
                 reason: this.snoozeReason,
                 durationMinutes: this.snoozeDuration
             }
@@ -147,6 +153,8 @@ export default class NbaActionBar extends LightningElement {
         this.dispatchEvent(new CustomEvent('dismiss', {
             detail: {
                 actionId: this.currentAction.actionId,
+                opportunityId: this.currentAction.opportunityId,
+                actionType: this.currentAction.actionType,
                 reason: this.dismissReason,
                 category: this.dismissCategory
             }

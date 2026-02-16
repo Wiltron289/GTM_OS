@@ -3,6 +3,7 @@ import { refreshApex } from '@salesforce/apex';
 import Id from '@salesforce/user/Id';
 import getPageData from '@salesforce/apex/NbaDemoController.getPageData';
 import getActiveAction from '@salesforce/apex/NbaActionController.getActiveAction';
+import checkTimeBound from '@salesforce/apex/NbaActionController.checkTimeBound';
 import completeAction from '@salesforce/apex/NbaActionController.completeAction';
 import snoozeAction from '@salesforce/apex/NbaActionController.snoozeAction';
 import dismissAction from '@salesforce/apex/NbaActionController.dismissAction';
@@ -32,7 +33,8 @@ export default class NbaDemoWorkspace extends LightningElement {
     currentAction = null;
     showEmptyState = false;
     isTransitioning = false;
-    _pollInterval = null;
+    _timeBoundPollInterval = null;  // 15s — lightweight Layer 1 check
+    _fullRefreshInterval = null;    // 5min — full on-demand re-evaluation
 
     // Data properties populated from the Apex wrapper
     headerData;
@@ -60,20 +62,32 @@ export default class NbaDemoWorkspace extends LightningElement {
             this.isActionMode = true;
             this._loadActiveAction();
 
-            // Poll every 60s for new actions (e.g., trigger-created Layer 1 time-bound)
+            // 15s poll: lightweight Layer 1 time-bound check (1 SOQL)
             // eslint-disable-next-line @lwc/lwc/no-async-operation
-            this._pollInterval = setInterval(() => {
+            this._timeBoundPollInterval = setInterval(() => {
+                if (!this.isTransitioning && !this.isLoading) {
+                    this._checkTimeBound();
+                }
+            }, 15000);
+
+            // 5min poll: full on-demand re-evaluation (~12 SOQL on cache miss)
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            this._fullRefreshInterval = setInterval(() => {
                 if (!this.isTransitioning && !this.isLoading) {
                     this._refreshActiveAction();
                 }
-            }, 60000);
+            }, 300000);
         }
     }
 
     disconnectedCallback() {
-        if (this._pollInterval) {
-            clearInterval(this._pollInterval);
-            this._pollInterval = null;
+        if (this._timeBoundPollInterval) {
+            clearInterval(this._timeBoundPollInterval);
+            this._timeBoundPollInterval = null;
+        }
+        if (this._fullRefreshInterval) {
+            clearInterval(this._fullRefreshInterval);
+            this._fullRefreshInterval = null;
         }
     }
 
@@ -167,6 +181,31 @@ export default class NbaDemoWorkspace extends LightningElement {
     }
 
     // ────────────────────────────────────────────
+    // App Page: lightweight Layer 1 time-bound check (15s poll)
+    // ────────────────────────────────────────────
+    async _checkTimeBound() {
+        try {
+            const action = await checkTimeBound();
+            if (action) {
+                // New time-bound action detected — if different from current, transition
+                const currentId = this.currentAction?.actionId;
+                if (action.actionId !== currentId) {
+                    const prevOppId = this.currentAction?.opportunityId;
+                    this.currentAction = action;
+                    this.showEmptyState = false;
+                    if (action.opportunityId !== prevOppId) {
+                        const data = await getPageData({ oppId: action.opportunityId });
+                        this._applyPageData(data);
+                    }
+                }
+            }
+            // If no time-bound action, do nothing — wait for the 5min full refresh
+        } catch (err) {
+            // Silent fail on polling — don't disrupt the UI
+        }
+    }
+
+    // ────────────────────────────────────────────
     // Computed: effective record ID for children
     // ────────────────────────────────────────────
     get effectiveRecordId() {
@@ -192,10 +231,10 @@ export default class NbaDemoWorkspace extends LightningElement {
     // Action lifecycle handlers (App Page mode)
     // ────────────────────────────────────────────
     async handleCompleteAction(event) {
-        const { actionId } = event.detail;
+        const { actionId, opportunityId, actionType } = event.detail;
         this.isTransitioning = true;
         try {
-            const result = await completeAction({ actionId });
+            const result = await completeAction({ actionId, opportunityId, actionType });
             await this._handleActionResult(result);
         } catch (err) {
             this.error = err;
@@ -204,10 +243,10 @@ export default class NbaDemoWorkspace extends LightningElement {
     }
 
     async handleSnoozeAction(event) {
-        const { actionId, reason, durationMinutes } = event.detail;
+        const { actionId, opportunityId, actionType, reason, durationMinutes } = event.detail;
         this.isTransitioning = true;
         try {
-            const result = await snoozeAction({ actionId, reason, durationMinutes });
+            const result = await snoozeAction({ actionId, opportunityId, actionType, reason, durationMinutes });
             await this._handleActionResult(result);
         } catch (err) {
             this.error = err;
@@ -216,10 +255,10 @@ export default class NbaDemoWorkspace extends LightningElement {
     }
 
     async handleDismissAction(event) {
-        const { actionId, reason, category } = event.detail;
+        const { actionId, opportunityId, actionType, reason, category } = event.detail;
         this.isTransitioning = true;
         try {
-            const result = await dismissAction({ actionId, reason, category });
+            const result = await dismissAction({ actionId, opportunityId, actionType, reason, category });
             await this._handleActionResult(result);
         } catch (err) {
             this.error = err;
