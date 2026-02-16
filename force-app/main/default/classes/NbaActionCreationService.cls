@@ -314,6 +314,24 @@ public with sharing class NbaActionCreationService {
                     return rule.Rule_Name__c;
                 }
             }
+            // Phase 5: Suppress if there's a snoozed audit record still active
+            if (rule.Condition__c == 'Snoozed Action Exists'
+                && signal.hasSnoozedAction
+                && signal.snoozedUntilDate != null
+                && signal.snoozedUntilDate > Datetime.now()) {
+                return rule.Rule_Name__c;
+            }
+            // Phase 5: Suppress if recently completed (cooldown window)
+            if (rule.Condition__c == 'Recent Completion' && signal.lastCompletedDate != null) {
+                Long msSinceComplete = Math.abs(
+                    Datetime.now().getTime() - signal.lastCompletedDate.getTime()
+                );
+                Decimal hoursSinceComplete = Decimal.valueOf(msSinceComplete).divide(3600000, 2);
+                if (rule.Suppression_Window_Hours__c != null
+                    && hoursSinceComplete < rule.Suppression_Window_Hours__c) {
+                    return rule.Rule_Name__c;
+                }
+            }
         }
         return null;
     }
@@ -474,6 +492,9 @@ public with sharing class NbaActionCreationService {
         String actionType
     ) {
         String instruction;
+        // Method escalation: if last attempt was a no-connect, suggest alternate method
+        String methodHint = getMethodEscalationHint(signal);
+
         if (actionType == 'First Touch') {
             instruction = 'Make initial contact — new opportunity assigned';
         } else if (actionType == 'Stage Progression') {
@@ -488,6 +509,11 @@ public with sharing class NbaActionCreationService {
             instruction = 'Re-engage cold deal — ' + days + ' days since last interaction';
         } else {
             instruction = 'Follow up on pipeline opportunity';
+        }
+
+        // Append method escalation hint if applicable
+        if (String.isNotBlank(methodHint)) {
+            instruction += ' [' + methodHint + ']';
         }
 
         // Truncate to field length (255)
@@ -552,6 +578,28 @@ public with sharing class NbaActionCreationService {
             }
         }
         return maxMrr;
+    }
+
+    /**
+     * Method escalation: if the last call was a no-connect (Attempted-LVM or
+     * Attempted-NVM), suggest an alternate method (SMS or Email).
+     * Returns a hint string like "Try SMS" or null if no escalation needed.
+     */
+    private static String getMethodEscalationHint(NbaSignalService.OpportunitySignal signal) {
+        if (!signal.hadNoConnect || String.isBlank(signal.lastCallDisposition)) {
+            return null;
+        }
+        String disp = signal.lastCallDisposition;
+        if (disp.startsWithIgnoreCase('Attempted-LVM') || disp.startsWithIgnoreCase('Attempted - LVM')) {
+            return 'Try SMS — left voicemail on last attempt';
+        }
+        if (disp.startsWithIgnoreCase('Attempted-NVM') || disp.startsWithIgnoreCase('Attempted - NVM')) {
+            return 'Try SMS or Email — no voicemail on last attempt';
+        }
+        if (disp.startsWithIgnoreCase('Attempted')) {
+            return 'Try SMS — call was not connected';
+        }
+        return null;
     }
 
     private static NBA_Impact_Weight__mdt getActiveImpactWeights() {

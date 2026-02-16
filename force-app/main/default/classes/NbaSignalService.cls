@@ -63,6 +63,11 @@ public with sharing class NbaSignalService {
         public List<NBA_Queue__c> existingActiveActions;
         public Boolean hasActiveAction;
 
+        // Audit record signals (on-demand suppression)
+        public Boolean hasSnoozedAction;
+        public Datetime snoozedUntilDate;
+        public Datetime lastCompletedDate;
+
         // Computed: most recent valid touch
         public Datetime lastValidTouchDate;
 
@@ -74,6 +79,7 @@ public with sharing class NbaSignalService {
             this.hasAccountScoring = false;
             this.hasActiveAction = false;
             this.existingActiveActions = new List<NBA_Queue__c>();
+            this.hasSnoozedAction = false;
         }
     }
 
@@ -183,11 +189,24 @@ public with sharing class NbaSignalService {
                 }
             }
 
-            // Existing active actions
+            // Existing actions + audit records
             List<NBA_Queue__c> existing = existingActionsMap.get(oppId);
             if (existing != null && !existing.isEmpty()) {
+                for (NBA_Queue__c ea : existing) {
+                    if (ea.Status__c == 'Snoozed' && ea.Snoozed_Until__c != null
+                        && ea.Snoozed_Until__c > Datetime.now()) {
+                        sig.hasSnoozedAction = true;
+                        sig.snoozedUntilDate = ea.Snoozed_Until__c;
+                    } else if (ea.Status__c == 'Completed' && ea.Completed_Date__c != null) {
+                        if (sig.lastCompletedDate == null || ea.Completed_Date__c > sig.lastCompletedDate) {
+                            sig.lastCompletedDate = ea.Completed_Date__c;
+                        }
+                    } else {
+                        // Active status — mark as having active action
+                        sig.hasActiveAction = true;
+                    }
+                }
                 sig.existingActiveActions = existing;
-                sig.hasActiveAction = true;
             }
 
             // Compute last valid touch date (MAX of call, sms, task)
@@ -327,11 +346,18 @@ public with sharing class NbaSignalService {
 
     private static Map<Id, List<NBA_Queue__c>> queryExistingActions(Set<Id> oppIds) {
         Map<Id, List<NBA_Queue__c>> resultMap = new Map<Id, List<NBA_Queue__c>>();
+        // Query active actions AND recent audit records (snoozed/completed)
+        // so the on-demand evaluation can enforce cooldown + snooze suppression.
         List<NBA_Queue__c> actions = [
-            SELECT Id, Opportunity__c, Status__c, Action_Type__c, Priority_Score__c, CreatedDate
+            SELECT Id, Opportunity__c, Status__c, Action_Type__c, Priority_Score__c,
+                   CreatedDate, Completed_Date__c, Snoozed_Until__c, CooldownUntil__c
             FROM NBA_Queue__c
             WHERE Opportunity__c IN :oppIds
-              AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
+              AND (
+                  Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
+                  OR (Status__c = 'Snoozed' AND Snoozed_Until__c > :Datetime.now())
+                  OR (Status__c = 'Completed' AND Completed_Date__c >= :Datetime.now().addHours(-1))
+              )
             WITH SECURITY_ENFORCED
             LIMIT 1000
         ];
