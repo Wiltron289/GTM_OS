@@ -1,7 +1,12 @@
 /**
- * Test class for NbaActionStateService.
- * Verifies lifecycle transitions, constraint enforcement, expiration,
- * unsnooze, and promotion logic.
+ * Test class for NbaActionStateService (Phase 5 — audit writer + cache invalidation).
+ *
+ * Verifies:
+ * - completeAction writes audit record + updates persisted Layer 1
+ * - snoozeAction writes audit with Snoozed_Until__c
+ * - dismissAction writes audit with reason + category
+ * - expireStaleActions expires only Layer 1 time-bound records
+ * - On-demand (null actionId) path creates audit without DB update
  */
 @isTest
 private class NbaActionStateServiceTest {
@@ -35,318 +40,280 @@ private class NbaActionStateServiceTest {
         if (payrollRtId != null) opp.RecordTypeId = payrollRtId;
         insert opp;
 
-        // Active action (In Progress) for complete/snooze/dismiss
-        NBA_Queue__c activeAction = new NBA_Queue__c(
+        // Layer 1 persisted action (simulates trigger-created time-bound)
+        NBA_Queue__c timeBound = new NBA_Queue__c(
             Opportunity__c = opp.Id,
             Account__c = acc.Id,
             Sales_Rep__c = UserInfo.getUserId(),
             Status__c = 'In Progress',
-            Action_Type__c = 'Follow Up',
-            Priority_Score__c = 0.80,
-            Priority_Layer__c = 'Layer 3 - Impact+Urgency',
-            Priority_Bucket__c = 'General Pipeline',
-            Impact_Score__c = 0.60,
-            Urgency_Score__c = 0.50,
-            Workflow_Mode__c = 'Pipeline'
+            Action_Type__c = 'Meeting',
+            Priority_Score__c = 0.90,
+            Priority_Layer__c = 'Layer 1 - Time Bound',
+            Priority_Bucket__c = 'Cadence Due Today',
+            Is_Time_Bound__c = true,
+            DueAt__c = Datetime.now().addHours(2),
+            Workflow_Mode__c = 'Pipeline',
+            Action_Instruction__c = 'Prepare for meeting'
         );
-        insert activeAction;
+        insert timeBound;
     }
 
-    // ─── Helper ───────────────────────────────────────────────────────
+    // ─── Helpers ────────────────────────────────────────────────────
 
-    private static NBA_Queue__c getActiveAction() {
+    private static NBA_Queue__c getTimeBoundAction() {
         return [
-            SELECT Id, Status__c, Sales_Rep__c
+            SELECT Id, Status__c, Sales_Rep__c, Opportunity__c, Account__c
             FROM NBA_Queue__c
             WHERE Account__r.Name = 'State Test Account'
+              AND Is_Time_Bound__c = true
               AND Status__c = 'In Progress'
             LIMIT 1
         ];
     }
 
-    // ─── Complete Tests ───────────────────────────────────────────────
+    private static Opportunity getTestOpp() {
+        return [SELECT Id, AccountId FROM Opportunity WHERE Account.Name = 'State Test Account' LIMIT 1];
+    }
 
-    @isTest
-    static void testCompleteAction_Success() {
-        NBA_Queue__c action = getActiveAction();
-
-        Test.startTest();
-        NBA_Queue__c next = NbaActionStateService.completeAction(action.Id);
-        Test.stopTest();
-
-        NBA_Queue__c completed = [
-            SELECT Status__c, Completed_Date__c, Actioned_Date__c, UniqueKey__c
-            FROM NBA_Queue__c WHERE Id = :action.Id
+    private static Integer countAuditRecords(String status) {
+        return [
+            SELECT COUNT() FROM NBA_Queue__c
+            WHERE Account__r.Name = 'State Test Account'
+              AND Status__c = :status
+              AND Actioned_Date__c != null
         ];
-        System.assertEquals('Completed', completed.Status__c, 'Status should be Completed');
-        System.assertNotEquals(null, completed.Completed_Date__c, 'Completed_Date should be set');
-        System.assertNotEquals(null, completed.Actioned_Date__c, 'Actioned_Date should be set');
-        System.assertEquals(null, completed.UniqueKey__c, 'UniqueKey should be cleared');
     }
 
-    @isTest
-    static void testCompleteAction_InvalidId() {
-        // Complete the action first so it's no longer In Progress,
-        // then try to complete it again — should throw
-        NBA_Queue__c action = getActiveAction();
-        action.Status__c = 'Completed';
-        update action;
-
-        Test.startTest();
-        Boolean threwException = false;
-        try {
-            NbaActionStateService.completeAction(action.Id);
-        } catch (AuraHandledException e) {
-            threwException = true;
-        }
-        Test.stopTest();
-
-        System.assert(threwException, 'Should throw AuraHandledException for already-completed action');
-    }
-
-    // ─── Snooze Tests ─────────────────────────────────────────────────
+    // ─── Complete Tests ─────────────────────────────────────────────
 
     @isTest
-    static void testSnoozeAction_Success() {
-        NBA_Queue__c action = getActiveAction();
+    static void testCompleteAction_PersistedLayerOne() {
+        NBA_Queue__c action = getTimeBoundAction();
+        Opportunity opp = getTestOpp();
 
         Test.startTest();
-        NBA_Queue__c next = NbaActionStateService.snoozeAction(action.Id, 'Busy right now', 30);
-        Test.stopTest();
-
-        NBA_Queue__c snoozed = [
-            SELECT Status__c, Snoozed_Until__c, Dismissed_Reason__c
-            FROM NBA_Queue__c WHERE Id = :action.Id
-        ];
-        System.assertEquals('Snoozed', snoozed.Status__c, 'Status should be Snoozed');
-        System.assertNotEquals(null, snoozed.Snoozed_Until__c, 'Snoozed_Until should be set');
-        System.assertEquals('Busy right now', snoozed.Dismissed_Reason__c, 'Reason should be saved');
-    }
-
-    // ─── Dismiss Tests ────────────────────────────────────────────────
-
-    @isTest
-    static void testDismissAction_Success() {
-        NBA_Queue__c action = getActiveAction();
-
-        Test.startTest();
-        NBA_Queue__c next = NbaActionStateService.dismissAction(
-            action.Id, 'Not relevant', 'Other'
+        NbaActionStateService.completeAction(
+            action.Id, opp.Id, opp.AccountId, 'Meeting', 'Prepare for meeting'
         );
         Test.stopTest();
 
-        NBA_Queue__c dismissed = [
-            SELECT Status__c, Dismissed_Reason__c, Dismissal_Category__c, UniqueKey__c
-            FROM NBA_Queue__c WHERE Id = :action.Id
-        ];
-        System.assertEquals('Dismissed', dismissed.Status__c, 'Status should be Dismissed');
-        System.assertEquals('Not relevant', dismissed.Dismissed_Reason__c, 'Reason should be saved');
-        System.assertEquals('Other', dismissed.Dismissal_Category__c, 'Category should be saved');
-        System.assertEquals(null, dismissed.UniqueKey__c, 'UniqueKey should be cleared');
+        // Layer 1 record should be marked Completed
+        NBA_Queue__c persisted = [SELECT Status__c, Completed_Date__c FROM NBA_Queue__c WHERE Id = :action.Id];
+        System.assertEquals('Completed', persisted.Status__c, 'Persisted action should be Completed');
+        System.assertNotEquals(null, persisted.Completed_Date__c, 'Completed_Date should be set');
+
+        // Audit record should also be created
+        System.assert(countAuditRecords('Completed') >= 1, 'Should have at least 1 Completed audit record');
     }
 
-    // ─── Expiration Tests ─────────────────────────────────────────────
+    @isTest
+    static void testCompleteAction_OnDemandNullId() {
+        Opportunity opp = getTestOpp();
+
+        Test.startTest();
+        NbaActionStateService.completeAction(
+            null, opp.Id, opp.AccountId, 'Re-engage', 'Re-engage cold deal — 7 days inactive'
+        );
+        Test.stopTest();
+
+        // Should write audit record without touching any persisted action
+        List<NBA_Queue__c> audits = [
+            SELECT Status__c, Action_Type__c, CooldownUntil__c, Completed_Date__c
+            FROM NBA_Queue__c
+            WHERE Opportunity__c = :opp.Id
+              AND Action_Type__c = 'Re-engage'
+              AND Status__c = 'Completed'
+        ];
+        System.assertEquals(1, audits.size(), 'Should create 1 audit record');
+        System.assertNotEquals(null, audits[0].CooldownUntil__c, 'Cooldown should be set on complete');
+        System.assertNotEquals(null, audits[0].Completed_Date__c, 'Completed_Date should be set');
+    }
 
     @isTest
-    static void testExpireStaleActions_NonTimebound() {
-        // Set threshold to negative value so cutoff is in the future,
-        // ensuring the just-created record's LastModifiedDate is before the cutoff
-        NbaActionStateService.NON_TIMEBOUND_EXPIRE_MINUTES = -60;
+    static void testCompleteAction_CachInvalidated() {
+        Opportunity opp = getTestOpp();
+        Id userId = UserInfo.getUserId();
+
+        // Pre-populate cache
+        NbaActionController.ActionWrapper cached = new NbaActionController.ActionWrapper();
+        cached.opportunityId = opp.Id;
+        cached.actionType = 'Follow Up';
+        NbaCacheService.cacheAction(userId, cached);
+        System.assertNotEquals(null, NbaCacheService.getCachedAction(userId),
+            'Cache should be populated before complete');
+
+        Test.startTest();
+        NbaActionStateService.completeAction(null, opp.Id, opp.AccountId, 'Follow Up', 'Follow up');
+        Test.stopTest();
+
+        System.assertEquals(null, NbaCacheService.getCachedAction(userId),
+            'Cache should be invalidated after complete');
+    }
+
+    // ─── Snooze Tests ───────────────────────────────────────────────
+
+    @isTest
+    static void testSnoozeAction_WritesAudit() {
+        Opportunity opp = getTestOpp();
+
+        Test.startTest();
+        NbaActionStateService.snoozeAction(
+            null, opp.Id, opp.AccountId, 'First Touch',
+            'Make initial contact', 'Busy right now', 30
+        );
+        Test.stopTest();
+
+        List<NBA_Queue__c> audits = [
+            SELECT Status__c, Snoozed_Until__c, Dismissed_Reason__c
+            FROM NBA_Queue__c
+            WHERE Opportunity__c = :opp.Id
+              AND Status__c = 'Snoozed'
+        ];
+        System.assertEquals(1, audits.size(), 'Should create 1 snoozed audit record');
+        System.assertNotEquals(null, audits[0].Snoozed_Until__c, 'Snoozed_Until should be set');
+        System.assertEquals('Busy right now', audits[0].Dismissed_Reason__c, 'Reason should be saved');
+    }
+
+    @isTest
+    static void testSnoozeAction_PersistedLayerOne() {
+        NBA_Queue__c action = getTimeBoundAction();
+        Opportunity opp = getTestOpp();
+
+        Test.startTest();
+        NbaActionStateService.snoozeAction(
+            action.Id, opp.Id, opp.AccountId, 'Meeting',
+            'Prepare for meeting', 'Need more time', 60
+        );
+        Test.stopTest();
+
+        // Layer 1 record should be marked Snoozed
+        NBA_Queue__c persisted = [SELECT Status__c FROM NBA_Queue__c WHERE Id = :action.Id];
+        System.assertEquals('Snoozed', persisted.Status__c, 'Persisted action should be Snoozed');
+    }
+
+    // ─── Dismiss Tests ──────────────────────────────────────────────
+
+    @isTest
+    static void testDismissAction_WritesAudit() {
+        Opportunity opp = getTestOpp();
+
+        Test.startTest();
+        NbaActionStateService.dismissAction(
+            null, opp.Id, opp.AccountId, 'Stage Progression',
+            'Re-engage late-stage', 'Not relevant', 'Other'
+        );
+        Test.stopTest();
+
+        List<NBA_Queue__c> audits = [
+            SELECT Status__c, Dismissed_Reason__c, Dismissal_Category__c, CooldownUntil__c
+            FROM NBA_Queue__c
+            WHERE Opportunity__c = :opp.Id
+              AND Status__c = 'Dismissed'
+        ];
+        System.assertEquals(1, audits.size(), 'Should create 1 dismissed audit record');
+        System.assertEquals('Not relevant', audits[0].Dismissed_Reason__c, 'Reason should be saved');
+        System.assertEquals('Other', audits[0].Dismissal_Category__c, 'Category should be saved');
+        System.assertNotEquals(null, audits[0].CooldownUntil__c, 'Cooldown should be set on dismiss');
+    }
+
+    @isTest
+    static void testDismissAction_PersistedLayerOne() {
+        NBA_Queue__c action = getTimeBoundAction();
+        Opportunity opp = getTestOpp();
+
+        Test.startTest();
+        NbaActionStateService.dismissAction(
+            action.Id, opp.Id, opp.AccountId, 'Meeting',
+            'Prepare for meeting', 'Call Scheduled already', 'Call Scheduled'
+        );
+        Test.stopTest();
+
+        NBA_Queue__c persisted = [SELECT Status__c FROM NBA_Queue__c WHERE Id = :action.Id];
+        System.assertEquals('Dismissed', persisted.Status__c, 'Persisted action should be Dismissed');
+    }
+
+    // ─── Expiration Tests ───────────────────────────────────────────
+
+    @isTest
+    static void testExpireStaleActions_TimeboundPastDue() {
+        // Create a time-bound action with DueAt well in the past
+        Account acc2 = new Account(Name = 'Expire Test Account', Entity_ID__c = 'EXP-001');
+        insert acc2;
+        Opportunity opp2 = new Opportunity(
+            Name = 'Expire Opp', AccountId = acc2.Id, StageName = 'New',
+            CloseDate = Date.today().addDays(30), Amount = 3000, Source__c = 'N/A'
+        );
+        List<RecordType> rts = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND DeveloperName = 'Payroll' LIMIT 1];
+        if (!rts.isEmpty()) opp2.RecordTypeId = rts[0].Id;
+        insert opp2;
+
+        NBA_Queue__c staleAction = new NBA_Queue__c(
+            Opportunity__c = opp2.Id, Account__c = acc2.Id,
+            Sales_Rep__c = UserInfo.getUserId(), Status__c = 'Pending',
+            Action_Type__c = 'Meeting', Is_Time_Bound__c = true,
+            DueAt__c = Datetime.now().addHours(-2),
+            Priority_Score__c = 0.90, Priority_Layer__c = 'Layer 1 - Time Bound',
+            Priority_Bucket__c = 'Cadence Due Today', Workflow_Mode__c = 'Pipeline'
+        );
+        insert staleAction;
 
         Test.startTest();
         Integer count = NbaActionStateService.expireStaleActions();
         Test.stopTest();
 
-        // The active action should be expired
-        NBA_Queue__c expired = [
-            SELECT Status__c FROM NBA_Queue__c
-            WHERE Account__r.Name = 'State Test Account' LIMIT 1
-        ];
-        System.assertEquals('Expired', expired.Status__c, 'Should expire non-timebound action');
+        NBA_Queue__c result = [SELECT Status__c FROM NBA_Queue__c WHERE Id = :staleAction.Id];
+        System.assertEquals('Expired', result.Status__c, 'Past-due time-bound should expire');
         System.assert(count >= 1, 'Should expire at least 1 action');
     }
 
     @isTest
-    static void testExpireStaleActions_Timebound() {
-        // Create a timebound action with DueAt in the past
-        Account acc = [SELECT Id FROM Account WHERE Name = 'State Test Account' LIMIT 1];
-        Account acc2 = new Account(Name = 'State Test Account TB', Entity_ID__c = 'STATE-TB-001');
-        insert acc2;
-
-        Opportunity opp2 = new Opportunity(
-            Name = 'TB Opp', AccountId = acc2.Id, StageName = 'New',
-            CloseDate = Date.today().addDays(30), Amount = 3000, Source__c = 'N/A'
-        );
-        Id payrollRtId;
-        List<RecordType> rts = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND DeveloperName = 'Payroll' LIMIT 1];
-        if (!rts.isEmpty()) opp2.RecordTypeId = rts[0].Id;
-        insert opp2;
-
-        NBA_Queue__c tbAction = new NBA_Queue__c(
-            Opportunity__c = opp2.Id, Account__c = acc2.Id,
-            Sales_Rep__c = UserInfo.getUserId(), Status__c = 'In Progress',
-            Action_Type__c = 'First Touch', Is_Time_Bound__c = true,
-            DueAt__c = Datetime.now().addHours(-1),
-            Priority_Score__c = 0.90, Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today', Workflow_Mode__c = 'Pipeline'
-        );
-        insert tbAction;
-
+    static void testExpireStaleActions_FutureTimeboundNotExpired() {
+        // The setup data has a time-bound action with DueAt 2 hours from now
+        // It should NOT be expired
         Test.startTest();
         Integer count = NbaActionStateService.expireStaleActions();
         Test.stopTest();
 
-        NBA_Queue__c result = [SELECT Status__c FROM NBA_Queue__c WHERE Id = :tbAction.Id];
-        System.assertEquals('Expired', result.Status__c, 'Timebound past-due action should expire');
+        NBA_Queue__c action = getTimeBoundAction();
+        System.assertEquals('In Progress', action.Status__c,
+            'Future time-bound action should NOT be expired');
     }
 
-    // ─── Unsnooze Tests ───────────────────────────────────────────────
-
     @isTest
-    static void testUnsnoozeDueActions() {
-        // Snooze the action, then set Snoozed_Until to the past
-        NBA_Queue__c action = getActiveAction();
-        action.Status__c = 'Snoozed';
-        action.Snoozed_Until__c = Datetime.now().addMinutes(-5);
-        update action;
+    static void testExpireStaleActions_InvalidatesCacheForAffectedAEs() {
+        Id userId = UserInfo.getUserId();
 
-        Test.startTest();
-        Integer count = NbaActionStateService.unsnoozeDueActions();
-        Test.stopTest();
+        // Pre-populate cache
+        NbaActionController.ActionWrapper cached = new NbaActionController.ActionWrapper();
+        cached.actionType = 'Meeting';
+        NbaCacheService.cacheAction(userId, cached);
 
-        NBA_Queue__c result = [SELECT Status__c, Snoozed_Until__c FROM NBA_Queue__c WHERE Id = :action.Id];
-        System.assertEquals('Pending', result.Status__c, 'Should be unsnoozed to Pending');
-        System.assertEquals(null, result.Snoozed_Until__c, 'Snoozed_Until should be cleared');
-        System.assert(count >= 1, 'Should unsnooze at least 1 action');
-    }
-
-    // ─── Promotion Tests ──────────────────────────────────────────────
-
-    @isTest
-    static void testPromoteNextAction_HasCapacity() {
-        // Complete the active action first, then create a Pending action
-        NBA_Queue__c active = getActiveAction();
-        active.Status__c = 'Completed';
-        active.Completed_Date__c = Datetime.now();
-        update active;
-
-        // Create a Pending action for promotion
-        Account acc2 = new Account(Name = 'Promote Test Account', Entity_ID__c = 'PROM-001');
+        // Create a stale time-bound action
+        Account acc2 = new Account(Name = 'Cache Expire Account', Entity_ID__c = 'CEXP-001');
         insert acc2;
         Opportunity opp2 = new Opportunity(
-            Name = 'Promote Opp', AccountId = acc2.Id, StageName = 'New',
-            CloseDate = Date.today().addDays(30), Amount = 4000, Source__c = 'N/A'
+            Name = 'Cache Expire Opp', AccountId = acc2.Id, StageName = 'New',
+            CloseDate = Date.today().addDays(30), Amount = 1000, Source__c = 'N/A'
         );
-        Id payrollRtId;
         List<RecordType> rts = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND DeveloperName = 'Payroll' LIMIT 1];
         if (!rts.isEmpty()) opp2.RecordTypeId = rts[0].Id;
         insert opp2;
 
-        NBA_Queue__c pending = new NBA_Queue__c(
+        NBA_Queue__c stale = new NBA_Queue__c(
             Opportunity__c = opp2.Id, Account__c = acc2.Id,
-            Sales_Rep__c = UserInfo.getUserId(), Status__c = 'Pending',
-            Action_Type__c = 'Re-engage', Priority_Score__c = 0.65,
-            Priority_Layer__c = 'Layer 3 - Impact+Urgency',
-            Priority_Bucket__c = 'General Pipeline', Workflow_Mode__c = 'Pipeline'
-        );
-        insert pending;
-
-        Test.startTest();
-        NBA_Queue__c promoted = NbaActionStateService.promoteNextAction(UserInfo.getUserId());
-        Test.stopTest();
-
-        System.assertNotEquals(null, promoted, 'Should promote a pending action');
-        NBA_Queue__c result = [SELECT Status__c FROM NBA_Queue__c WHERE Id = :pending.Id];
-        System.assertEquals('In Progress', result.Status__c, 'Promoted action should be In Progress');
-    }
-
-    @isTest
-    static void testPromoteNextAction_AtCapacity() {
-        // Active action already exists (1 active), add a Pending to hit cap of 2
-        Account acc2 = new Account(Name = 'Cap Test Account', Entity_ID__c = 'CAP-001');
-        insert acc2;
-        Opportunity opp2 = new Opportunity(
-            Name = 'Cap Opp', AccountId = acc2.Id, StageName = 'Connect',
-            CloseDate = Date.today().addDays(30), Amount = 2000, Source__c = 'N/A'
-        );
-        Id payrollRtId;
-        List<RecordType> rts = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND DeveloperName = 'Payroll' LIMIT 1];
-        if (!rts.isEmpty()) opp2.RecordTypeId = rts[0].Id;
-        insert opp2;
-
-        NBA_Queue__c pending = new NBA_Queue__c(
-            Opportunity__c = opp2.Id, Account__c = acc2.Id,
-            Sales_Rep__c = UserInfo.getUserId(), Status__c = 'Pending',
-            Action_Type__c = 'Follow Up', Priority_Score__c = 0.50,
-            Priority_Layer__c = 'Layer 3 - Impact+Urgency',
-            Priority_Bucket__c = 'General Pipeline', Workflow_Mode__c = 'Pipeline'
-        );
-        insert pending;
-        // Now: 1 In Progress + 1 Pending = 2 (at cap)
-
-        Test.startTest();
-        NBA_Queue__c promoted = NbaActionStateService.promoteNextAction(UserInfo.getUserId());
-        Test.stopTest();
-
-        System.assertEquals(null, promoted, 'Should not promote when at capacity');
-    }
-
-    @isTest
-    static void testPromoteNextAction_LayerPrecedence() {
-        // Complete the active action so AE has 0 in queue
-        NBA_Queue__c active = getActiveAction();
-        active.Status__c = 'Completed';
-        update active;
-
-        // Insert 1 Pending Layer 1 (time-bound, low score)
-        // With 1 Pending, count=1, under cap of 2 → promote should work
-        Account acc2 = new Account(Name = 'Layer Test Account 1', Entity_ID__c = 'LAY-001');
-        insert acc2;
-
-        Opportunity opp2 = new Opportunity(
-            Name = 'Layer Opp 1', AccountId = acc2.Id, StageName = 'New',
-            CloseDate = Date.today().addDays(30), Amount = 2000, Source__c = 'N/A'
-        );
-        Id payrollRtId;
-        List<RecordType> rts = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND DeveloperName = 'Payroll' LIMIT 1];
-        if (!rts.isEmpty()) {
-            opp2.RecordTypeId = rts[0].Id;
-        }
-        insert opp2;
-
-        // Layer 1 with LOW score — should still be promoted over any Layer 3
-        NBA_Queue__c layer1 = new NBA_Queue__c(
-            Opportunity__c = opp2.Id, Account__c = acc2.Id,
-            Sales_Rep__c = UserInfo.getUserId(), Status__c = 'Pending',
-            Action_Type__c = 'First Touch', Priority_Score__c = 0.30,
-            Priority_Layer__c = 'Layer 1 - Time Bound', Is_Time_Bound__c = true,
+            Sales_Rep__c = userId, Status__c = 'In Progress',
+            Action_Type__c = 'Meeting', Is_Time_Bound__c = true,
+            DueAt__c = Datetime.now().addHours(-2),
+            Priority_Score__c = 0.80, Priority_Layer__c = 'Layer 1 - Time Bound',
             Priority_Bucket__c = 'Cadence Due Today', Workflow_Mode__c = 'Pipeline'
         );
-        insert layer1;
+        insert stale;
 
         Test.startTest();
-        NBA_Queue__c promoted = NbaActionStateService.promoteNextAction(UserInfo.getUserId());
+        NbaActionStateService.expireStaleActions();
         Test.stopTest();
 
-        System.assertNotEquals(null, promoted, 'Should promote an action');
-        System.assertEquals(layer1.Id, promoted.Id,
-            'Layer 1 action should be promoted');
-        NBA_Queue__c result = [SELECT Status__c FROM NBA_Queue__c WHERE Id = :layer1.Id];
-        System.assertEquals('In Progress', result.Status__c,
-            'Promoted action should be In Progress');
-    }
-
-    // ─── Constraint Tests ─────────────────────────────────────────────
-
-    @isTest
-    static void testGetActiveCount() {
-        Integer count = NbaActionStateService.getActiveCount(UserInfo.getUserId());
-        System.assertEquals(1, count, 'Should count 1 active action (In Progress from setup)');
-    }
-
-    @isTest
-    static void testHasCapacity_WithOneActive() {
-        Boolean hasCap = NbaActionStateService.hasCapacity(UserInfo.getUserId());
-        System.assertEquals(true, hasCap, 'With 1 active, should have capacity (max is 2)');
+        System.assertEquals(null, NbaCacheService.getCachedAction(userId),
+            'Cache should be invalidated for AE with expired action');
     }
 }

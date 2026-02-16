@@ -1,286 +1,248 @@
 /**
- * NbaActionStateService — Action lifecycle management for the NBA V2 engine.
+ * NbaActionStateService — Audit record writer + cache invalidation for NBA V2.
  *
- * Manages state transitions: complete, snooze, dismiss, expire, unsnooze.
- * Enforces constraints: max 2 active+pending per AE, 1 active per Opp.
- * Handles promotion of next-highest-ranked Pending action when slots open.
+ * Phase 5 pivot: In the on-demand model, most actions exist only in memory
+ * (evaluated on request, cached in Platform Cache). NBA_Queue__c records are
+ * written only as audit records when the AE interacts (complete/snooze/dismiss),
+ * or by triggers for Layer 1 time-bound actions.
  *
- * Called by NbaActionController (LWC) and NbaActionExpirationSchedulable.
+ * Responsibilities:
+ * - Write audit NBA_Queue__c records on AE interaction
+ * - Update persisted Layer 1 records when completed/snoozed/dismissed
+ * - Expire stale Layer 1 time-bound records
+ * - Invalidate Platform Cache after state changes
+ *
+ * Called by NbaActionController and NbaActionExpirationSchedulable.
  */
 public with sharing class NbaActionStateService {
 
-    // ─── Constants ────────────────────────────────────────────────────
-    private static final Integer MAX_ACTIVE_PENDING_PER_AE = 2;
-    private static final Set<String> ACTIVE_STATUSES = new Set<String>{
-        'Pending', 'In Progress', 'Accepted'
-    };
-
-    // Expiration thresholds (configurable for testing)
-    @TestVisible
-    private static Integer NON_TIMEBOUND_EXPIRE_MINUTES = 60;
+    // Expiration threshold for Layer 1 time-bound actions (configurable for testing)
     @TestVisible
     private static Integer TIMEBOUND_EXPIRE_MINUTES = 15;
 
-    // ─── AE-Invoked Transitions ───────────────────────────────────────
+    // Default cooldown after completing an action (minutes)
+    private static final Integer DEFAULT_COOLDOWN_MINUTES = 60;
+
+    // ─── AE-Invoked: Complete ──────────────────────────────────────
 
     /**
-     * Complete an action. Sets Status='Completed', triggers promotion.
-     * @param actionId The NBA_Queue__c record ID
-     * @return The next promoted action for the AE (or null if none)
+     * Complete an action. If persisted (Layer 1), updates the DB record.
+     * Always writes an audit record and invalidates cache.
+     *
+     * @param actionId NBA_Queue__c ID (null for on-demand actions)
+     * @param opportunityId Opportunity the action was for
+     * @param accountId Account the action was for
+     * @param actionType Action type string (e.g., 'First Touch', 'Re-engage')
+     * @param actionInstruction The instruction text shown to the AE
      */
-    public static NBA_Queue__c completeAction(Id actionId) {
-        NBA_Queue__c action = queryAction(actionId);
-        if (action == null) {
-            throw new AuraHandledException('Action not found or already completed.');
+    public static void completeAction(
+        Id actionId, Id opportunityId, Id accountId, String actionType, String actionInstruction
+    ) {
+        Id userId = UserInfo.getUserId();
+
+        // If Layer 1 persisted action, update the existing DB record
+        if (actionId != null) {
+            updatePersistedAction(actionId, 'Completed');
         }
 
-        action.Status__c = 'Completed';
-        action.Completed_Date__c = Datetime.now();
-        action.Actioned_Date__c = Datetime.now();
-        // Clear unique key so engine can recreate if conditions apply later
-        action.UniqueKey__c = null;
-        update action;
+        // Write audit record
+        writeAuditRecord(opportunityId, accountId, userId, actionType, actionInstruction,
+            'Completed', null, null, null, null);
 
-        return promoteNextAction(action.Sales_Rep__c);
+        // Invalidate cache so next getActiveAction() re-evaluates
+        NbaCacheService.invalidate(userId);
     }
 
+    // ─── AE-Invoked: Snooze ───────────────────────────────────────
+
     /**
-     * Snooze an action. Sets Status='Snoozed' with a snooze-until time.
-     * Snoozed actions do NOT count toward the AE's active cap.
-     * @param actionId The NBA_Queue__c record ID
+     * Snooze an action. Writes audit record with Snoozed_Until__c so the
+     * on-demand evaluator will suppress this opp until the snooze expires.
+     *
+     * @param actionId NBA_Queue__c ID (null for on-demand actions)
+     * @param opportunityId Opportunity the action was for
+     * @param accountId Account the action was for
+     * @param actionType Action type string
+     * @param actionInstruction The instruction text shown to the AE
      * @param reason The snooze reason text
-     * @param snoozeDurationMinutes Duration in minutes before re-entry
-     * @return The next promoted action for the AE (or null)
+     * @param durationMinutes Duration in minutes before re-entry
      */
-    public static NBA_Queue__c snoozeAction(Id actionId, String reason, Integer snoozeDurationMinutes) {
-        NBA_Queue__c action = queryAction(actionId);
-        if (action == null) {
-            throw new AuraHandledException('Action not found or not in a snoozable state.');
+    public static void snoozeAction(
+        Id actionId, Id opportunityId, Id accountId, String actionType,
+        String actionInstruction, String reason, Integer durationMinutes
+    ) {
+        Id userId = UserInfo.getUserId();
+
+        // If Layer 1 persisted action, update the existing DB record
+        if (actionId != null) {
+            updatePersistedAction(actionId, 'Snoozed');
         }
 
-        action.Status__c = 'Snoozed';
-        action.Snoozed_Until__c = Datetime.now().addMinutes(snoozeDurationMinutes);
-        action.Dismissed_Reason__c = reason;
-        update action;
+        Datetime snoozedUntil = Datetime.now().addMinutes(durationMinutes);
 
-        return promoteNextAction(action.Sales_Rep__c);
+        // Write audit record with snooze fields
+        writeAuditRecord(opportunityId, accountId, userId, actionType, actionInstruction,
+            'Snoozed', reason, null, snoozedUntil, null);
+
+        NbaCacheService.invalidate(userId);
     }
 
+    // ─── AE-Invoked: Dismiss ──────────────────────────────────────
+
     /**
-     * Dismiss an action. Sets Status='Dismissed' with reason and category.
-     * @param actionId The NBA_Queue__c record ID
+     * Dismiss an action. Writes audit record with dismiss reason and category.
+     *
+     * @param actionId NBA_Queue__c ID (null for on-demand actions)
+     * @param opportunityId Opportunity the action was for
+     * @param accountId Account the action was for
+     * @param actionType Action type string
+     * @param actionInstruction The instruction text shown to the AE
      * @param reason The dismiss reason text
-     * @param category The dismiss category (picklist value)
-     * @return The next promoted action for the AE (or null)
+     * @param category The dismiss category (restricted picklist)
      */
-    public static NBA_Queue__c dismissAction(Id actionId, String reason, String category) {
-        List<NBA_Queue__c> actions = [
-            SELECT Id, Status__c, Sales_Rep__c, UniqueKey__c
-            FROM NBA_Queue__c
-            WHERE Id = :actionId
-              AND Status__c IN ('In Progress', 'Accepted', 'Pending')
-            WITH SECURITY_ENFORCED
-            LIMIT 1
-        ];
-        if (actions.isEmpty()) {
-            throw new AuraHandledException('Action not found or not dismissable.');
+    public static void dismissAction(
+        Id actionId, Id opportunityId, Id accountId, String actionType,
+        String actionInstruction, String reason, String category
+    ) {
+        Id userId = UserInfo.getUserId();
+
+        // If Layer 1 persisted action, update the existing DB record
+        if (actionId != null) {
+            updatePersistedAction(actionId, 'Dismissed');
         }
 
-        NBA_Queue__c action = actions[0];
-        action.Status__c = 'Dismissed';
-        action.Dismissed_Reason__c = reason;
-        action.Dismissal_Category__c = category;
-        action.UniqueKey__c = null;
-        update action;
+        // Write audit record with dismiss fields
+        writeAuditRecord(opportunityId, accountId, userId, actionType, actionInstruction,
+            'Dismissed', reason, category, null, null);
 
-        return promoteNextAction(action.Sales_Rep__c);
+        NbaCacheService.invalidate(userId);
     }
 
-    // ─── System-Invoked Transitions ───────────────────────────────────
+    // ─── System-Invoked: Expire Stale Layer 1 Actions ─────────────
 
     /**
-     * Expire stale In Progress actions.
-     * Non-timebound: expired after NON_TIMEBOUND_EXPIRE_MINUTES (default 60 min).
-     * Timebound: expired TIMEBOUND_EXPIRE_MINUTES after DueAt__c (default 15 min).
+     * Expire stale Layer 1 time-bound actions that have passed their DueAt
+     * plus the expiration threshold (default 15 minutes).
+     *
+     * In Phase 5, only Layer 1 (time-bound) actions are persisted in DB,
+     * so this only processes Is_Time_Bound__c = true records.
+     *
      * @return Count of expired records
      */
     public static Integer expireStaleActions() {
-        List<NBA_Queue__c> toExpire = new List<NBA_Queue__c>();
-
-        // Non-timebound: In Progress for > threshold
-        Datetime nonTimeboundCutoff = Datetime.now().addMinutes(-NON_TIMEBOUND_EXPIRE_MINUTES);
-        List<NBA_Queue__c> nonTimebound = [
-            SELECT Id, Status__c
-            FROM NBA_Queue__c
-            WHERE Status__c = 'In Progress'
-              AND Is_Time_Bound__c = false
-              AND LastModifiedDate < :nonTimeboundCutoff
-            WITH SECURITY_ENFORCED
-            LIMIT 200
-        ];
-        toExpire.addAll(nonTimebound);
-
-        // Timebound: past DueAt + threshold
         Datetime timeboundCutoff = Datetime.now().addMinutes(-TIMEBOUND_EXPIRE_MINUTES);
-        List<NBA_Queue__c> timebound = [
-            SELECT Id, Status__c
+        List<NBA_Queue__c> toExpire = [
+            SELECT Id, Status__c, Sales_Rep__c
             FROM NBA_Queue__c
-            WHERE Status__c = 'In Progress'
-              AND Is_Time_Bound__c = true
+            WHERE Is_Time_Bound__c = true
+              AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
               AND DueAt__c != null
               AND DueAt__c < :timeboundCutoff
             WITH SECURITY_ENFORCED
             LIMIT 200
         ];
-        toExpire.addAll(timebound);
 
-        if (!toExpire.isEmpty()) {
-            for (NBA_Queue__c a : toExpire) {
-                a.Status__c = 'Expired';
-                a.UniqueKey__c = null;
-            }
-            update toExpire;
+        if (toExpire.isEmpty()) {
+            return 0;
         }
+
+        // Collect AE IDs for cache invalidation
+        Set<Id> affectedAeIds = new Set<Id>();
+        for (NBA_Queue__c a : toExpire) {
+            a.Status__c = 'Expired';
+            a.UniqueKey__c = null;
+            if (a.Sales_Rep__c != null) {
+                affectedAeIds.add(a.Sales_Rep__c);
+            }
+        }
+        update toExpire;
+
+        // Invalidate cache for affected AEs so they get fresh evaluation
+        NbaCacheService.invalidateForUsers(affectedAeIds);
 
         return toExpire.size();
     }
 
-    /**
-     * Unsnooze actions whose Snoozed_Until__c has passed.
-     * Moves them back to 'Pending' for re-evaluation.
-     * @return Count of unsnoozed records
-     */
-    public static Integer unsnoozeDueActions() {
-        List<NBA_Queue__c> toUnsnooze = [
-            SELECT Id, Status__c, Sales_Rep__c, Snoozed_Until__c
-            FROM NBA_Queue__c
-            WHERE Status__c = 'Snoozed'
-              AND Snoozed_Until__c <= :Datetime.now()
-            WITH SECURITY_ENFORCED
-            LIMIT 200
-        ];
-
-        if (!toUnsnooze.isEmpty()) {
-            for (NBA_Queue__c a : toUnsnooze) {
-                a.Status__c = 'Pending';
-                a.Snoozed_Until__c = null;
-            }
-            update toUnsnooze;
-        }
-
-        return toUnsnooze.size();
-    }
-
-    // ─── Promotion ────────────────────────────────────────────────────
+    // ─── Audit Record Writer ──────────────────────────────────────
 
     /**
-     * Promote the top-ranked Pending action to 'In Progress' for an AE,
-     * if they have capacity (< MAX_ACTIVE_PENDING_PER_AE active+pending).
-     * @param aeUserId The AE's User ID
-     * @return The promoted action, or null if no capacity or no candidates
+     * Write an NBA_Queue__c audit record capturing the AE's interaction.
+     * These records serve as the historical log for analytics, cooldown
+     * enforcement, and snooze suppression in the on-demand model.
      */
-    public static NBA_Queue__c promoteNextAction(Id aeUserId) {
-        if (aeUserId == null) {
-            return null;
+    @TestVisible
+    private static NBA_Queue__c writeAuditRecord(
+        Id opportunityId, Id accountId, Id userId, String actionType,
+        String actionInstruction, String status, String reason,
+        String dismissCategory, Datetime snoozedUntil, Datetime cooldownUntil
+    ) {
+        // Determine cooldown: use provided value or default for complete/dismiss
+        if (cooldownUntil == null && (status == 'Completed' || status == 'Dismissed')) {
+            cooldownUntil = Datetime.now().addMinutes(DEFAULT_COOLDOWN_MINUTES);
         }
 
-        // Check capacity
-        Integer activeCount = getActiveCount(aeUserId);
-        if (activeCount >= MAX_ACTIVE_PENDING_PER_AE) {
-            return null;
+        NBA_Queue__c audit = new NBA_Queue__c(
+            Opportunity__c = opportunityId,
+            Account__c = accountId,
+            Sales_Rep__c = userId,
+            Status__c = status,
+            Action_Type__c = actionType,
+            Action_Instruction__c = actionInstruction != null ? actionInstruction.left(255) : null,
+            Source_Path__c = 'Pipeline Cadence',
+            Workflow_Mode__c = 'Pipeline',
+            LastEvaluatedAt__c = Datetime.now(),
+            Actioned_Date__c = Datetime.now()
+        );
+
+        // Status-specific fields
+        if (status == 'Completed') {
+            audit.Completed_Date__c = Datetime.now();
+        }
+        if (String.isNotBlank(reason)) {
+            audit.Dismissed_Reason__c = reason;
+        }
+        if (String.isNotBlank(dismissCategory)) {
+            audit.Dismissal_Category__c = dismissCategory;
+        }
+        if (snoozedUntil != null) {
+            audit.Snoozed_Until__c = snoozedUntil;
+        }
+        if (cooldownUntil != null) {
+            audit.CooldownUntil__c = cooldownUntil;
         }
 
-        // Find top-ranked Pending action (Layer 1 > 2 > 3, then by score)
-        // SOQL CASE not supported in Apex ORDER BY, so query all and sort in-memory
-        List<NBA_Queue__c> candidates = [
-            SELECT Id, Status__c, Priority_Layer__c, Priority_Score__c,
-                   Is_Time_Bound__c, Opportunity__c, Sales_Rep__c,
-                   Action_Type__c, Action_Instruction__c
-            FROM NBA_Queue__c
-            WHERE Sales_Rep__c = :aeUserId
-              AND Status__c = 'Pending'
-            WITH SECURITY_ENFORCED
-            ORDER BY Priority_Score__c DESC
-            LIMIT 20
-        ];
-        // Sort by layer precedence (Layer 1 first), then by score descending
-        candidates.sort(new ActionLayerComparator());
-
-        if (candidates.isEmpty()) {
-            return null;
-        }
-
-        NBA_Queue__c action = candidates[0];
-        action.Status__c = 'In Progress';
-        action.Actioned_Date__c = Datetime.now();
-        update action;
-
-        return action;
+        insert audit;
+        return audit;
     }
 
-    // ─── Constraint Helpers ───────────────────────────────────────────
+    // ─── Private Helpers ──────────────────────────────────────────
 
     /**
-     * Count active+pending actions for an AE.
-     * Snoozed does NOT count toward cap.
+     * Update a persisted (Layer 1) NBA_Queue__c record to a terminal status.
+     * Used when completing/snoozing/dismissing a time-bound action that
+     * exists in the database.
      */
-    public static Integer getActiveCount(Id aeUserId) {
-        return [
-            SELECT COUNT()
-            FROM NBA_Queue__c
-            WHERE Sales_Rep__c = :aeUserId
-              AND Status__c IN :ACTIVE_STATUSES
-            WITH SECURITY_ENFORCED
-        ];
-    }
-
-    /**
-     * Check if AE has capacity for more actions.
-     */
-    public static Boolean hasCapacity(Id aeUserId) {
-        return getActiveCount(aeUserId) < MAX_ACTIVE_PENDING_PER_AE;
-    }
-
-    // ─── Private Helpers ──────────────────────────────────────────────
-
-    private static NBA_Queue__c queryAction(Id actionId) {
+    private static void updatePersistedAction(Id actionId, String newStatus) {
         List<NBA_Queue__c> actions = [
-            SELECT Id, Status__c, Sales_Rep__c, UniqueKey__c
+            SELECT Id, Status__c, UniqueKey__c
             FROM NBA_Queue__c
             WHERE Id = :actionId
-              AND Status__c IN ('In Progress', 'Accepted')
+              AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
             WITH SECURITY_ENFORCED
             LIMIT 1
         ];
-        return actions.isEmpty() ? null : actions[0];
-    }
 
-    // ─── Layer Comparator ─────────────────────────────────────────────
-
-    private static final Map<String, Integer> LAYER_ORDER = new Map<String, Integer>{
-        'Layer 1 - Time Bound' => 1,
-        'Layer 2 - Mode' => 2,
-        'Layer 3 - Impact+Urgency' => 3
-    };
-
-    /**
-     * Sorts NBA_Queue__c by Priority Layer (ascending), then Priority Score (descending).
-     */
-    private class ActionLayerComparator implements System.Comparator<NBA_Queue__c> {
-        public Integer compare(NBA_Queue__c a, NBA_Queue__c b) {
-            Integer layerA = LAYER_ORDER.containsKey(a.Priority_Layer__c)
-                ? LAYER_ORDER.get(a.Priority_Layer__c) : 4;
-            Integer layerB = LAYER_ORDER.containsKey(b.Priority_Layer__c)
-                ? LAYER_ORDER.get(b.Priority_Layer__c) : 4;
-            if (layerA != layerB) {
-                return layerA - layerB;
-            }
-            // Same layer: higher score first (descending)
-            Decimal scoreA = a.Priority_Score__c != null ? a.Priority_Score__c : 0;
-            Decimal scoreB = b.Priority_Score__c != null ? b.Priority_Score__c : 0;
-            if (scoreB > scoreA) return 1;
-            if (scoreB < scoreA) return -1;
-            return 0;
+        if (actions.isEmpty()) {
+            return; // Already transitioned — no error, just skip
         }
+
+        NBA_Queue__c action = actions[0];
+        action.Status__c = newStatus;
+        action.UniqueKey__c = null;
+        action.Actioned_Date__c = Datetime.now();
+        if (newStatus == 'Completed') {
+            action.Completed_Date__c = Datetime.now();
+        }
+        update action;
     }
 }
