@@ -32,7 +32,7 @@
     </values>
     <values>
         <field>Max_Attempts_Per_Day__c</field>
-        <value xsi:nil="true"/>
+        <value xsi:type="xsd:double">0</value>
     </values>
     <values>
         <field>Method__c</field>
