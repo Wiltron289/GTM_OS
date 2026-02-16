@@ -158,11 +158,15 @@ export default class NbaDemoWorkspace extends LightningElement {
         try {
             const action = await getActiveAction();
             if (action) {
-                const prevActionId = this.currentAction?.actionId;
                 const prevOppId = this.currentAction?.opportunityId;
+                const prevActionType = this.currentAction?.actionType;
 
-                // Only update if the action changed (new action or different opp)
-                if (action.actionId !== prevActionId) {
+                // For on-demand actions, actionId is always null, so compare by
+                // opportunityId + actionType to detect if a different action was evaluated
+                const changed = action.opportunityId !== prevOppId
+                    || action.actionType !== prevActionType;
+
+                if (changed) {
                     this.currentAction = action;
                     this.showEmptyState = false;
                     if (action.opportunityId !== prevOppId) {
@@ -232,6 +236,9 @@ export default class NbaDemoWorkspace extends LightningElement {
     // ────────────────────────────────────────────
     async handleCompleteAction(event) {
         const { actionId, opportunityId, actionType } = event.detail;
+        if (!opportunityId) {
+            console.warn('[nbaDemoWorkspace] completeAction called with null opportunityId. event.detail:', JSON.stringify(event.detail), 'currentAction:', JSON.stringify(this.currentAction));
+        }
         this.isTransitioning = true;
         try {
             const result = await completeAction({ actionId, opportunityId, actionType });

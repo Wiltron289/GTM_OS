@@ -81,6 +81,15 @@ public with sharing class NbaActionController {
     public static ActionResultWrapper completeAction(Id actionId, Id opportunityId, String actionType) {
         Id userId = UserInfo.getUserId();
 
+        // Guard: if LWC sent null opportunityId, re-evaluate to get correct context
+        if (opportunityId == null || String.isBlank(actionType)) {
+            ActionWrapper current = evaluateOnDemand(userId);
+            if (current != null) {
+                opportunityId = opportunityId != null ? opportunityId : current.opportunityId;
+                actionType = String.isNotBlank(actionType) ? actionType : current.actionType;
+            }
+        }
+
         // Look up account from Opportunity
         Id accountId = getAccountId(opportunityId);
 
@@ -102,6 +111,16 @@ public with sharing class NbaActionController {
         String reason, Integer durationMinutes
     ) {
         Id userId = UserInfo.getUserId();
+
+        // Guard: if LWC sent null opportunityId, re-evaluate to get correct context
+        if (opportunityId == null || String.isBlank(actionType)) {
+            ActionWrapper current = evaluateOnDemand(userId);
+            if (current != null) {
+                opportunityId = opportunityId != null ? opportunityId : current.opportunityId;
+                actionType = String.isNotBlank(actionType) ? actionType : current.actionType;
+            }
+        }
+
         Id accountId = getAccountId(opportunityId);
 
         NbaActionStateService.snoozeAction(
@@ -121,6 +140,16 @@ public with sharing class NbaActionController {
         String reason, String category
     ) {
         Id userId = UserInfo.getUserId();
+
+        // Guard: if LWC sent null opportunityId, re-evaluate to get correct context
+        if (opportunityId == null || String.isBlank(actionType)) {
+            ActionWrapper current = evaluateOnDemand(userId);
+            if (current != null) {
+                opportunityId = opportunityId != null ? opportunityId : current.opportunityId;
+                actionType = String.isNotBlank(actionType) ? actionType : current.actionType;
+            }
+        }
+
         Id accountId = getAccountId(opportunityId);
 
         NbaActionStateService.dismissAction(

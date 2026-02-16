@@ -86,13 +86,8 @@ export default class NbaActionBar extends LightningElement {
     handleComplete() {
         if (this.isDisabled) return;
         this.closeAllPanels();
-        this.dispatchEvent(new CustomEvent('complete', {
-            detail: {
-                actionId: this.currentAction.actionId,
-                opportunityId: this.currentAction.opportunityId,
-                actionType: this.currentAction.actionType
-            }
-        }));
+        const detail = this._extractActionDetail();
+        this.dispatchEvent(new CustomEvent('complete', { detail }));
     }
 
     // ── Snooze ───────────────────────────────────────────────────
@@ -117,15 +112,10 @@ export default class NbaActionBar extends LightningElement {
 
     handleSnoozeSubmit() {
         this.showSnoozePanel = false;
-        this.dispatchEvent(new CustomEvent('snooze', {
-            detail: {
-                actionId: this.currentAction.actionId,
-                opportunityId: this.currentAction.opportunityId,
-                actionType: this.currentAction.actionType,
-                reason: this.snoozeReason,
-                durationMinutes: this.snoozeDuration
-            }
-        }));
+        const detail = this._extractActionDetail();
+        detail.reason = this.snoozeReason;
+        detail.durationMinutes = this.snoozeDuration;
+        this.dispatchEvent(new CustomEvent('snooze', { detail }));
     }
 
     // ── Dismiss ──────────────────────────────────────────────────
@@ -150,15 +140,10 @@ export default class NbaActionBar extends LightningElement {
 
     handleDismissSubmit() {
         this.showDismissPanel = false;
-        this.dispatchEvent(new CustomEvent('dismiss', {
-            detail: {
-                actionId: this.currentAction.actionId,
-                opportunityId: this.currentAction.opportunityId,
-                actionType: this.currentAction.actionType,
-                reason: this.dismissReason,
-                category: this.dismissCategory
-            }
-        }));
+        const detail = this._extractActionDetail();
+        detail.reason = this.dismissReason;
+        detail.category = this.dismissCategory;
+        this.dispatchEvent(new CustomEvent('dismiss', { detail }));
     }
 
     // ── Shared ───────────────────────────────────────────────────
@@ -170,5 +155,26 @@ export default class NbaActionBar extends LightningElement {
 
     handlePanelClose() {
         this.closeAllPanels();
+    }
+
+    /**
+     * Safely extract action detail from currentAction for event dispatch.
+     * Reads all properties into a plain object to avoid LWC proxy issues.
+     */
+    _extractActionDetail() {
+        const action = this.currentAction;
+        if (!action) {
+            console.warn('[nbaActionBar] _extractActionDetail called with null currentAction');
+            return { actionId: null, opportunityId: null, actionType: null };
+        }
+        const detail = {
+            actionId: action.actionId || null,
+            opportunityId: action.opportunityId || null,
+            actionType: action.actionType || null
+        };
+        if (!detail.opportunityId) {
+            console.warn('[nbaActionBar] currentAction has null opportunityId:', JSON.stringify(action));
+        }
+        return detail;
     }
 }

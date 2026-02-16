@@ -201,7 +201,14 @@ public with sharing class NbaSignalService {
                         if (sig.lastCompletedDate == null || ea.Completed_Date__c > sig.lastCompletedDate) {
                             sig.lastCompletedDate = ea.Completed_Date__c;
                         }
-                    } else {
+                    } else if (ea.Status__c == 'Dismissed' && ea.CooldownUntil__c != null
+                               && ea.CooldownUntil__c > Datetime.now()) {
+                        // Treat dismissed records as completions for cooldown suppression
+                        Datetime dismissedAt = ea.CreatedDate;
+                        if (sig.lastCompletedDate == null || dismissedAt > sig.lastCompletedDate) {
+                            sig.lastCompletedDate = dismissedAt;
+                        }
+                    } else if (ea.Status__c != 'Completed' && ea.Status__c != 'Dismissed') {
                         // Active status — mark as having active action
                         sig.hasActiveAction = true;
                     }
@@ -346,7 +353,7 @@ public with sharing class NbaSignalService {
 
     private static Map<Id, List<NBA_Queue__c>> queryExistingActions(Set<Id> oppIds) {
         Map<Id, List<NBA_Queue__c>> resultMap = new Map<Id, List<NBA_Queue__c>>();
-        // Query active actions AND recent audit records (snoozed/completed)
+        // Query active actions AND recent audit records (snoozed/completed/dismissed)
         // so the on-demand evaluation can enforce cooldown + snooze suppression.
         List<NBA_Queue__c> actions = [
             SELECT Id, Opportunity__c, Status__c, Action_Type__c, Priority_Score__c,
@@ -357,6 +364,7 @@ public with sharing class NbaSignalService {
                   Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
                   OR (Status__c = 'Snoozed' AND Snoozed_Until__c > :Datetime.now())
                   OR (Status__c = 'Completed' AND Completed_Date__c >= :Datetime.now().addHours(-1))
+                  OR (Status__c = 'Dismissed' AND CooldownUntil__c > :Datetime.now())
               )
             WITH SECURITY_ENFORCED
             LIMIT 1000

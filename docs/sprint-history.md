@@ -372,3 +372,55 @@ Built the complete NBA V2 Action Orchestration Engine core: 6 Apex service class
 | Time-bound creation tests return null | Event insert fires trigger → creates action → direct call finds dedup → returns null | Set `NbaTriggerContext.setEventHandlerRun()` before Event insert in direct method tests |
 
 **Files created (27 total):** 7 Apex classes + 4 test classes + 3 triggers + 13 meta.xml files
+
+---
+
+## Sprint 16 — Bug Fixes: Platform Cache, Suppression, and Audit Records (2026-02-16)
+
+**Goal**: Fix NBA V2 App Page showing same Opp repeatedly and creating empty audit records.
+
+### What Changed
+
+| File | Change |
+|------|--------|
+| `NbaCacheService.cls` | Fixed cache key — removed underscore (`action_` → `nba`); Platform Cache keys must be alphanumeric only |
+| `NbaActionController.cls` | Added server-side null guards on complete/snooze/dismiss; if LWC sends null oppId, controller re-evaluates to recover context |
+| `NbaSignalService.cls` | Added `Status__c = 'Dismissed'` to `queryExistingActions` query; treat dismissed records as cooldowns in signal assembly |
+| `nbaActionBar.js` | Refactored event dispatch to use centralized `_extractActionDetail()` to safely read action properties from LWC proxy; added console.warn for null oppId debugging |
+| `nbaDemoWorkspace.js` | Fixed 5-min poll comparison: `actionId` is always null for on-demand actions, so compare by `opportunityId + actionType` instead; added console.warn for null oppId |
+| `NBA_Suppression_Rule.Recent_Completion.md-meta.xml` | **NEW** — CMDT record: suppress opp for 1 hour after completion |
+| `NBA_Suppression_Rule.Snoozed_Action.md-meta.xml` | **NEW** — CMDT record: suppress opp while snooze is active |
+
+### Bugs Found & Fixed
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| Platform Cache silently failing on every operation | Cache key `action_005Hp00000iHg58` contains underscore; SF Platform Cache keys must be alphanumeric only | Changed prefix from `action_` to `nba` |
+| Audit records created with null Opportunity/Account/ActionType | LWC proxy or stale bundle issue causing `currentAction` properties to be undefined when dispatching events | Added `_extractActionDetail()` in action bar + server-side null guards in controller that re-evaluate on-demand to recover context |
+| Same opp returned after every complete/dismiss/snooze | Phase 5 code had `checkSuppression()` handling for `'Recent Completion'` and `'Snoozed Action Exists'` conditions, but the CMDT records were never deployed | Created 2 new NBA_Suppression_Rule__mdt records |
+| Dismissed opps not tracked for suppression | `queryExistingActions()` only fetched Active/Snoozed/Completed records; dismissed records were ignored | Added `OR (Status__c = 'Dismissed' AND CooldownUntil__c > :Datetime.now())` to query |
+| 5-min poll never updates on-demand actions | `_refreshActiveAction()` compared `action.actionId !== prevActionId`, but both are null for on-demand actions | Changed comparison to use `opportunityId + actionType` |
+
+### Architecture Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Cache key format | `'nba' + userId.left(15)` | Alphanumeric only; 18 chars total within SF 50-char limit |
+| Completion cooldown window | 1 hour | Matches existing `DEFAULT_COOLDOWN_MINUTES = 60` in NbaActionStateService |
+| Dismissed = completed for cooldown | Use `CreatedDate` as pseudo-completion | Simpler than adding a separate "Recent Dismissal" condition; same 1hr suppression |
+| Null guard strategy | Re-evaluate on-demand in controller | More resilient than throwing; AE still gets correct audit + next action even if LWC sends stale data |
+
+### Suppression Rules (6 total, all active)
+
+| Rule | Condition | Window |
+|------|-----------|--------|
+| Active_Action_Exists_Suppress | Active Action Exists | permanent |
+| Closed_Opp_Suppress | Closed Opportunity | permanent |
+| Meeting_Scheduled_Suppress | Upcoming Meeting | 24h |
+| Recent_Valid_Touch_Suppress | Recent Valid Touch | 4h |
+| Recent_Completion_Suppress | Recent Completion | 1h |
+| Snoozed_Action_Suppress | Snoozed Action Exists | until snooze expires |
+
+### Test Results
+
+All 93 existing tests passing (8 cache + 10 controller + 8 signal + rest unchanged).

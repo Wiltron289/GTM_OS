@@ -83,3 +83,21 @@ Resolved issues encountered during NBA V2 development. Search this file when deb
 - **Root Cause**: Our code set `Mogli_SMS__Direction__c = 'Outbound'`, but Mogli's managed package triggers only process records with `Direction = 'Outgoing'`. Org data confirmed: 125,907 successfully sent messages all use `'Outgoing'`, while our programmatic record had `'Outbound'` and was stuck.
 - **Fix**: Changed `sendSms()` to set `Direction__c = 'Outgoing'`
 - **Prevention**: Always use `'Outgoing'` (not `'Outbound'`) for outbound Mogli SMS records. When in doubt, query existing successful records to verify the correct picklist values.
+
+### Platform Cache Key Must Be Alphanumeric (2026-02-16)
+- **Problem**: Platform Cache operations silently failed — `getCachedAction`, `cacheAction`, and `invalidate` all threw `"Invalid Key, Key cannot be null or empty and must be alphanumeric"` but errors were caught and logged at WARN level. Cache was completely non-functional.
+- **Root Cause**: Cache key was `action_005Hp00000iHg58` — the underscore `_` is not alphanumeric. Salesforce Platform Cache keys must match `[a-zA-Z0-9]` only.
+- **Fix**: Changed `buildKey()` from `'action_' + userId` to `'nba' + userId`
+- **Prevention**: Never use underscores, hyphens, or special characters in Platform Cache keys. Test cache operations with real (non-test) cache partitions during development — `Test.isRunningTest()` static maps hide this issue.
+
+### Missing CMDT Records for Suppression Rules (2026-02-16)
+- **Problem**: After completing/dismissing an action, the same Opportunity kept resurfacing immediately.
+- **Root Cause**: Phase 5 Apex code added `checkSuppression()` handling for `'Recent Completion'` and `'Snoozed Action Exists'` conditions, but the corresponding NBA_Suppression_Rule__mdt records were never created. The code matched against condition strings that didn't exist in the database.
+- **Fix**: Deployed 2 new CMDT records: `Recent_Completion` (1hr window) and `Snoozed_Action`
+- **Prevention**: When adding new CMDT condition handling in Apex, always deploy the corresponding CMDT records in the same commit. Add a checklist item to the phase plan for CMDT record deployment.
+
+### LWC Audit Records Created With Null Fields (2026-02-16)
+- **Problem**: NBA_Queue__c audit records had null `Opportunity__c`, `Account__c`, and `Action_Type__c` when created from the App Page LWC.
+- **Root Cause**: The `nbaActionBar` LWC dispatched `this.currentAction.opportunityId` etc. from a read-only LWC proxy, and the properties were `undefined`. Likely caused by a stale LWC bundle in the browser cache after deployment.
+- **Fix**: (1) Action bar now uses `_extractActionDetail()` to safely read properties into a plain object. (2) Controller adds server-side null guards that re-evaluate on-demand if `opportunityId` is null. (3) Added `console.warn` logging for future debugging.
+- **Prevention**: After deploying LWC changes, always hard-refresh (Ctrl+Shift+R) the browser. Consider adding defensive null checks on both LWC and Apex sides for any data passed through event dispatch.

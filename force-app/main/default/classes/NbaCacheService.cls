@@ -121,10 +121,10 @@ public with sharing class NbaCacheService {
     // ─── Private Helpers ────────────────────────────────────────────
 
     /**
-     * Build cache key from user ID. Uses first 15 chars of ID
-     * (case-insensitive, safe for cache key length limits).
+     * Build cache key from user ID. Uses first 15 chars of ID.
+     * Platform Cache keys must be alphanumeric only (no underscores, hyphens, etc.).
      */
     private static String buildKey(Id userId) {
-        return 'action_' + String.valueOf(userId).left(15);
+        return 'nba' + String.valueOf(userId).left(15);
     }
 }
