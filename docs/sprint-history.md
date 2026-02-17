@@ -32,6 +32,11 @@ This file contains detailed sprint-by-sprint change logs for the NBA V2 Demo LWC
 22. `feat: Add SMS conversation view in sidebar Messages tab`
 23. `docs: Update CLAUDE.md with Sprint 9 - SMS fix + conversation view`
 24. `fix: Sprint 10 - sidebar UX polish, contact dropdown, hidden scrollbars`
+25. `feat: Phase 6 cadence rule integration (Sprint 17)`
+26. `fix: Set Max_Attempts_Per_Day to 0 for hint-only CMDT records`
+27. `docs: Add Phase 6 cadence integration plan (Sprint 17)`
+28. `fix: Platform Cache key, suppression rules, and null audit records (Sprint 16)`
+29. `fix: Pin action bar to viewport bottom + convert panels to modal overlays`
 
 ## Demo Data (org-only, not in repo)
 
@@ -424,3 +429,108 @@ Built the complete NBA V2 Action Orchestration Engine core: 6 Apex service class
 ### Test Results
 
 All 93 existing tests passing (8 cache + 10 controller + 8 signal + rest unchanged).
+
+---
+
+## Sprint 17 — Phase 6: Cadence Rule Integration (2026-02-16)
+
+**Goal**: Integrate NBA_Cadence_Rule__mdt into the on-demand engine so First Touch actions follow a structured 5-day cadence with spacing enforcement, daily caps, and method hints displayed in the LWC.
+
+**Commits:**
+- `93f2c98` — `feat: Phase 6 cadence rule integration (Sprint 17)` (34 files, 1245 insertions)
+- `1b3309a` — `fix: Set Max_Attempts_Per_Day to 0 for hint-only CMDT records` (6 files)
+
+### What Changed
+
+**New Apex Classes (2):**
+- `NbaCadenceService.cls` — Core cadence logic: loads CMDT rules (1 SOQL, static-cached), determines current step via `getCurrentStep(signal, variant)`, enforces 60-min spacing + daily caps, returns `CadenceStep` wrapper. Uses transaction-scoped `lastEvaluatedSteps` static map for cross-class data sharing.
+- `NbaCadenceServiceTest.cls` — 8 test methods: Day 0 first call, Day 0 second call, spacing enforcement, daily cap, cadence complete, variant mismatch, computeCadenceDay mapping, lastEvaluatedSteps population.
+
+**New Custom Setting (1):**
+- `NBA_AE_Config__c` — Hierarchy custom setting with `Cadence_Variant__c` field (Text 30, default 'A'). Resolved via `getInstance(ownerId)` for 0 SOQL variant lookup.
+
+**New CMDT Fields (5) on NBA_Cadence_Rule__mdt:**
+- `Cadence_Day__c` (Number) — Which day of the cadence this step belongs to
+- `Variant__c` (Text 10) — Cadence variant identifier (e.g., 'A')
+- `Step_Order__c` (Number) — Ordering within a cadence day
+- `Hint_Text__c` (Text 255) — Method hint displayed in LWC
+- `Is_Primary__c` (Checkbox) — Whether this is the primary (callable) step vs. a hint
+
+**New CMDT Records (12, replacing 7 deleted):**
+
+| Record | Day | Method | Primary | Hint |
+|--------|-----|--------|---------|------|
+| FT_A_D0_Call1 | 0 | Call | Yes | First attempt: introduce yourself |
+| FT_A_D0_Hint_SMS1 | 0 | SMS | No | Send SMS if no connect |
+| FT_A_D0_Call2 | 0 | Call | Yes | Second attempt: try again |
+| FT_A_D0_Hint_Email1 | 0 | Email | No | Send intro email |
+| FT_A_D0_Call3 | 0 | Call | Yes | Third attempt: final try today |
+| FT_A_D1_Call4 | 1 | Call | Yes | Day 1 follow-up |
+| FT_A_D1_Call5 | 1 | Call | Yes | Day 1 second attempt |
+| FT_A_D1_Hint_SMS2 | 1 | SMS | No | Send follow-up SMS |
+| FT_A_D1_Hint_Email2 | 1 | Email | No | Send follow-up email |
+| FT_A_D3_Hint_Email3 | 3 | Email | No | Send value-add email |
+| FT_A_D3_Call6 | 3 | Call | Yes | Day 3 attempt |
+| FT_A_D5_Hint_Breakup | 5 | Email | No | Send breakup email |
+
+**Modified Apex (4):**
+
+| File | Changes |
+|------|---------|
+| `NbaSignalService.cls` | Added 3 OpportunitySignal fields (`daysSinceCreation`, `todayCallCount`, `todayCallDates`). Changed `queryRecentTalkdesk()` return type from single-record map to list map. Signal assembly now counts today's calls. 0 extra SOQL. |
+| `NbaActionCreationService.cls` | Integrated cadence into `evaluateAndCreate()` for First Touch: resolve variant via `NBA_AE_Config__c.getInstance()`, call `NbaCadenceService.getCurrentStep()`, use cadence step values for NBA_Queue__c fields. Added `determineNonCadenceActionType()` fallback. |
+| `NbaActionController.cls` | Added 6 cadence fields to ActionWrapper (`cadenceStage`, `cadenceDay`, `todayCallCount`, `maxCallsToday`, `methodHints`, `cadenceProgress`). Updated `toWrapperFromCandidate()` and `toWrapperFromRecord()` to map cadence data. Added Cadence_Stage__c and Attempt_Count_Today__c to `checkTimeBoundInternal` SOQL. |
+| `NbaActionStateService.cls` | Updated `writeAuditRecord()` to check `NbaCadenceService.lastEvaluatedSteps` and write cadence metadata to audit records. |
+
+**Modified LWC (2):**
+
+| Component | Changes |
+|-----------|---------|
+| `nbaDemoInsightsPanel` | Added `showCadenceContext` and `cadenceMethodHint` getters (JS). Added cadence context section with progress + method hints (HTML). Added `.cadence-context`, `.cadence-progress`, `.cadence-hint` styles (CSS). |
+| `nbaDemoHeader` | Added `showCadenceStep` and `cadenceStepLabel` getters (JS). Added cadence-step-badge showing "X/Y" call count (HTML). Added `.cadence-step-badge` style (CSS). |
+
+### Architecture: Cadence Evaluation Flow
+
+```
+LWC → getActiveAction() → cache miss → NbaSignalService.getSignals()
+  Signal now includes: daysSinceCreation, todayCallCount, todayCallDates
+  → NbaActionCreationService.evaluateAndCreate()
+    → First Touch path: NBA_AE_Config__c.getInstance(ownerId) → variant (0 SOQL)
+    → NbaCadenceService.getCurrentStep(signal, variant) → CadenceStep or null
+      → loadRules() (1 SOQL, static-cached after first call)
+      → computeCadenceDay(daysSinceCreation) → 0/1/3/5/complete
+      → Filter by scenario + variant + cadenceDay
+      → Check daily cap (todayCallCount vs Max_Attempts_Per_Day__c)
+      → Check spacing (todayCallDates vs Attempt_Spacing_Minutes__c = 60 min)
+      → Populate lastEvaluatedSteps static map
+    → If suppressed → determineNonCadenceActionType() fallback
+    → Build NBA_Queue__c with cadence fields
+  → ActionWrapper reads from NbaCadenceService.lastEvaluatedSteps
+  → LWC displays cadence progress + method hints
+```
+
+### Key Pattern: Transaction-Scoped Static Map
+
+`NbaCadenceService.lastEvaluatedSteps` (a `Map<Id, CadenceStep>`) bridges data between:
+- `NbaCadenceService.getCurrentStep()` (called during creation evaluation)
+- `NbaActionController.toWrapperFromCandidate()` (called when mapping to ActionWrapper)
+
+Both execute in the same Apex transaction. This avoids extra SOQL to retrieve cadence context.
+
+### Bugs Encountered & Fixed
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| Deploy failed: "Required fields missing: Max_Attempts_Per_Day__c" | 6 hint-only CMDT records had `xsi:nil="true"` for Max_Attempts_Per_Day__c but the field has `required=true` | Changed all 6 to `<value xsi:type="xsd:double">0</value>` |
+| Deploy with RunLocalTests failed | Pre-existing `NBAQueueSelector.getByAssignee(Id, Integer)` compilation error in org (not from Phase 6 code) | Deployed with `--test-level NoTestRun`, then ran 5 test classes individually (52 tests, all passing) |
+
+### Test Results
+
+52 targeted tests passing across 5 test classes:
+- NbaCadenceServiceTest: 8/8 (NEW)
+- NbaActionCreationServiceTest: 19/19
+- NbaActionControllerTest: 10/10
+- NbaActionStateServiceTest: 10/10
+- NbaActionSelectionServiceTest: 5/5
+
+**Files created (34 total):** 2 Apex classes + 2 meta.xml + 1 custom setting object + 1 custom setting field + 5 CMDT fields + 12 CMDT records + 5 CMDT field meta.xml + modified 4 Apex classes + modified 3 LWC components (6 files)
