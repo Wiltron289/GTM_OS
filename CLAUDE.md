@@ -11,7 +11,8 @@ Sprint-by-sprint change logs, architecture details, and resolved bugs live in se
 - **`docs/troubleshooting.md`** -- All resolved bugs with root causes, fixes, and prevention notes
 - **`docs/nba-v2-field-mapping.csv`** -- 107 field mappings across all 13 visual sections
 - **`docs/nba-v2-phase-plan.md`** -- Full implementation plan for NBA V2 Action Orchestration Engine (Phases 1-5). Covers NBA_Queue__c data model, Custom Metadata rule framework, 3-engine architecture (Creation, State, Selection), Demo LWC refactor, App Page setup, and phased sprint plan.
-- **`docs/nba-v2-phase6-cadence-plan.md`** -- Phase 6 cadence integration plan (IMPLEMENTED in Sprint 17). Covers First Touch cadence (5-Day Variant A), CMDT redesign (12 step-sequence records), NbaCadenceService, signal enrichment, spacing enforcement, ActionWrapper extension, LWC display updates, and NBA_AE_Config__c variant assignment.
+- **`docs/nba-v2-phase6-cadence-plan.md`** -- Phase 6 cadence integration plan (IMPLEMENTED in Sprint 17, superseded by Phase 7). Covers First Touch cadence (5-Day Variant A), CMDT redesign (12 step-sequence records), NbaCadenceService, signal enrichment, spacing enforcement, ActionWrapper extension, LWC display updates, and NBA_AE_Config__c variant assignment.
+- **`.claude/plans/jiggly-inventing-candle.md`** -- Phase 7 NBA Cadence Redesign plan (IN PROGRESS — Sprints 18-20). Covers 2-CMDT parent/child architecture (NBA_Cadence__mdt + NBA_Cadence_Step__mdt), outcome-based branching, universal cadence support, LWC outcome capture panel.
 
 Read these when needed (debugging, building new features, understanding history). Don't load them every session.
 
@@ -53,15 +54,15 @@ When developing features or debugging, update the appropriate doc file:
 
 ## Current Project State
 
-**Last Updated**: 2026-02-16
+**Last Updated**: 2026-02-18
 
 | Item | Value |
 |------|-------|
 | **Active Branch** | `feature/nba-v2-demo-lwc` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
-| **Apex Tests** | 101 total (8 cache + 10 controller + 10 state + 8 signal + 19 creation + 5 selection + 6 opp trigger + 5 event trigger + 7 task trigger + 3 creation sched + 2 expiration sched + 2 queueable + 8 cadence + 19 existing) |
-| **Current Phase** | **Phase 6 COMPLETE — Cadence Rule Integration (Sprint 17)** |
-| **Phase Plan** | `docs/nba-v2-phase6-cadence-plan.md` (Phase 6), `docs/nba-v2-phase-plan.md` (Phases 1-5) |
+| **Apex Tests** | 112 total (8 cache + 10 controller + 10 state + 8 signal + 19 creation + 5 selection + 6 opp trigger + 5 event trigger + 7 task trigger + 3 creation sched + 2 expiration sched + 2 queueable + 19 cadence + 19 existing). 70 targeted Phase 7 tests passing. |
+| **Current Phase** | **Phase 7 IN PROGRESS — NBA Cadence Redesign (Sprints 18-19 complete, Sprint 20 next)** |
+| **Phase Plan** | `.claude/plans/jiggly-inventing-candle.md` (Phase 7), `docs/nba-v2-phase6-cadence-plan.md` (Phase 6), `docs/nba-v2-phase-plan.md` (Phases 1-5) |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
 ### What Exists
@@ -74,7 +75,9 @@ When developing features or debugging, update the appropriate doc file:
 - **Feature 6**: NBA V2 Engine Core (Phase 2) -- 6 Apex service classes + 6 test classes, all deployed to UAT. See details below.
 - **Feature 7**: NBA V2 Triggers (Phase 4) -- 3 triggers (Opportunity, Event, Task) + 3 handler classes + 1 utility class + 4 test classes. All deployed to UAT.
 - **Feature 8**: NBA V2 On-Demand Engine (Phase 5) -- NbaCacheService (Platform Cache), rewritten NbaActionController (on-demand evaluation), simplified NbaActionStateService (audit writer), LWC dual polling (15s/5min), cache invalidation in all triggers. Schedulables archived, Queueable no-op'd. NBA_Queue_AE permission set. All deployed to UAT (93/93 tests passing).
-- **Feature 9**: NBA V2 Cadence Integration (Phase 6) -- NbaCadenceService (cadence step resolution, spacing enforcement, daily caps), NBA_AE_Config__c hierarchy custom setting (variant assignment), 5 new CMDT fields + 12 redesigned cadence records (First Touch Variant A, 5-day cadence), signal enrichment (todayCallCount, daysSinceCreation), ActionWrapper cadence fields, LWC cadence display (progress + method hints). All deployed to UAT (52 targeted tests passing).
+- **Feature 9**: NBA V2 Cadence Integration (Phase 6) -- NbaCadenceService (cadence step resolution, spacing enforcement, daily caps), NBA_AE_Config__c hierarchy custom setting (variant assignment), 5 new CMDT fields + 12 redesigned cadence records (First Touch Variant A, 5-day cadence), signal enrichment (todayCallCount, daysSinceCreation), ActionWrapper cadence fields, LWC cadence display (progress + method hints). All deployed to UAT. **Superseded by Phase 7.**
+- **Feature 10**: NBA V2 Cadence Redesign — Sprint 18 Foundation (Phase 7) -- 2-CMDT parent/child architecture (NBA_Cadence__mdt parent + NBA_Cadence_Step__mdt child with outcome branching). NbaCadenceService complete rewrite (CadenceContext, CadenceStepDef, CadencePosition, CadenceResult classes; getNextStep(), applyBranching(), computeCadenceDay()). 4 new NBA_Queue__c fields (Cadence_Name__c, Cadence_Step_Number__c, Step_Outcome__c, Step_Method__c). 4 cadence progress fields on OpportunitySignal. 19 tests in rewritten NbaCadenceServiceTest. All deployed to UAT.
+- **Feature 11**: NBA V2 Cadence Redesign — Sprint 19 Integration + LWC (Phase 7) -- Universal cadence wired into all service layers: NbaSignalService (cadence progress extraction from audit records), NbaActionCreationService (universal cadence for any action type), NbaActionController (8 new ActionWrapper fields, stepOutcome parameter), NbaActionStateService (4-field cadence audit writing). LWC: nbaActionBar outcome capture panel (Connected/Left VM/No Answer for Call steps, auto-Sent for SMS/Email), nbaDemoInsightsPanel progress bar + upcoming steps, nbaDemoHeader method icon badge. 70 targeted tests passing. All deployed to UAT.
 
 ### Phase 2 Engine Core — COMPLETE (Sprint 12)
 
@@ -197,9 +200,9 @@ NEW:  LWC requests action → evaluate signals NOW → Platform Cache → serve
 - **SOQL budget**: Cache hit = 1 SOQL. Cache miss = ~12 SOQL. Worst case with getPageData = ~24 SOQL. Safe within 100.
 - **Deprecated**: NbaActionCreationSchedulable (6 creation jobs), NbaRealTimeEvaluationQueueable (replaced by on-demand). Capacity cap removed.
 
-### Phase 6 — Cadence Rule Integration — COMPLETE (Sprint 17)
+### Phase 6 — Cadence Rule Integration — COMPLETE (Sprint 17) — SUPERSEDED BY PHASE 7
 
-Integrated NBA_Cadence_Rule__mdt into the on-demand evaluation pipeline so First Touch actions follow a structured 5-day cadence with spacing enforcement, daily caps, and method hints.
+Integrated NBA_Cadence_Rule__mdt into the on-demand evaluation pipeline so First Touch actions follow a structured 5-day cadence with spacing enforcement, daily caps, and method hints. **Note: Phase 7 (Sprints 18-20) replaces the flat CMDT approach with a 2-CMDT parent/child architecture with outcome branching.**
 
 #### What Was Built
 
@@ -242,6 +245,79 @@ getActiveAction() → cache miss → NbaSignalService.getSignals()
 #### SOQL Budget Update
 Cache miss = ~13 SOQL (was ~12; +1 for CMDT query, static-cached after first call). No change to cache hit path.
 
+### Phase 7 — NBA Cadence Redesign — IN PROGRESS (Sprints 18-19 complete, Sprint 20 next)
+
+Redesigned the cadence system from a flat CMDT (NBA_Cadence_Rule__mdt with 12 records) to a 2-CMDT parent/child architecture mimicking Salesloft/Sales Engagement. Full plan: `.claude/plans/jiggly-inventing-candle.md`.
+
+#### Sprint 18: Foundation (COMPLETE)
+
+| Component | Purpose |
+|-----------|---------|
+| `NBA_Cadence__mdt` | Parent CMDT: cadence definition (scenario, variant, total steps/days, exit conditions, day map) |
+| `NBA_Cadence_Step__mdt` | Child CMDT: individual steps with outcome branching (On_Connect/On_VM/On_No_Answer/On_Meeting actions) |
+| `First_Touch_A` records | 1 parent + 12 step records (5-day cadence: D0×5, D1×4, D3×2, D5×1) |
+| `NbaCadenceService.cls` rewrite | Complete rewrite with CadenceContext, CadenceStepDef, CadencePosition, CadenceResult classes |
+| `NbaCadenceServiceTest.cls` rewrite | 19 tests (was 8). Covers branching, day gating, spacing, exit conditions, progress resolution |
+| 4 NBA_Queue__c fields | Cadence_Name__c, Cadence_Step_Number__c, Step_Outcome__c, Step_Method__c |
+| NbaSignalService OpportunitySignal | 4 new fields: lastCadenceName, lastCadenceStepNumber, lastCadenceStepOutcome, lastCadenceStepDate |
+
+#### Sprint 19: Integration + LWC (COMPLETE)
+
+Wired the new 2-CMDT engine into all service layers and added outcome capture to LWC.
+
+**Apex changes (4 service classes):**
+
+| Class | Changes |
+|-------|---------|
+| `NbaSignalService` | Added 4 cadence fields to queryExistingActions SELECT. Extracts cadence progress from most recent completed audit record. 0 extra SOQL. |
+| `NbaActionCreationService` | Replaced Phase 6 First-Touch-only cadence block with universal `getNextStep()` for any action type. Uses CadenceResult instead of CadenceStep. Writes Cadence_Name__c, Cadence_Step_Number__c, Step_Method__c to action record. |
+| `NbaActionController` | Extended ActionWrapper with 8 Phase 7 fields (cadenceName, cadenceStepNumber, cadenceTotalSteps, stepMethod, stepInstruction, cadenceProgress, progressFraction, upcomingSteps, isCadenceAction). Updated completeAction signature to accept stepOutcome. Updated toWrapperFromCandidate to read from lastEvaluatedResults. |
+| `NbaActionStateService` | Updated completeAction to accept stepOutcome (6 params). Updated writeAuditRecord to write 4 cadence fields from lastEvaluatedResults + stepOutcome. |
+
+**LWC changes (4 components):**
+
+| Component | Changes |
+|-----------|---------|
+| `nbaActionBar` | Call outcome panel (Connected/Left VM/No Answer). SMS button "Mark SMS Sent" (auto-outcome=Sent). Email button "Mark Email Sent" (auto-outcome=Sent). Non-cadence: unchanged. |
+| `nbaDemoWorkspace` | Passes stepOutcome from event detail to completeAction Apex call |
+| `nbaDemoInsightsPanel` | Progress bar with fill width, fraction badge (e.g., "3/12"), upcoming steps preview list with method icons |
+| `nbaDemoHeader` | Method-specific icon (call/sms/email) in cadence badge, step count "X/Y" |
+
+**Test updates:** NbaActionControllerTest + NbaActionStateServiceTest updated for new completeAction signatures (stepOutcome parameter).
+
+#### Architecture: Phase 7 Cadence Evaluation Flow
+
+```
+getActiveAction() → cache miss → NbaSignalService.getSignals()
+  → OpportunitySignal includes: daysSinceCreation, todayCallCount, todayCallDates,
+    lastCadenceName, lastCadenceStepNumber, lastCadenceStepOutcome (from audit records)
+  → NbaActionCreationService.evaluateAndCreate()
+    → NBA_AE_Config__c.getInstance(ownerId) → variant (0 SOQL)
+    → NbaCadenceService.getNextStep(signal, variant, actionType) → CadenceResult
+      → loadAndParseCadences() (2 SOQL, static-cached)
+      → Match action type + variant to CadenceContext
+      → Check exit conditions (Connected_Call? Meeting_Scheduled? Opp_Closed?)
+      → computeCadenceDay(rawDays, dayMapJson) → cadence day
+      → Get position from signal's lastCadenceStepNumber + lastCadenceStepOutcome
+      → applyBranching(lastStep, outcome) → End_Cadence / Skip_To_Step / Skip_To_Day / Continue
+      → Find target step, check day gate, check spacing
+      → Populate lastEvaluatedResults static map
+    → If suppressed → determineNonCadenceActionType() fallback
+    → Build NBA_Queue__c with cadence fields
+  → ActionWrapper reads from NbaCadenceService.lastEvaluatedResults
+  → LWC displays progress bar + upcoming steps + method-specific buttons
+```
+
+#### Key Pattern: Transaction-Scoped Static Maps (Phase 7)
+
+`NbaCadenceService.lastEvaluatedResults` (`Map<Id, CadenceResult>`) replaces Phase 6's `lastEvaluatedSteps`. Populated during `getNextStep()`, read by both `NbaActionController.toWrapperFromCandidate()` and `NbaActionStateService.writeAuditRecord()` in the same Apex transaction.
+
+#### Sprint 20: Second Cadence + Cleanup (NEXT)
+- Re_engage_A cadence definition (6 steps, 7 days)
+- Deactivate old NBA_Cadence_Rule__mdt records (Phase 6 flat CMDT)
+- Remove deprecated backward-compat code (CadenceStep class, lastEvaluatedSteps map, getCurrentStep() wrapper)
+- Documentation updates
+
 ### Signal Architecture Reference
 
 Keep this reference for future phases — describes how the engine reads CRM data.
@@ -257,8 +333,9 @@ Keep this reference for future phases — describes how the engine reads CRM dat
 **Opportunity Signals**: `Days_Since_Last_Interaction__c` formula (0 SOQL cost, returns 99999 if no interaction). Account_Scoring__c has only 3 records — fallback via `Opp.Amount + Opp.Probability`.
 
 ### Pending Actions
+- **Sprint 20** (Phase 7 final): Re_engage_A cadence, deactivate old CMDT, remove deprecated code, documentation
 - Share data contract with Data Engineering for Account_Scoring__c pipeline
-- Merge feature branch to master (after V2 engine work stabilizes)
+- Merge feature branch to master (after Phase 7 completes)
 
 ### Known Org Issues
 - **15 pre-existing test failures** in `QuotaGapSchedulerTest` (14) and `ProjectTriggerHandlerTest` (1) — unrelated to NBA V2 work, block `--test-level RunLocalTests` deploys. Workaround: deploy with `NoTestRun`, then run targeted tests separately.

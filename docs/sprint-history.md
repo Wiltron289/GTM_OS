@@ -37,6 +37,8 @@ This file contains detailed sprint-by-sprint change logs for the NBA V2 Demo LWC
 27. `docs: Add Phase 6 cadence integration plan (Sprint 17)`
 28. `fix: Platform Cache key, suppression rules, and null audit records (Sprint 16)`
 29. `fix: Pin action bar to viewport bottom + convert panels to modal overlays`
+30. `feat: Sprint 18 — Phase 7 cadence redesign foundation (2-CMDT + rewritten service)`
+31. `feat: Sprint 19 — cadence service integration + outcome capture LWC (Phase 7)`
 
 ## Demo Data (org-only, not in repo)
 
@@ -534,3 +536,102 @@ Both execute in the same Apex transaction. This avoids extra SOQL to retrieve ca
 - NbaActionSelectionServiceTest: 5/5
 
 **Files created (34 total):** 2 Apex classes + 2 meta.xml + 1 custom setting object + 1 custom setting field + 5 CMDT fields + 12 CMDT records + 5 CMDT field meta.xml + modified 4 Apex classes + modified 3 LWC components (6 files)
+
+---
+
+## Sprint 18 — Phase 7 Foundation (2026-02-18)
+
+**Commit**: `e7394fc` — `feat: Sprint 18 — Phase 7 cadence redesign foundation (2-CMDT + rewritten service)`
+
+**Goal**: Replace flat NBA_Cadence_Rule__mdt with 2-CMDT parent/child architecture (NBA_Cadence__mdt + NBA_Cadence_Step__mdt) supporting outcome-based branching, day mapping, and exit conditions.
+
+### What Was Built
+
+**New CMDT Objects (2):**
+
+| Object | Purpose |
+|--------|---------|
+| `NBA_Cadence__mdt` | Parent cadence definition: scenario, variant, total steps/days, exit conditions (comma-separated), Day_Map__c (JSON), Is_Active__c |
+| `NBA_Cadence_Step__mdt` | Child step definition: linked to parent via Cadence_Name__c (text FK), method (Call/SMS/Email), branching fields (On_Connect/VM/No_Answer/Meeting actions + targets), spacing, max attempts |
+
+**CMDT Records (13):**
+- `First_Touch_A` parent record
+- 12 step records: D0 (Call→SMS→Call→Email→Call), D1 (Call→Call→SMS→Email), D3 (Email→Call), D5 (SMS breakup)
+
+**NBA_Queue__c Field Additions (4):**
+- `Cadence_Name__c` (Text 80) — DeveloperName of the cadence
+- `Cadence_Step_Number__c` (Number 3,0) — Step that was completed
+- `Step_Outcome__c` (Picklist) — Connected, VM, No_Answer, Sent, Meeting_Scheduled, Skipped
+- `Step_Method__c` (Picklist) — Call, SMS, Email
+
+**NbaCadenceService.cls** — Complete rewrite with new inner classes:
+- `CadenceContext` — parsed parent CMDT (scenario, variant, totalSteps, exitConditions, dayMap, steps list)
+- `CadenceStepDef` — parsed step CMDT (stepNumber, day, method, instruction, branching fields)
+- `CadencePosition` — last completed step from audit records (lastCompletedStep, lastOutcome, lastStepDate)
+- `CadenceResult` — evaluation result (cadenceName, currentStep, position, progressText, progressFraction, isComplete, isSuppressed, upcomingSteps)
+
+Key methods:
+- `getNextStep(signal, variant, actionType)` — Primary entry point, replaces `getCurrentStep()`
+- `applyBranching(lastStep, outcome)` — Resolves outcome to End_Cadence / Skip_To_Step / Skip_To_Day / Continue
+- `computeCadenceDay(rawDays, dayMapJson)` — JSON-driven day mapping (replaces hardcoded mapping)
+
+**NbaCadenceServiceTest.cls** — Rewritten with 19 tests (was 8):
+- Branching: Connected → End_Cadence, VM → Continue, Skip_To_Step, Skip_To_Day
+- Day gating: future day steps suppressed
+- Spacing: 60-min minimum between call attempts
+- Exit conditions: Connected_Call, Meeting_Scheduled
+- Progress resolution from audit records
+
+**NbaSignalService.cls** — 4 new OpportunitySignal fields:
+- `lastCadenceName`, `lastCadenceStepNumber`, `lastCadenceStepOutcome`, `lastCadenceStepDate`
+
+### Test Results
+
+19/19 tests passing in NbaCadenceServiceTest (94% coverage).
+
+**Files changed:** ~25 metadata files (2 CMDT objects + 13 CMDT records + 4 NBA_Queue__c fields + meta.xml), 2 Apex classes rewritten, 1 Apex class modified
+
+---
+
+## Sprint 19 — Phase 7 Integration + LWC (2026-02-18)
+
+**Commit**: `5324d09` — `feat: Sprint 19 — cadence service integration + outcome capture LWC (Phase 7)`
+
+**Goal**: Wire the new 2-CMDT cadence engine into all Apex service layers and add LWC outcome capture for Call/SMS/Email steps.
+
+### Apex Service Changes (4 classes)
+
+| Class | Changes |
+|-------|---------|
+| `NbaSignalService.cls` | Added `Cadence_Name__c`, `Cadence_Step_Number__c`, `Step_Outcome__c`, `Step_Method__c` to `queryExistingActions()` SELECT. In existing actions loop, extracts cadence progress from most recent Completed audit with non-null Cadence_Name__c → populates `lastCadenceName`, `lastCadenceStepNumber`, `lastCadenceStepOutcome`, `lastCadenceStepDate` on OpportunitySignal. 0 extra SOQL. |
+| `NbaActionCreationService.cls` | Replaced Phase 6 First-Touch-only cadence block with universal `NbaCadenceService.getNextStep(signal, variant, actionType)` call for any action type. Uses `CadenceResult` instead of `CadenceStep`. Writes `Cadence_Name__c`, `Cadence_Step_Number__c`, `Step_Method__c` to action record. Falls back to `determineNonCadenceActionType()` when cadence suppresses or completes. |
+| `NbaActionController.cls` | Extended ActionWrapper with 8 Phase 7 fields: `cadenceName`, `cadenceStepNumber`, `cadenceTotalSteps`, `stepMethod`, `stepInstruction`, `cadenceProgress`, `progressFraction`, `upcomingSteps`, `isCadenceAction`. Updated `completeAction()` to accept `stepOutcome` parameter. Updated `toWrapperFromCandidate()` to read from `NbaCadenceService.lastEvaluatedResults`. |
+| `NbaActionStateService.cls` | Updated `completeAction()` to accept `stepOutcome` (6 params). Updated `writeAuditRecord()` to write all 4 cadence fields from `lastEvaluatedResults` + `stepOutcome`. Updated `snoozeAction()` and `dismissAction()` callers to pass null stepOutcome. |
+
+### LWC Changes (4 components)
+
+| Component | Changes |
+|-----------|---------|
+| `nbaActionBar` | **Call outcome panel**: "Complete" shows panel with 3 buttons (Connected / Left VM / No Answer). **SMS button**: "Mark SMS Sent" with chat icon, auto-outcome = `Sent`. **Email button**: "Mark Email Sent" with email icon, auto-outcome = `Sent`. Non-cadence actions: unchanged "Complete" button. New CSS: outcome panel styles, method-specific button colors (blue for SMS, indigo for Email). |
+| `nbaDemoWorkspace` | `handleCompleteAction()` extracts `stepOutcome` from event detail, passes to `completeAction()` Apex call as 4th parameter. |
+| `nbaDemoInsightsPanel` | Progress bar with dynamic fill width (`progressBarWidth`). Fraction badge (e.g., "3/12"). Upcoming steps preview list with method-specific icons (call/sms/email). `showCadenceContext` now checks `isCadenceAction`. |
+| `nbaDemoHeader` | `showCadenceStep` checks `isCadenceAction`. `cadenceStepLabel` returns `progressFraction`. Added `stepMethodIcon` getter (call/sms/email icon). |
+
+### Test Class Updates (2 classes)
+
+| Class | Changes |
+|-------|---------|
+| `NbaActionControllerTest` | Updated `completeAction()` calls to pass 4th `null` param for stepOutcome |
+| `NbaActionStateServiceTest` | Updated all `completeAction()` calls to pass 6th `null` param for stepOutcome |
+
+### Test Results
+
+70 targeted tests passing across 6 test classes:
+- NbaCadenceServiceTest: 19/19
+- NbaActionCreationServiceTest: 19/19
+- NbaActionControllerTest: 10/10
+- NbaActionStateServiceTest: 10/10
+- NbaSignalServiceTest: 8/8
+- NbaActionSelectionServiceTest: 4/4
+
+**Files changed (15):** 4 Apex service classes + 2 Apex test classes + 4 LWC components (JS+HTML+CSS) = +424/-100 lines
