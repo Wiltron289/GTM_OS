@@ -39,6 +39,10 @@ This file contains detailed sprint-by-sprint change logs for the NBA V2 Demo LWC
 29. `fix: Pin action bar to viewport bottom + convert panels to modal overlays`
 30. `feat: Sprint 18 — Phase 7 cadence redesign foundation (2-CMDT + rewritten service)`
 31. `feat: Sprint 19 — cadence service integration + outcome capture LWC (Phase 7)`
+32. `feat: Sprint 20 — Re_engage_A cadence definition (6 steps, 7 days)`
+33. `refactor: Sprint 20 — remove deprecated Phase 6 backward-compat code`
+34. `chore: Sprint 20 — deactivate 12 Phase 6 NBA_Cadence_Rule__mdt records`
+35. `test: Sprint 20 — Re_engage_A test coverage + remove deprecated test`
 
 ## Demo Data (org-only, not in repo)
 
@@ -635,3 +639,75 @@ Key methods:
 - NbaActionSelectionServiceTest: 4/4
 
 **Files changed (15):** 4 Apex service classes + 2 Apex test classes + 4 LWC components (JS+HTML+CSS) = +424/-100 lines
+
+---
+
+## Sprint 20 — Phase 7 Second Cadence + Cleanup (2026-02-18)
+
+**Commits**: `c4a70a6`, `c31b53e`, `40b32b9`, `f21bea6`
+
+**Goal**: Add Re_engage_A cadence (second cadence in the 2-CMDT system), deactivate all Phase 6 flat CMDT records, remove all deprecated backward-compat code, and update tests.
+
+### 1. Re_engage_A Cadence Definition (7 new CMDT files)
+
+**Parent**: `NBA_Cadence.Re_engage_A.md-meta.xml`
+- Scenario: Re-engage, Variant: A, Anchor: `daysSinceLastInteraction`
+- 6 steps over 7 days, Exit: Connected_Call, Meeting_Scheduled, Opp_Closed
+- Day Map: `{"5":0,"6":1,"7":3,"8":3,"9":5,"10":5,"11":7,"12":7}` (5+ days inactivity = cadence day 0)
+
+**Steps (6)**:
+
+| Record | Step | Day | Method | Instruction | On Connect |
+|--------|------|-----|--------|-------------|------------|
+| `REA_D0_Call1` | 1 | 0 | Call | Re-engagement call — review opportunity history | End_Cadence |
+| `REA_D0_Email1` | 2 | 0 | Email | Send re-engagement email, reference last activity | — |
+| `REA_D1_Call2` | 3 | 1 | Call | Follow-up call, try different time of day | End_Cadence |
+| `REA_D3_SMS1` | 4 | 3 | SMS | Brief check-in text, keep short and personal | — |
+| `REA_D5_Email2` | 5 | 5 | Email | Value-add email with resources or case studies | — |
+| `REA_D7_Call3` | 6 | 7 | Call | Final re-engagement attempt, detailed voicemail | End_Cadence |
+
+### 2. Deprecated Code Removal (2 Apex classes)
+
+**NbaCadenceService.cls:**
+- Removed `lastEvaluatedSteps` static map (Phase 6 transaction-scoped map, replaced by `lastEvaluatedResults`)
+- Removed `CadenceStep` inner class (Phase 6 data class, replaced by `CadenceResult`)
+- Removed `getCurrentStep()` wrapper method (Phase 6 entry point, replaced by `getNextStep()`)
+- Removed `lastEvaluatedSteps` reset from `resetCache()`
+
+**NbaActionController.cls:**
+- Removed 5 backward-compat ActionWrapper fields: `cadenceStage`, `cadenceDay`, `todayCallCount`, `maxCallsToday`, `methodHints`
+- Removed backward-compat population block in `toWrapperFromCandidate()` (was reading from old `lastEvaluatedSteps`)
+- Simplified `toWrapperFromRecord()` — just sets `isCadenceAction = false`
+- Removed `Cadence_Stage__c`, `Attempt_Count_Today__c` from `checkTimeBoundInternal()` SOQL
+
+### 3. Phase 6 CMDT Deactivation (12 files)
+
+Set `Is_Active__c = false` on all 12 `NBA_Cadence_Rule__mdt` records (Phase 6 flat CMDT system, fully replaced by NBA_Cadence__mdt + NBA_Cadence_Step__mdt):
+- `FT_A_D0_Call1`, `FT_A_D0_Call2`, `FT_A_D0_Call3`
+- `FT_A_D1_Call4`, `FT_A_D1_Call5`
+- `FT_A_D3_Call6`
+- `FT_A_D0_Hint_SMS1`, `FT_A_D0_Hint_Email1`
+- `FT_A_D1_Hint_SMS2`, `FT_A_D1_Hint_Email2`
+- `FT_A_D3_Hint_Email3`
+- `FT_A_D5_Hint_Breakup`
+
+### 4. Test Updates (NbaCadenceServiceTest.cls)
+
+- Removed `testBackwardCompatGetCurrentStep` (referenced deleted `CadenceStep` class)
+- Added `buildReEngageSignal()` helper method
+- Added 5 new Re_engage_A tests:
+  - `testReEngageCadenceDay0Call` — Step 1 resolves on Day 0 (5d inactivity)
+  - `testReEngageCadenceDay0Email` — Step 2 after step 1 completed with No_Answer
+  - `testReEngageBranchingOnConnect` — Connected call ends cadence
+  - `testReEngageDayGating` — Day 1 step suppressed when still on Day 0
+  - `testReEngageCadenceComplete` — Past day 12 returns cadence complete
+
+### Test Results
+
+62 targeted tests passing across 4 test classes:
+- NbaCadenceServiceTest: 23/23 (was 19; -1 removed, +5 new)
+- NbaActionControllerTest: 10/10
+- NbaActionCreationServiceTest: 19/19
+- NbaActionStateServiceTest: 10/10
+
+**Files changed (22):** 7 new CMDT records + 12 deactivated CMDT records + 2 Apex classes modified + 1 test class modified
