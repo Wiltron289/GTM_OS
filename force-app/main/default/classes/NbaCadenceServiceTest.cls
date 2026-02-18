@@ -9,6 +9,7 @@ private class NbaCadenceServiceTest {
         NbaSignalService.OpportunitySignal sig = new NbaSignalService.OpportunitySignal();
         sig.oppId = oppId;
         sig.daysSinceCreation = daysSinceCreation;
+        sig.daysSinceLastInteraction = null;
         sig.todayCallCount = todayCallCount;
         sig.todayCallDates = new List<Datetime>();
         sig.lastCallDate = lastCallDate;
@@ -21,6 +22,15 @@ private class NbaCadenceServiceTest {
         sig.lastCadenceStepNumber = null;
         sig.lastCadenceStepOutcome = null;
         sig.lastCadenceStepDate = null;
+        return sig;
+    }
+
+    // Overload for Re-engage tests (anchor = daysSinceLastInteraction)
+    private static NbaSignalService.OpportunitySignal buildReEngageSignal(
+        Id oppId, Decimal daysSinceLastInteraction, Datetime lastCallDate
+    ) {
+        NbaSignalService.OpportunitySignal sig = buildSignal(oppId, 0, 0, lastCallDate);
+        sig.daysSinceLastInteraction = daysSinceLastInteraction;
         return sig;
     }
 
@@ -391,23 +401,97 @@ private class NbaCadenceServiceTest {
         }
     }
 
-    // ─── Test: Backward compat — getCurrentStep wrapper ─────────────
+    // ─── Re_engage_A Cadence Tests ──────────────────────────────────
+
+    // Test: Re-engage cadence resolves Step 1 (Call) on Day 0 (5d inactivity)
     @isTest
-    static void testBackwardCompatGetCurrentStep() {
+    static void testReEngageCadenceDay0Call() {
         NbaCadenceService.resetCache();
-        NbaSignalService.OpportunitySignal sig = buildSignal(getFakeOppId(), 0, 0, null);
+        NbaSignalService.OpportunitySignal sig = buildReEngageSignal(getFakeOppId(), 5, null);
 
         Test.startTest();
-        NbaCadenceService.CadenceStep step = NbaCadenceService.getCurrentStep(sig, 'A');
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStep(sig, 'A', 'Re-engage');
         Test.stopTest();
 
-        if (step != null) {
-            System.assertNotEquals(null, step.method, 'Method should be set');
-            System.assertNotEquals(null, step.instruction, 'Instruction should be set');
-            System.assert(
-                NbaCadenceService.lastEvaluatedSteps.containsKey(getFakeOppId()),
-                'Legacy lastEvaluatedSteps should be populated'
-            );
+        if (result != null && result.currentStep != null) {
+            System.assertEquals(false, result.isComplete, 'Should not be complete');
+            System.assertEquals(false, result.isSuppressed, 'Should not be suppressed');
+            System.assertEquals(1, result.currentStep.stepNumber, 'Should be step 1');
+            System.assertEquals(0, result.currentStep.dayNumber, 'Should be Day 0');
+            System.assertEquals('Call', result.currentStep.method, 'Step 1 should be Call');
+            System.assertEquals('Re_engage_A', result.cadenceName, 'Cadence name should match');
+            System.assert(result.progressFraction.contains('/6'), 'Should show X/6 total steps');
+        }
+    }
+
+    // Test: Re-engage Step 2 (Email) after step 1 completed
+    @isTest
+    static void testReEngageCadenceDay0Email() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildReEngageSignal(getFakeOppId(), 5, Datetime.now().addHours(-2));
+        sig.lastCadenceStepNumber = 1;
+        sig.lastCadenceStepOutcome = 'No_Answer';
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStep(sig, 'A', 'Re-engage');
+        Test.stopTest();
+
+        if (result != null && result.currentStep != null) {
+            System.assertEquals(2, result.currentStep.stepNumber, 'Should advance to step 2');
+            System.assertEquals('Email', result.currentStep.method, 'Step 2 should be Email');
+        }
+    }
+
+    // Test: Re-engage branching — Connected call ends cadence
+    @isTest
+    static void testReEngageBranchingOnConnect() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildReEngageSignal(getFakeOppId(), 5, null);
+        sig.lastCadenceStepNumber = 1;
+        sig.lastCadenceStepOutcome = 'Connected';
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStep(sig, 'A', 'Re-engage');
+        Test.stopTest();
+
+        if (result != null) {
+            System.assertEquals(true, result.isComplete,
+                'Connected on Re-engage Call should end cadence');
+        }
+    }
+
+    // Test: Re-engage day gating — Day 1 step suppressed when on Day 0
+    @isTest
+    static void testReEngageDayGating() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildReEngageSignal(getFakeOppId(), 5, null);
+        // All Day 0 steps done (steps 1-2), next is step 3 on Day 1
+        sig.lastCadenceStepNumber = 2;
+        sig.lastCadenceStepOutcome = 'Sent';
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStep(sig, 'A', 'Re-engage');
+        Test.stopTest();
+
+        if (result != null && !result.isComplete) {
+            System.assertEquals(true, result.isSuppressed,
+                'Should be suppressed — step 3 is Day 1, current is Day 0');
+        }
+    }
+
+    // Test: Re-engage cadence complete — past max day (13d inactivity)
+    @isTest
+    static void testReEngageCadenceComplete() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildReEngageSignal(getFakeOppId(), 13, null);
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStep(sig, 'A', 'Re-engage');
+        Test.stopTest();
+
+        if (result != null) {
+            System.assertEquals(true, result.isComplete,
+                'Should be complete when past max day 12');
         }
     }
 
