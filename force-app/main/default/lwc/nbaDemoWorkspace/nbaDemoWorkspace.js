@@ -3,7 +3,8 @@ import { refreshApex } from '@salesforce/apex';
 import Id from '@salesforce/user/Id';
 import getPageData from '@salesforce/apex/NbaDemoController.getPageData';
 import getActiveAction from '@salesforce/apex/NbaActionController.getActiveAction';
-import checkTimeBound from '@salesforce/apex/NbaActionController.checkTimeBound';
+import checkInterrupts from '@salesforce/apex/NbaActionController.checkInterrupts';
+import acceptInterrupt from '@salesforce/apex/NbaActionController.acceptInterrupt';
 import completeAction from '@salesforce/apex/NbaActionController.completeAction';
 import snoozeAction from '@salesforce/apex/NbaActionController.snoozeAction';
 import dismissAction from '@salesforce/apex/NbaActionController.dismissAction';
@@ -33,8 +34,12 @@ export default class NbaDemoWorkspace extends LightningElement {
     currentAction = null;
     showEmptyState = false;
     isTransitioning = false;
-    _timeBoundPollInterval = null;  // 15s — lightweight Layer 1 check
+    _interruptPollInterval = null;  // 15s — lightweight interrupt check
     _fullRefreshInterval = null;    // 5min — full on-demand re-evaluation
+
+    // ── Two-stream: interrupt state ─────────────────────────
+    pendingInterrupts = [];     // List of interrupt ActionWrappers from checkInterrupts
+    _pausedAction = null;       // Saved scored-queue action when rep jumps to interrupt
 
     // Data properties populated from the Apex wrapper
     headerData;
@@ -62,11 +67,11 @@ export default class NbaDemoWorkspace extends LightningElement {
             this.isActionMode = true;
             this._loadActiveAction();
 
-            // 15s poll: lightweight Layer 1 time-bound check (1 SOQL)
+            // 15s poll: lightweight interrupt check (Stream 2 — meetings + new assignments)
             // eslint-disable-next-line @lwc/lwc/no-async-operation
-            this._timeBoundPollInterval = setInterval(() => {
+            this._interruptPollInterval = setInterval(() => {
                 if (!this.isTransitioning && !this.isLoading) {
-                    this._checkTimeBound();
+                    this._checkInterrupts();
                 }
             }, 15000);
 
@@ -81,9 +86,9 @@ export default class NbaDemoWorkspace extends LightningElement {
     }
 
     disconnectedCallback() {
-        if (this._timeBoundPollInterval) {
-            clearInterval(this._timeBoundPollInterval);
-            this._timeBoundPollInterval = null;
+        if (this._interruptPollInterval) {
+            clearInterval(this._interruptPollInterval);
+            this._interruptPollInterval = null;
         }
         if (this._fullRefreshInterval) {
             clearInterval(this._fullRefreshInterval);
@@ -185,29 +190,23 @@ export default class NbaDemoWorkspace extends LightningElement {
     }
 
     // ────────────────────────────────────────────
-    // App Page: lightweight Layer 1 time-bound check (15s poll)
+    // App Page: lightweight interrupt check (15s poll, Stream 2)
     // ────────────────────────────────────────────
-    async _checkTimeBound() {
+    async _checkInterrupts() {
         try {
-            const action = await checkTimeBound();
-            if (action) {
-                // New time-bound action detected — if different from current, transition
-                const currentId = this.currentAction?.actionId;
-                if (action.actionId !== currentId) {
-                    const prevOppId = this.currentAction?.opportunityId;
-                    this.currentAction = action;
-                    this.showEmptyState = false;
-                    if (action.opportunityId !== prevOppId) {
-                        const data = await getPageData({ oppId: action.opportunityId });
-                        this._applyPageData(data);
-                    }
-                }
-            }
-            // If no time-bound action, do nothing — wait for the 5min full refresh
+            const interrupts = await checkInterrupts();
+            // Filter out any interrupt the rep already dismissed this session
+            const newInterrupts = (interrupts || []).filter(
+                (i) => !this._dismissedInterruptIds.has(i.actionId)
+            );
+            this.pendingInterrupts = newInterrupts;
         } catch (err) {
             // Silent fail on polling — don't disrupt the UI
         }
     }
+
+    // Track dismissed interrupt IDs for this session so they don't re-appear
+    _dismissedInterruptIds = new Set();
 
     // ────────────────────────────────────────────
     // Computed: effective record ID for children
@@ -229,6 +228,52 @@ export default class NbaDemoWorkspace extends LightningElement {
 
     get workspaceBodyClass() {
         return this.showActionBar ? 'workspace-body workspace-body-with-bar' : 'workspace-body';
+    }
+
+    // ────────────────────────────────────────────
+    // Interrupt handlers (Stream 2 — two-stream)
+    // ────────────────────────────────────────────
+    async handleAcceptInterrupt(event) {
+        const { actionId } = event.detail;
+        if (!actionId) return;
+
+        this.isTransitioning = true;
+        try {
+            // Save current scored-queue action so we can resume after interrupt
+            if (this.currentAction) {
+                this._pausedAction = { ...this.currentAction };
+            }
+
+            // Accept the interrupt (sets it to 'In Progress' so poll stops showing it)
+            const accepted = await acceptInterrupt({ actionId });
+            if (accepted) {
+                this.currentAction = accepted;
+                this.showEmptyState = false;
+                this.pendingInterrupts = [];
+
+                // Load page data if Opp changed
+                const prevOppId = this._pausedAction?.opportunityId;
+                if (accepted.opportunityId !== prevOppId) {
+                    const data = await getPageData({ oppId: accepted.opportunityId });
+                    this._applyPageData(data);
+                }
+            }
+        } catch (err) {
+            this.error = err;
+        } finally {
+            this.isTransitioning = false;
+        }
+    }
+
+    handleDismissInterrupt(event) {
+        const { actionId } = event.detail;
+        if (actionId) {
+            this._dismissedInterruptIds.add(actionId);
+        }
+        // Remove dismissed interrupt from pending list
+        this.pendingInterrupts = this.pendingInterrupts.filter(
+            (i) => i.actionId !== actionId
+        );
     }
 
     // ────────────────────────────────────────────
@@ -279,6 +324,32 @@ export default class NbaDemoWorkspace extends LightningElement {
     }
 
     async _handleActionResult(result) {
+        // If we just completed an interrupt and have a paused action, resume it
+        if (this._pausedAction) {
+            const paused = this._pausedAction;
+            this._pausedAction = null;
+
+            // The scored queue re-evaluation (result.nextAction) will naturally
+            // return the paused action since it was never completed. Use the
+            // re-evaluated result if available, otherwise fall back to paused.
+            const nextAction = result?.hasNext && result.nextAction
+                ? result.nextAction : paused;
+
+            const prevOppId = this.currentAction?.opportunityId;
+            this.currentAction = nextAction;
+            this.showEmptyState = false;
+            if (nextAction.opportunityId !== prevOppId) {
+                try {
+                    const data = await getPageData({ oppId: nextAction.opportunityId });
+                    this._applyPageData(data);
+                } catch (err) {
+                    this.error = err;
+                }
+            }
+            this.isTransitioning = false;
+            return;
+        }
+
         if (result && result.hasNext && result.nextAction) {
             const prevOppId = this.currentAction?.opportunityId;
             this.currentAction = result.nextAction;

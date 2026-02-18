@@ -24,7 +24,10 @@
         <c-nba-demo-alert-banner
             upcoming-event={upcomingEvent}
             current-action={currentAction}
-            is-action-mode={isActionMode}>
+            is-action-mode={isActionMode}
+            pending-interrupts={pendingInterrupts}
+            onacceptinterrupt={handleAcceptInterrupt}
+            ondismissinterrupt={handleDismissInterrupt}>
         </c-nba-demo-alert-banner>
 
         <!-- Header -->
