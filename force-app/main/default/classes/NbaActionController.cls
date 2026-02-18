@@ -1,18 +1,21 @@
 /**
- * NbaActionController — On-demand evaluation entry point for the NBA V2 App Page LWC.
+ * NbaActionController — Two-stream entry point for the NBA V2 App Page LWC.
  *
- * Phase 5 architecture: Instead of reading pre-created actions from the database,
- * this controller evaluates CRM signals in real-time when the AE requests an action.
- *
- * getActiveAction() flow:
- *   1. Check Layer 1 time-bound in DB (triggers write these) — 1 SOQL
- *   2. Check Platform Cache — 0 SOQL
- *   3. Cache miss → full on-demand evaluation — ~12 SOQL
+ * Stream 1 (Scored Queue) — getActiveAction():
+ *   1. Check Platform Cache — 0 SOQL
+ *   2. Cache miss → full on-demand evaluation — ~12 SOQL
  *      a. Query AE's open Opps
  *      b. NbaSignalService.getSignals()
  *      c. NbaActionCreationService.evaluateAndCreate()
  *      d. NbaActionSelectionService.rankActions()
- *   4. Cache result → return ActionWrapper
+ *   3. Cache result → return ActionWrapper
+ *
+ * Stream 2 (Real-Time Interrupts) — checkInterrupts():
+ *   Lightweight 15s poll returns Layer 1 interrupt actions:
+ *   - Meetings due within 5 minutes (time-bound)
+ *   - New-assignment records (L1, non-time-bound, created within 24h)
+ *   AE can accept (Jump to it) or dismiss. Accepted interrupts set to
+ *   'In Progress' so they stop appearing in the poll.
  *
  * complete/snooze/dismiss: delegate to NbaActionStateService (audit writer),
  * then re-evaluate and return the next action.
@@ -26,28 +29,22 @@ public with sharing class NbaActionController {
     // ─── Get Active Action (On-Demand Evaluation) ───────────────────
 
     /**
-     * Returns the current user's top-priority action.
-     * Checks Layer 1 time-bound → Platform Cache → full on-demand evaluation.
+     * Returns the current user's top-priority scored-queue action.
+     * Stream 1 (Scored Queue): Platform Cache → full on-demand evaluation.
+     * Layer 1 interrupts are handled separately by checkInterrupts().
      * @return ActionWrapper or null if no actions available
      */
     @AuraEnabled
     public static ActionWrapper getActiveAction() {
         Id userId = UserInfo.getUserId();
 
-        // Step 1: Check for Layer 1 time-bound action in DB
-        // These are created by triggers and always stored in DB
-        ActionWrapper timeBound = checkTimeBoundInternal(userId);
-        if (timeBound != null) {
-            return timeBound;
-        }
-
-        // Step 2: Check Platform Cache
+        // Step 1: Check Platform Cache
         ActionWrapper cached = NbaCacheService.getCachedAction(userId);
         if (cached != null) {
             return cached;
         }
 
-        // Step 3: Cache miss — full on-demand evaluation
+        // Step 2: Cache miss — full on-demand evaluation
         ActionWrapper evaluated = evaluateOnDemand(userId);
         if (evaluated != null) {
             NbaCacheService.cacheAction(userId, evaluated);
@@ -56,16 +53,57 @@ public with sharing class NbaActionController {
         return evaluated;
     }
 
-    // ─── Check Time-Bound (Lightweight, for 15s Polling) ────────────
+    // ─── Check Interrupts (Lightweight, for 15s Polling) ────────────
 
     /**
-     * Lightweight check for Layer 1 time-bound actions only.
-     * Used by the LWC's 15-second poll to detect trigger-created actions.
-     * @return ActionWrapper if a time-bound action exists, null otherwise
+     * Stream 2 (Real-Time Interrupts): Lightweight check for Layer 1 interrupt actions.
+     * Returns meetings due within 5 minutes AND new-assignment interrupt records
+     * (Priority_Layer='L1', Is_Time_Bound=false) created within 24h.
+     * Used by the LWC's 15-second poll.
+     * @return List of interrupt ActionWrappers (empty list if none)
      */
     @AuraEnabled
-    public static ActionWrapper checkTimeBound() {
-        return checkTimeBoundInternal(UserInfo.getUserId());
+    public static List<ActionWrapper> checkInterrupts() {
+        return checkInterruptsInternal(UserInfo.getUserId());
+    }
+
+    // ─── Accept Interrupt (AE clicks "Jump to it") ────────────────
+
+    /**
+     * Accept an interrupt action — sets Status to 'In Progress' so it stops
+     * appearing in the 15s poll. Called when the AE clicks "Jump to it".
+     * @param actionId The NBA_Queue__c ID of the interrupt action
+     * @return ActionWrapper for the accepted interrupt
+     */
+    @AuraEnabled
+    public static ActionWrapper acceptInterrupt(Id actionId) {
+        if (actionId == null) {
+            return null;
+        }
+
+        List<NBA_Queue__c> actions = [
+            SELECT Id, Opportunity__c, Account__c, Action_Type__c,
+                   Action_Instruction__c, ReasonText__c, Priority_Layer__c,
+                   Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
+                   DueAt__c, Status__c,
+                   Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
+            FROM NBA_Queue__c
+            WHERE Id = :actionId
+              AND Status__c IN ('New', 'Pending', 'Accepted')
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+
+        if (actions.isEmpty()) {
+            return null;
+        }
+
+        NBA_Queue__c action = actions[0];
+        action.Status__c = 'In Progress';
+        action.LastEvaluatedAt__c = Datetime.now();
+        update action;
+
+        return toWrapperFromRecord(action);
     }
 
     // ─── Action Lifecycle ───────────────────────────────────────────
@@ -220,11 +258,18 @@ public with sharing class NbaActionController {
     // ─── Private Helpers ────────────────────────────────────────────
 
     /**
-     * Check for Layer 1 time-bound actions in the DB.
-     * Returns the highest-priority time-bound action, or null.
+     * Check for Layer 1 interrupt actions in the DB.
+     * Returns:
+     *   - Meetings with DueAt within 5 minutes (not 24h)
+     *   - New-assignment interrupts (L1, Is_Time_Bound=false) created within 24h
+     * Excludes 'In Progress' records (already accepted by acceptInterrupt).
      */
-    private static ActionWrapper checkTimeBoundInternal(Id userId) {
-        List<NBA_Queue__c> timeBound = [
+    private static List<ActionWrapper> checkInterruptsInternal(Id userId) {
+        List<ActionWrapper> interrupts = new List<ActionWrapper>();
+
+        // Query 1: Time-bound meetings due within 5 minutes
+        Datetime fiveMinFromNow = Datetime.now().addMinutes(5);
+        List<NBA_Queue__c> meetings = [
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
                    Action_Instruction__c, ReasonText__c, Priority_Layer__c,
                    Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
@@ -233,15 +278,41 @@ public with sharing class NbaActionController {
             FROM NBA_Queue__c
             WHERE Sales_Rep__c = :userId
               AND Is_Time_Bound__c = true
-              AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
+              AND Status__c IN ('New', 'Pending', 'Accepted')
               AND DueAt__c != null
+              AND DueAt__c <= :fiveMinFromNow
               AND DueAt__c >= :Datetime.now().addMinutes(-15)
             WITH SECURITY_ENFORCED
             ORDER BY DueAt__c ASC
-            LIMIT 1
+            LIMIT 5
         ];
+        for (NBA_Queue__c m : meetings) {
+            interrupts.add(toWrapperFromRecord(m));
+        }
 
-        return timeBound.isEmpty() ? null : toWrapperFromRecord(timeBound[0]);
+        // Query 2: New-assignment interrupt records (L1, non-time-bound, within 24h)
+        Datetime twentyFourHoursAgo = Datetime.now().addHours(-24);
+        List<NBA_Queue__c> assignments = [
+            SELECT Id, Opportunity__c, Account__c, Action_Type__c,
+                   Action_Instruction__c, ReasonText__c, Priority_Layer__c,
+                   Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
+                   DueAt__c, Status__c,
+                   Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
+            FROM NBA_Queue__c
+            WHERE Sales_Rep__c = :userId
+              AND Priority_Layer__c = 'Layer 1 - Time Bound'
+              AND Is_Time_Bound__c = false
+              AND Status__c IN ('New', 'Pending', 'Accepted')
+              AND CreatedDate >= :twentyFourHoursAgo
+            WITH SECURITY_ENFORCED
+            ORDER BY CreatedDate DESC
+            LIMIT 5
+        ];
+        for (NBA_Queue__c a : assignments) {
+            interrupts.add(toWrapperFromRecord(a));
+        }
+
+        return interrupts;
     }
 
     /**
