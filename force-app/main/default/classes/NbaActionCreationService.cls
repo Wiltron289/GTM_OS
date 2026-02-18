@@ -331,6 +331,83 @@ public with sharing class NbaActionCreationService {
         return action;
     }
 
+    // ─── New Assignment Interrupt (Two-Stream Architecture) ──────────
+
+    /**
+     * Create a Layer 1 interrupt record for a newly assigned Opportunity.
+     * Unlike time-bound actions, these have Is_Time_Bound=false and no DueAt.
+     * The LWC's 15s interrupt poll picks them up via checkInterrupts().
+     * Does NOT insert the record — caller handles DML for bulkification.
+     *
+     * @param oppId Opportunity ID
+     * @param accountId Account ID
+     * @param aeId Sales Rep (AE) User ID
+     * @param stageName Current stage name of the Opportunity
+     * @return NBA_Queue__c record ready for insert, or null if duplicate exists
+     */
+    public static NBA_Queue__c createNewAssignmentAction(
+        Id oppId, Id accountId, Id aeId, String stageName
+    ) {
+        // Dedup check: one new-assignment interrupt per Opp
+        String uniqueKey = 'V2|' + oppId + '|First Touch|NewAssignment';
+        List<NBA_Queue__c> existing = [
+            SELECT Id FROM NBA_Queue__c
+            WHERE UniqueKey__c = :uniqueKey
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+        if (!existing.isEmpty()) {
+            return null;
+        }
+
+        // Simplified scoring for interrupt: high urgency, mid-range impact
+        Decimal impactScore = 0.5;
+        Decimal urgencyScore = 1.5;
+        Decimal oppAmount = 0;
+
+        List<Opportunity> opps = [
+            SELECT Amount, MRR__c
+            FROM Opportunity
+            WHERE Id = :oppId
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+        if (!opps.isEmpty()) {
+            Opportunity opp = opps[0];
+            oppAmount = opp.MRR__c != null ? opp.MRR__c : (opp.Amount != null ? opp.Amount : 0);
+            impactScore = Math.min(oppAmount / DEFAULT_MRR_CEILING, 1.0);
+        }
+
+        Decimal finalScore = (0.5 * impactScore) + (0.5 * urgencyScore);
+
+        NBA_Queue__c action = new NBA_Queue__c(
+            Opportunity__c = oppId,
+            Account__c = accountId,
+            Sales_Rep__c = aeId,
+            Status__c = 'Pending',
+            Action_Type__c = 'First Touch',
+            Impact_Score__c = impactScore,
+            Urgency_Score__c = urgencyScore,
+            Priority_Score__c = finalScore,
+            Priority_Bucket__c = 'Cadence Due Today',
+            Priority_Layer__c = 'Layer 1 - Time Bound',
+            Is_Time_Bound__c = false,
+            Cadence_Stage__c = 1,
+            Attempt_Count_Today__c = 0,
+            Source_Path__c = 'Immediate',
+            Rule_Name__c = 'NewAssignment_Interrupt',
+            Action_Instruction__c = 'New opportunity assigned — make initial contact',
+            Workflow_Mode__c = 'Pipeline',
+            ReasonText__c = 'New assignment interrupt. First Touch action for newly assigned opportunity.',
+            LastEvaluatedAt__c = Datetime.now(),
+            UniqueKey__c = uniqueKey,
+            Opportunity_Stage__c = stageName,
+            Due_Date__c = Date.today()
+        );
+
+        return action;
+    }
+
     // ─── Suppression Logic ────────────────────────────────────────────
 
     /**
