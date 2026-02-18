@@ -228,7 +228,7 @@ public with sharing class NbaActionController {
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
                    Action_Instruction__c, ReasonText__c, Priority_Layer__c,
                    Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
-                   DueAt__c, Status__c, Cadence_Stage__c, Attempt_Count_Today__c,
+                   DueAt__c, Status__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
             WHERE Sales_Rep__c = :userId
@@ -277,14 +277,8 @@ public with sharing class NbaActionController {
         w.opportunityName = action.Opportunity__r?.Name;
         w.oppStage = action.Opportunity__r?.StageName;
 
-        // Phase 7: Map cadence fields from DB record (Layer 1 time-bound)
-        w.isCadenceAction = false; // Layer 1 time-bound actions are meetings, not cadence
-        if (action.Cadence_Stage__c != null) {
-            w.cadenceStage = action.Cadence_Stage__c.intValue();
-        }
-        if (action.Attempt_Count_Today__c != null) {
-            w.todayCallCount = action.Attempt_Count_Today__c.intValue();
-        }
+        // Layer 1 time-bound actions are meetings, not cadence
+        w.isCadenceAction = false;
 
         return w;
     }
@@ -328,13 +322,6 @@ public with sharing class NbaActionController {
             w.cadenceProgress = cadResult.progressText;
             w.progressFraction = cadResult.progressFraction;
             w.upcomingSteps = cadResult.upcomingSteps;
-            // Backward compat fields
-            w.cadenceStage = cadResult.currentStep.stepNumber;
-            w.cadenceDay = cadResult.currentStep.dayNumber;
-            w.todayCallCount = cadResult.position != null
-                ? cadResult.position.lastCompletedStep : 0;
-            w.maxCallsToday = 0;
-            w.methodHints = null;
         } else {
             w.isCadenceAction = false;
         }
@@ -386,12 +373,6 @@ public with sharing class NbaActionController {
         @AuraEnabled public String progressFraction;  // "3/12"
         @AuraEnabled public List<String> upcomingSteps; // Next 2-3 step previews
         @AuraEnabled public Boolean isCadenceAction;
-        // Kept for backward compat display
-        @AuraEnabled public Integer cadenceStage;
-        @AuraEnabled public Integer cadenceDay;
-        @AuraEnabled public Integer todayCallCount;
-        @AuraEnabled public Integer maxCallsToday;
-        @AuraEnabled public String methodHints;
     }
 
     public class ActionResultWrapper {

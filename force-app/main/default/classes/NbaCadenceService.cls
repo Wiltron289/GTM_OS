@@ -25,9 +25,6 @@ public with sharing class NbaCadenceService {
     // Populated during getNextStep(), read by NbaActionController + NbaActionStateService
     public static Map<Id, CadenceResult> lastEvaluatedResults = new Map<Id, CadenceResult>();
 
-    // DEPRECATED: Backward compat for Phase 6 consumers (remove in Sprint 19)
-    public static Map<Id, CadenceStep> lastEvaluatedSteps = new Map<Id, CadenceStep>();
-
     // ─── Inner Classes ────────────────────────────────────────────────
 
     public class CadenceContext {
@@ -78,23 +75,6 @@ public with sharing class NbaCadenceService {
         public Boolean isSuppressed;
         public String suppressReason;
         public List<String> upcomingSteps;  // Next 2-3 step previews
-    }
-
-    // DEPRECATED: Kept for backward compat with Phase 6 consumers until Sprint 19
-    public class CadenceStep {
-        public String ruleName;
-        public Integer cadenceStage;
-        public Integer cadenceDay;
-        public String method;
-        public Boolean isPrimary;
-        public Integer spacingMinutes;
-        public Integer maxCallsToday;
-        public String nextMethodOnFail;
-        public String hintText;
-        public String instruction;
-        public String progressText;
-        public Integer todayCalls;
-        public List<String> upcomingHints;
     }
 
     // ─── Primary Entry Point ──────────────────────────────────────────
@@ -202,43 +182,6 @@ public with sharing class NbaCadenceService {
 
         lastEvaluatedResults.put(signal.oppId, result);
         return result;
-    }
-
-    // ─── DEPRECATED: Backward compat for Phase 6 consumers ────────────
-
-    /**
-     * DEPRECATED: Use getNextStep() instead.
-     * Kept for backward compat with NbaActionCreationService until Sprint 19.
-     */
-    public static CadenceStep getCurrentStep(
-        NbaSignalService.OpportunitySignal signal, String variant
-    ) {
-        CadenceResult result = getNextStep(signal, variant, 'First Touch');
-        if (result == null || result.isComplete || result.isSuppressed || result.currentStep == null) {
-            return null;
-        }
-
-        CadenceStep step = new CadenceStep();
-        step.ruleName = result.currentStep.developerName;
-        step.cadenceStage = result.currentStep.stepNumber;
-        step.cadenceDay = result.currentStep.dayNumber;
-        step.method = result.currentStep.method;
-        step.isPrimary = true;
-        step.spacingMinutes = result.currentStep.spacingMinutes != null
-            ? result.currentStep.spacingMinutes : 0;
-        step.maxCallsToday = 0;
-        step.nextMethodOnFail = null;
-        step.hintText = null;
-        step.instruction = result.currentStep.instructionText;
-        step.progressText = result.progressText;
-        step.todayCalls = result.position != null ? result.position.lastCompletedStep : 0;
-        step.upcomingHints = new List<String>();
-        for (String upcoming : result.upcomingSteps) {
-            step.upcomingHints.add(upcoming);
-        }
-
-        lastEvaluatedSteps.put(signal.oppId, step);
-        return step;
     }
 
     // ─── Branching Logic ──────────────────────────────────────────────
@@ -558,6 +501,5 @@ public with sharing class NbaCadenceService {
         stepsLoaded = false;
         cadenceContextMap = null;
         lastEvaluatedResults = new Map<Id, CadenceResult>();
-        lastEvaluatedSteps = new Map<Id, CadenceStep>();
     }
 }
