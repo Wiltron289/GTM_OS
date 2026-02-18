@@ -91,23 +91,15 @@ public with sharing class NbaOpportunityTriggerHandler {
 
     /**
      * Create Layer 1 new-assignment interrupt records for newly inserted Opps.
-     * Delegates to NbaActionCreationService.createNewAssignmentAction() for
-     * each Opp, then bulk-inserts all non-null results.
+     * Uses the bulk method (1 SOQL for dedup) to stay within governor limits.
      */
     private static void createNewAssignmentInterrupts(List<Opportunity> newOpps) {
         if (newOpps.isEmpty()) {
             return;
         }
 
-        List<NBA_Queue__c> toInsert = new List<NBA_Queue__c>();
-        for (Opportunity opp : newOpps) {
-            NBA_Queue__c action = NbaActionCreationService.createNewAssignmentAction(
-                opp.Id, opp.AccountId, opp.OwnerId, opp.StageName
-            );
-            if (action != null) {
-                toInsert.add(action);
-            }
-        }
+        List<NBA_Queue__c> toInsert =
+            NbaActionCreationService.createNewAssignmentActions(newOpps);
 
         if (!toInsert.isEmpty()) {
             insert toInsert;

@@ -408,6 +408,79 @@ public with sharing class NbaActionCreationService {
         return action;
     }
 
+    /**
+     * Bulk version: Create Layer 1 new-assignment interrupt records for multiple Opps.
+     * Performs dedup and Amount lookups in bulk (2 SOQL total) to stay within limits.
+     *
+     * @param opps List of Opportunities (must have Id, AccountId, OwnerId, StageName, Amount)
+     * @return List of NBA_Queue__c records ready for insert (excludes duplicates)
+     */
+    public static List<NBA_Queue__c> createNewAssignmentActions(List<Opportunity> opps) {
+        if (opps == null || opps.isEmpty()) {
+            return new List<NBA_Queue__c>();
+        }
+
+        // Build all unique keys and check for existing in one SOQL
+        Set<String> allKeys = new Set<String>();
+        Map<Id, String> oppKeyMap = new Map<Id, String>();
+        for (Opportunity opp : opps) {
+            String key = 'V2|' + opp.Id + '|First Touch|NewAssignment';
+            allKeys.add(key);
+            oppKeyMap.put(opp.Id, key);
+        }
+
+        Set<String> existingKeys = new Set<String>();
+        for (NBA_Queue__c existing : [
+            SELECT UniqueKey__c FROM NBA_Queue__c
+            WHERE UniqueKey__c IN :allKeys
+            WITH SECURITY_ENFORCED
+        ]) {
+            existingKeys.add(existing.UniqueKey__c);
+        }
+
+        // Build records for non-duplicates
+        List<NBA_Queue__c> toCreate = new List<NBA_Queue__c>();
+        for (Opportunity opp : opps) {
+            String key = oppKeyMap.get(opp.Id);
+            if (existingKeys.contains(key)) {
+                continue; // Duplicate — skip
+            }
+
+            Decimal oppAmount = opp.Amount != null ? opp.Amount : 0;
+            Decimal impactScore = Math.min(oppAmount / DEFAULT_MRR_CEILING, 1.0);
+            Decimal urgencyScore = 1.5;
+            Decimal finalScore = (0.5 * impactScore) + (0.5 * urgencyScore);
+
+            NBA_Queue__c action = new NBA_Queue__c(
+                Opportunity__c = opp.Id,
+                Account__c = opp.AccountId,
+                Sales_Rep__c = opp.OwnerId,
+                Status__c = 'Pending',
+                Action_Type__c = 'First Touch',
+                Impact_Score__c = impactScore,
+                Urgency_Score__c = urgencyScore,
+                Priority_Score__c = finalScore,
+                Priority_Bucket__c = 'Cadence Due Today',
+                Priority_Layer__c = 'Layer 1 - Time Bound',
+                Is_Time_Bound__c = false,
+                Cadence_Stage__c = 1,
+                Attempt_Count_Today__c = 0,
+                Source_Path__c = 'Immediate',
+                Rule_Name__c = 'NewAssignment_Interrupt',
+                Action_Instruction__c = 'New opportunity assigned — make initial contact',
+                Workflow_Mode__c = 'Pipeline',
+                ReasonText__c = 'New assignment interrupt. First Touch action for newly assigned opportunity.',
+                LastEvaluatedAt__c = Datetime.now(),
+                UniqueKey__c = key,
+                Opportunity_Stage__c = opp.StageName,
+                Due_Date__c = Date.today()
+            );
+            toCreate.add(action);
+        }
+
+        return toCreate;
+    }
+
     // ─── Suppression Logic ────────────────────────────────────────────
 
     /**

@@ -465,6 +465,18 @@ private class NbaActionCreationServiceTest {
             AND StageName = 'New' LIMIT 1
         ];
 
+        // The trigger already created a new-assignment interrupt during @TestSetup.
+        // Expire it so we can test the method directly.
+        List<NBA_Queue__c> existing = [
+            SELECT Id FROM NBA_Queue__c
+            WHERE UniqueKey__c = :('V2|' + opp.Id + '|First Touch|NewAssignment')
+        ];
+        for (NBA_Queue__c q : existing) {
+            q.Status__c = 'Expired';
+            q.UniqueKey__c = null;
+        }
+        if (!existing.isEmpty()) update existing;
+
         Test.startTest();
         NBA_Queue__c action = NbaActionCreationService.createNewAssignmentAction(
             opp.Id, opp.AccountId, opp.OwnerId, opp.StageName
@@ -490,12 +502,8 @@ private class NbaActionCreationServiceTest {
             AND StageName = 'New' LIMIT 1
         ];
 
-        // Create first and insert
-        NBA_Queue__c first = NbaActionCreationService.createNewAssignmentAction(
-            opp.Id, opp.AccountId, opp.OwnerId, opp.StageName
-        );
-        insert first;
-
+        // The trigger already created a new-assignment interrupt during @TestSetup.
+        // The second call should return null (dedup).
         Test.startTest();
         NBA_Queue__c second = NbaActionCreationService.createNewAssignmentAction(
             opp.Id, opp.AccountId, opp.OwnerId, opp.StageName

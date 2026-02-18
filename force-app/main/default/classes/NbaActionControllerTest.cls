@@ -208,24 +208,19 @@ private class NbaActionControllerTest {
     @isTest
     static void testCheckInterrupts_ReturnsNewAssignmentInterrupt() {
         Opportunity opp = getTestOpp();
-        Account acc = [SELECT Id FROM Account WHERE Name = 'Controller Test Account' LIMIT 1];
 
-        // Create a new-assignment L1 interrupt (non-time-bound)
-        NBA_Queue__c interrupt = new NBA_Queue__c(
-            Opportunity__c = opp.Id,
-            Account__c = acc.Id,
-            Sales_Rep__c = UserInfo.getUserId(),
-            Status__c = 'Pending',
-            Action_Type__c = 'First Touch',
-            Action_Instruction__c = 'New opportunity assigned',
-            Priority_Score__c = 0.80,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
-            Is_Time_Bound__c = false,
-            Workflow_Mode__c = 'Pipeline',
-            UniqueKey__c = 'V2|' + opp.Id + '|First Touch|NewAssignment'
-        );
-        insert interrupt;
+        // The trigger created a new-assignment interrupt during @TestSetup.
+        // Verify checkInterrupts returns it.
+        List<NBA_Queue__c> triggerInterrupts = [
+            SELECT Id FROM NBA_Queue__c
+            WHERE Opportunity__c = :opp.Id
+              AND Priority_Layer__c = 'Layer 1 - Time Bound'
+              AND Is_Time_Bound__c = false
+              AND Status__c IN ('New', 'Pending', 'Accepted')
+        ];
+        System.assert(!triggerInterrupts.isEmpty(),
+            'Trigger should have created a new-assignment interrupt during setup');
+        Id interruptId = triggerInterrupts[0].Id;
 
         Test.startTest();
         List<NbaActionController.ActionWrapper> results = NbaActionController.checkInterrupts();
@@ -233,7 +228,7 @@ private class NbaActionControllerTest {
 
         Boolean found = false;
         for (NbaActionController.ActionWrapper w : results) {
-            if (w.actionId == interrupt.Id) {
+            if (w.actionId == interruptId) {
                 found = true;
             }
         }
@@ -242,6 +237,19 @@ private class NbaActionControllerTest {
 
     @isTest
     static void testCheckInterrupts_ReturnsEmptyWhenNone() {
+        // Clean up any interrupt records created by @TestSetup trigger
+        List<NBA_Queue__c> existing = [
+            SELECT Id FROM NBA_Queue__c
+            WHERE Priority_Layer__c = 'Layer 1 - Time Bound'
+              AND Status__c IN ('New', 'Pending', 'Accepted')
+        ];
+        if (!existing.isEmpty()) {
+            for (NBA_Queue__c q : existing) {
+                q.Status__c = 'Expired';
+            }
+            update existing;
+        }
+
         Test.startTest();
         List<NbaActionController.ActionWrapper> results = NbaActionController.checkInterrupts();
         Test.stopTest();

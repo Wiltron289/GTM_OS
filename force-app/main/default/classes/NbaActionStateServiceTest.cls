@@ -293,18 +293,31 @@ private class NbaActionStateServiceTest {
         if (!rts3.isEmpty()) opp3.RecordTypeId = rts3[0].Id;
         insert opp3;
 
-        NBA_Queue__c interruptAction = new NBA_Queue__c(
-            Opportunity__c = opp3.Id, Account__c = acc3.Id,
-            Sales_Rep__c = UserInfo.getUserId(), Status__c = 'Pending',
-            Action_Type__c = 'First Touch', Is_Time_Bound__c = false,
-            Priority_Score__c = 0.80, Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today', Workflow_Mode__c = 'Pipeline',
-            UniqueKey__c = 'V2|' + opp3.Id + '|First Touch|NewAssignment'
-        );
-        insert interruptAction;
+        // The Opp insert triggers the handler which creates the interrupt record.
+        // Query the trigger-created record instead of inserting a duplicate.
+        List<NBA_Queue__c> existing = [
+            SELECT Id, Status__c, UniqueKey__c, Is_Time_Bound__c, Priority_Layer__c
+            FROM NBA_Queue__c
+            WHERE UniqueKey__c = :('V2|' + opp3.Id + '|First Touch|NewAssignment')
+            LIMIT 1
+        ];
+        NBA_Queue__c interruptAction;
+        if (!existing.isEmpty()) {
+            interruptAction = existing[0];
+        } else {
+            interruptAction = new NBA_Queue__c(
+                Opportunity__c = opp3.Id, Account__c = acc3.Id,
+                Sales_Rep__c = UserInfo.getUserId(), Status__c = 'Pending',
+                Action_Type__c = 'First Touch', Is_Time_Bound__c = false,
+                Priority_Score__c = 0.80, Priority_Layer__c = 'Layer 1 - Time Bound',
+                Priority_Bucket__c = 'Cadence Due Today', Workflow_Mode__c = 'Pipeline',
+                UniqueKey__c = 'V2|' + opp3.Id + '|First Touch|NewAssignment'
+            );
+            insert interruptAction;
+        }
 
-        // Override expire threshold to 0 hours so the just-created record qualifies
-        NbaActionStateService.INTERRUPT_EXPIRE_HOURS = 0;
+        // Backdate the record to 25 hours ago so it qualifies for expiration
+        Test.setCreatedDate(interruptAction.Id, Datetime.now().addHours(-25));
 
         Test.startTest();
         Integer count = NbaActionStateService.expireStaleActions();
