@@ -386,9 +386,16 @@ export default class NbaDemoWorkspace extends LightningElement {
         this.showEmailModal = true;
     }
 
-    handleEmailSent() {
+    async handleEmailSent() {
         if (this._wiredResult) {
             refreshApex(this._wiredResult);
+        } else if (this.isActionMode && this.effectiveRecordId) {
+            try {
+                const data = await getPageData({ oppId: this.effectiveRecordId });
+                this._applyPageData(data);
+            } catch (err) {
+                console.error('Error refreshing after email sent:', err);
+            }
         }
     }
 
@@ -410,18 +417,32 @@ export default class NbaDemoWorkspace extends LightningElement {
         this.showSmsModal = true;
     }
 
-    handleSmsSent() {
+    async handleSmsSent() {
         if (this._wiredResult) {
             refreshApex(this._wiredResult);
+        } else if (this.isActionMode && this.effectiveRecordId) {
+            try {
+                const data = await getPageData({ oppId: this.effectiveRecordId });
+                this._applyPageData(data);
+            } catch (err) {
+                console.error('Error refreshing after SMS sent:', err);
+            }
         }
     }
 
     // ────────────────────────────────────────────
     // Sidebar note-saved handler — refresh data
     // ────────────────────────────────────────────
-    handleNoteSaved() {
+    async handleNoteSaved() {
         if (this._wiredResult) {
             refreshApex(this._wiredResult);
+        } else if (this.isActionMode && this.effectiveRecordId) {
+            try {
+                const data = await getPageData({ oppId: this.effectiveRecordId });
+                this._applyPageData(data);
+            } catch (err) {
+                console.error('Error refreshing after note save:', err);
+            }
         }
     }
 }
