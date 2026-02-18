@@ -93,7 +93,7 @@ private class NbaActionStateServiceTest {
 
         Test.startTest();
         NbaActionStateService.completeAction(
-            action.Id, opp.Id, opp.AccountId, 'Meeting', 'Prepare for meeting'
+            action.Id, opp.Id, opp.AccountId, 'Meeting', 'Prepare for meeting', null
         );
         Test.stopTest();
 
@@ -112,7 +112,7 @@ private class NbaActionStateServiceTest {
 
         Test.startTest();
         NbaActionStateService.completeAction(
-            null, opp.Id, opp.AccountId, 'Re-engage', 'Re-engage cold deal — 7 days inactive'
+            null, opp.Id, opp.AccountId, 'Re-engage', 'Re-engage cold deal — 7 days inactive', null
         );
         Test.stopTest();
 
@@ -143,7 +143,7 @@ private class NbaActionStateServiceTest {
             'Cache should be populated before complete');
 
         Test.startTest();
-        NbaActionStateService.completeAction(null, opp.Id, opp.AccountId, 'Follow Up', 'Follow up');
+        NbaActionStateService.completeAction(null, opp.Id, opp.AccountId, 'Follow Up', 'Follow up', null);
         Test.stopTest();
 
         System.assertEquals(null, NbaCacheService.getCachedAction(userId),

@@ -226,6 +226,15 @@ public with sharing class NbaSignalService {
                         if (sig.lastCompletedDate == null || ea.Completed_Date__c > sig.lastCompletedDate) {
                             sig.lastCompletedDate = ea.Completed_Date__c;
                         }
+                        // Phase 7: Extract cadence progress from most recent completed audit
+                        if (String.isNotBlank(ea.Cadence_Name__c)
+                            && (sig.lastCadenceStepDate == null || ea.Completed_Date__c > sig.lastCadenceStepDate)) {
+                            sig.lastCadenceName = ea.Cadence_Name__c;
+                            sig.lastCadenceStepNumber = ea.Cadence_Step_Number__c != null
+                                ? ea.Cadence_Step_Number__c.intValue() : 0;
+                            sig.lastCadenceStepOutcome = ea.Step_Outcome__c;
+                            sig.lastCadenceStepDate = ea.Completed_Date__c;
+                        }
                     } else if (ea.Status__c == 'Dismissed' && ea.CooldownUntil__c != null
                                && ea.CooldownUntil__c > Datetime.now()) {
                         // Treat dismissed records as completions for cooldown suppression
@@ -384,7 +393,8 @@ public with sharing class NbaSignalService {
         // so the on-demand evaluation can enforce cooldown + snooze suppression.
         List<NBA_Queue__c> actions = [
             SELECT Id, Opportunity__c, Status__c, Action_Type__c, Priority_Score__c,
-                   CreatedDate, Completed_Date__c, Snoozed_Until__c, CooldownUntil__c
+                   CreatedDate, Completed_Date__c, Snoozed_Until__c, CooldownUntil__c,
+                   Cadence_Name__c, Cadence_Step_Number__c, Step_Outcome__c, Step_Method__c
             FROM NBA_Queue__c
             WHERE Opportunity__c IN :oppIds
               AND (

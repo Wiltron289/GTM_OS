@@ -179,7 +179,7 @@ private class NbaActionControllerTest {
 
         Test.startTest();
         NbaActionController.ActionResultWrapper result =
-            NbaActionController.completeAction(tb.Id, opp.Id, 'Meeting');
+            NbaActionController.completeAction(tb.Id, opp.Id, 'Meeting', null);
         Test.stopTest();
 
         System.assertNotEquals(null, result, 'Result should not be null');
@@ -203,7 +203,7 @@ private class NbaActionControllerTest {
 
         Test.startTest();
         NbaActionController.ActionResultWrapper result =
-            NbaActionController.completeAction(null, opp.Id, 'Follow Up');
+            NbaActionController.completeAction(null, opp.Id, 'Follow Up', null);
         Test.stopTest();
 
         System.assertNotEquals(null, result, 'Result should not be null');

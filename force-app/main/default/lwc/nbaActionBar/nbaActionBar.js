@@ -6,6 +6,7 @@ export default class NbaActionBar extends LightningElement {
 
     @track showSnoozePanel = false;
     @track showDismissPanel = false;
+    @track showOutcomePanel = false;
 
     // Snooze state
     snoozeReason = '';
@@ -15,23 +16,49 @@ export default class NbaActionBar extends LightningElement {
     dismissReason = '';
     dismissCategory = 'Other';
 
+    // ── Cadence-aware button labels ────────────────────────────────
+
+    get isCadenceCall() {
+        return this.currentAction?.isCadenceAction && this.currentAction?.stepMethod === 'Call';
+    }
+
+    get isCadenceSms() {
+        return this.currentAction?.isCadenceAction && this.currentAction?.stepMethod === 'SMS';
+    }
+
+    get isCadenceEmail() {
+        return this.currentAction?.isCadenceAction && this.currentAction?.stepMethod === 'Email';
+    }
+
+    get completeButtonLabel() {
+        if (this.isCadenceSms) return 'Mark SMS Sent';
+        if (this.isCadenceEmail) return 'Mark Email Sent';
+        return 'Complete';
+    }
+
+    get completeButtonIcon() {
+        if (this.isCadenceSms) return 'utility:chat';
+        if (this.isCadenceEmail) return 'utility:email';
+        return 'utility:check';
+    }
+
     // ── Snooze duration options ──────────────────────────────────
 
     get snoozeDurationOptions() {
         return [
-            { 
-                label: '15 min', 
-                value: 15, 
+            {
+                label: '15 min',
+                value: 15,
                 cssClass: this.snoozeDuration === 15 ? 'duration-chip selected' : 'duration-chip'
             },
-            { 
-                label: '1 hour', 
-                value: 60, 
+            {
+                label: '1 hour',
+                value: 60,
                 cssClass: this.snoozeDuration === 60 ? 'duration-chip selected' : 'duration-chip'
             },
-            { 
-                label: '4 hours', 
-                value: 240, 
+            {
+                label: '4 hours',
+                value: 240,
                 cssClass: this.snoozeDuration === 240 ? 'duration-chip selected' : 'duration-chip'
             }
         ];
@@ -41,19 +68,19 @@ export default class NbaActionBar extends LightningElement {
 
     get dismissCategoryOptions() {
         return [
-            { 
-                label: 'Call Scheduled', 
-                value: 'Call Scheduled', 
+            {
+                label: 'Call Scheduled',
+                value: 'Call Scheduled',
                 cssClass: this.dismissCategory === 'Call Scheduled' ? 'category-chip selected' : 'category-chip'
             },
-            { 
-                label: 'Time Zone', 
-                value: 'Time Zone', 
+            {
+                label: 'Time Zone',
+                value: 'Time Zone',
                 cssClass: this.dismissCategory === 'Time Zone' ? 'category-chip selected' : 'category-chip'
             },
-            { 
-                label: 'Other', 
-                value: 'Other', 
+            {
+                label: 'Other',
+                value: 'Other',
                 cssClass: this.dismissCategory === 'Other' ? 'category-chip selected' : 'category-chip'
             }
         ];
@@ -66,7 +93,10 @@ export default class NbaActionBar extends LightningElement {
     }
 
     get completeBtnClass() {
-        return this.isDisabled ? 'action-btn complete-btn disabled' : 'action-btn complete-btn';
+        let cls = this.isDisabled ? 'action-btn complete-btn disabled' : 'action-btn complete-btn';
+        if (this.isCadenceSms) cls = cls.replace('complete-btn', 'complete-btn sms-btn');
+        if (this.isCadenceEmail) cls = cls.replace('complete-btn', 'complete-btn email-btn');
+        return cls;
     }
 
     get snoozeBtnClass() {
@@ -86,8 +116,33 @@ export default class NbaActionBar extends LightningElement {
     handleComplete() {
         if (this.isDisabled) return;
         this.closeAllPanels();
+
+        // For Call cadence steps, show outcome panel instead of completing immediately
+        if (this.isCadenceCall) {
+            this.showOutcomePanel = true;
+            return;
+        }
+
+        // SMS/Email cadence steps auto-complete with "Sent" outcome
         const detail = this._extractActionDetail();
+        if (this.isCadenceSms || this.isCadenceEmail) {
+            detail.stepOutcome = 'Sent';
+        }
         this.dispatchEvent(new CustomEvent('complete', { detail }));
+    }
+
+    // ── Call Outcome Panel ────────────────────────────────────────
+
+    handleOutcomeSelect(event) {
+        const outcome = event.currentTarget.dataset.outcome;
+        this.showOutcomePanel = false;
+        const detail = this._extractActionDetail();
+        detail.stepOutcome = outcome;
+        this.dispatchEvent(new CustomEvent('complete', { detail }));
+    }
+
+    handleOutcomePanelClose() {
+        this.showOutcomePanel = false;
     }
 
     // ── Snooze ───────────────────────────────────────────────────
@@ -95,6 +150,7 @@ export default class NbaActionBar extends LightningElement {
     handleSnoozeToggle() {
         if (this.isDisabled) return;
         this.showDismissPanel = false;
+        this.showOutcomePanel = false;
         this.showSnoozePanel = !this.showSnoozePanel;
         if (this.showSnoozePanel) {
             this.snoozeReason = '';
@@ -123,6 +179,7 @@ export default class NbaActionBar extends LightningElement {
     handleDismissToggle() {
         if (this.isDisabled) return;
         this.showSnoozePanel = false;
+        this.showOutcomePanel = false;
         this.showDismissPanel = !this.showDismissPanel;
         if (this.showDismissPanel) {
             this.dismissReason = '';
@@ -151,6 +208,7 @@ export default class NbaActionBar extends LightningElement {
     closeAllPanels() {
         this.showSnoozePanel = false;
         this.showDismissPanel = false;
+        this.showOutcomePanel = false;
     }
 
     handlePanelClose() {

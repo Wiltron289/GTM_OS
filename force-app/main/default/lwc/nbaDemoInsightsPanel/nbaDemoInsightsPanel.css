@@ -114,7 +114,7 @@
     line-height: 1.5;
 }
 
-/* ── Cadence Context (Phase 6) ────────────────── */
+/* ── Cadence Context (Phase 7) ────────────────── */
 
 .cadence-context {
     margin-top: 12px;
@@ -122,7 +122,7 @@
     border-top: 1px solid var(--nba-blue-200, #bfdbfe);
 }
 
-.cadence-progress {
+.cadence-progress-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -131,11 +131,54 @@
     color: var(--nba-indigo-800, #3730a3);
 }
 
-.cadence-hint {
+.cadence-progress-text {
+    flex: 1;
+}
+
+.cadence-fraction-badge {
+    background: var(--nba-indigo-600, #4f46e5);
+    color: white;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Progress bar */
+.progress-bar-track {
+    height: 4px;
+    background: var(--nba-blue-100, #dbeafe);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--nba-indigo-600, #4f46e5);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* Upcoming steps */
+.upcoming-steps {
+    margin-top: 10px;
+}
+
+.upcoming-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--nba-text-500, #64748b);
+}
+
+.upcoming-step-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     font-size: 12px;
     color: var(--nba-text-600, #475569);
-    margin-top: 6px;
+    margin-top: 4px;
+    padding-left: 4px;
 }

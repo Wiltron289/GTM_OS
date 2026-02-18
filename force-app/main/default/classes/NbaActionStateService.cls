@@ -34,9 +34,11 @@ public with sharing class NbaActionStateService {
      * @param accountId Account the action was for
      * @param actionType Action type string (e.g., 'First Touch', 'Re-engage')
      * @param actionInstruction The instruction text shown to the AE
+     * @param stepOutcome Cadence step outcome (Connected, VM, No_Answer, Sent, etc.)
      */
     public static void completeAction(
-        Id actionId, Id opportunityId, Id accountId, String actionType, String actionInstruction
+        Id actionId, Id opportunityId, Id accountId, String actionType,
+        String actionInstruction, String stepOutcome
     ) {
         Id userId = UserInfo.getUserId();
 
@@ -47,7 +49,7 @@ public with sharing class NbaActionStateService {
 
         // Write audit record
         writeAuditRecord(opportunityId, accountId, userId, actionType, actionInstruction,
-            'Completed', null, null, null, null);
+            'Completed', null, null, null, null, stepOutcome);
 
         // Invalidate cache so next getActiveAction() re-evaluates
         NbaCacheService.invalidate(userId);
@@ -82,7 +84,7 @@ public with sharing class NbaActionStateService {
 
         // Write audit record with snooze fields
         writeAuditRecord(opportunityId, accountId, userId, actionType, actionInstruction,
-            'Snoozed', reason, null, snoozedUntil, null);
+            'Snoozed', reason, null, snoozedUntil, null, null);
 
         NbaCacheService.invalidate(userId);
     }
@@ -113,7 +115,7 @@ public with sharing class NbaActionStateService {
 
         // Write audit record with dismiss fields
         writeAuditRecord(opportunityId, accountId, userId, actionType, actionInstruction,
-            'Dismissed', reason, category, null, null);
+            'Dismissed', reason, category, null, null, null);
 
         NbaCacheService.invalidate(userId);
     }
@@ -174,7 +176,8 @@ public with sharing class NbaActionStateService {
     private static NBA_Queue__c writeAuditRecord(
         Id opportunityId, Id accountId, Id userId, String actionType,
         String actionInstruction, String status, String reason,
-        String dismissCategory, Datetime snoozedUntil, Datetime cooldownUntil
+        String dismissCategory, Datetime snoozedUntil, Datetime cooldownUntil,
+        String stepOutcome
     ) {
         // Determine cooldown: use provided value or default for complete/dismiss
         if (cooldownUntil == null && (status == 'Completed' || status == 'Dismissed')) {
@@ -211,13 +214,22 @@ public with sharing class NbaActionStateService {
             audit.CooldownUntil__c = cooldownUntil;
         }
 
-        // Phase 6: Write cadence metadata from last evaluation if available
+        // Phase 7: Write cadence progress from lastEvaluatedResults
         if (opportunityId != null
-            && NbaCadenceService.lastEvaluatedSteps.containsKey(opportunityId)) {
-            NbaCadenceService.CadenceStep step =
-                NbaCadenceService.lastEvaluatedSteps.get(opportunityId);
-            audit.Cadence_Stage__c = step.cadenceStage;
-            audit.Attempt_Count_Today__c = step.todayCalls;
+            && NbaCadenceService.lastEvaluatedResults.containsKey(opportunityId)) {
+            NbaCadenceService.CadenceResult cadResult =
+                NbaCadenceService.lastEvaluatedResults.get(opportunityId);
+            audit.Cadence_Name__c = cadResult.cadenceName;
+            if (cadResult.currentStep != null) {
+                audit.Cadence_Step_Number__c = cadResult.currentStep.stepNumber;
+                audit.Step_Method__c = cadResult.currentStep.method;
+                audit.Cadence_Stage__c = cadResult.currentStep.stepNumber;
+            }
+        }
+
+        // Write step outcome from AE interaction
+        if (String.isNotBlank(stepOutcome)) {
+            audit.Step_Outcome__c = stepOutcome;
         }
 
         insert audit;

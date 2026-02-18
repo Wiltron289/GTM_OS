@@ -1,5 +1,12 @@
 import { LightningElement, api, track } from 'lwc';
 
+// Method → icon mapping
+const METHOD_ICONS = {
+    'Call': 'utility:call',
+    'SMS': 'utility:chat',
+    'Email': 'utility:email'
+};
+
 export default class NbaDemoInsightsPanel extends LightningElement {
     @api insightsData;
     @api currentAction;
@@ -27,12 +34,44 @@ export default class NbaDemoInsightsPanel extends LightningElement {
     }
 
     get showCadenceContext() {
-        return this.isActionMode && this.currentAction?.cadenceProgress;
+        return this.isActionMode && this.currentAction?.isCadenceAction;
     }
 
-    get cadenceMethodHint() {
-        if (!this.currentAction?.methodHints) return null;
-        return 'If no connect: ' + this.currentAction.methodHints;
+    get cadenceProgressText() {
+        return this.currentAction?.cadenceProgress;
+    }
+
+    get cadenceProgressFraction() {
+        return this.currentAction?.progressFraction;
+    }
+
+    get progressPercent() {
+        if (!this.currentAction?.cadenceStepNumber || !this.currentAction?.cadenceTotalSteps) return 0;
+        return Math.round((this.currentAction.cadenceStepNumber / this.currentAction.cadenceTotalSteps) * 100);
+    }
+
+    get progressBarStyle() {
+        return `width: ${this.progressPercent}%`;
+    }
+
+    get stepMethodIcon() {
+        return METHOD_ICONS[this.currentAction?.stepMethod] || 'utility:call';
+    }
+
+    get stepInstruction() {
+        return this.currentAction?.stepInstruction || this.currentAction?.actionInstruction;
+    }
+
+    get hasUpcomingSteps() {
+        return this.currentAction?.upcomingSteps?.length > 0;
+    }
+
+    get upcomingStepsList() {
+        if (!this.currentAction?.upcomingSteps) return [];
+        return this.currentAction.upcomingSteps.map((step, idx) => ({
+            key: `upcoming-${idx}`,
+            text: step
+        }));
     }
 
     get insightCountLabel() {

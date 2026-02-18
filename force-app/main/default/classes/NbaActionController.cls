@@ -78,7 +78,9 @@ public with sharing class NbaActionController {
      * @return ActionResultWrapper with next action
      */
     @AuraEnabled
-    public static ActionResultWrapper completeAction(Id actionId, Id opportunityId, String actionType) {
+    public static ActionResultWrapper completeAction(
+        Id actionId, Id opportunityId, String actionType, String stepOutcome
+    ) {
         Id userId = UserInfo.getUserId();
 
         // Guard: if LWC sent null opportunityId, re-evaluate to get correct context
@@ -95,7 +97,7 @@ public with sharing class NbaActionController {
 
         // Delegate to state service (writes audit + invalidates cache)
         NbaActionStateService.completeAction(
-            actionId, opportunityId, accountId, actionType, null
+            actionId, opportunityId, accountId, actionType, null, stepOutcome
         );
 
         // Re-evaluate and return next action
@@ -275,7 +277,8 @@ public with sharing class NbaActionController {
         w.opportunityName = action.Opportunity__r?.Name;
         w.oppStage = action.Opportunity__r?.StageName;
 
-        // Phase 6: Map cadence fields from DB record
+        // Phase 7: Map cadence fields from DB record (Layer 1 time-bound)
+        w.isCadenceAction = false; // Layer 1 time-bound actions are meetings, not cadence
         if (action.Cadence_Stage__c != null) {
             w.cadenceStage = action.Cadence_Stage__c.intValue();
         }
@@ -312,16 +315,28 @@ public with sharing class NbaActionController {
         w.opportunityName = null;
         w.oppStage = candidate.Opportunity_Stage__c;
 
-        // Phase 6: Map cadence fields from transaction-scoped cache
-        NbaCadenceService.CadenceStep step =
-            NbaCadenceService.lastEvaluatedSteps.get(candidate.Opportunity__c);
-        if (step != null) {
-            w.cadenceStage = step.cadenceStage;
-            w.cadenceDay = step.cadenceDay;
-            w.todayCallCount = step.todayCalls;
-            w.maxCallsToday = step.maxCallsToday;
-            w.methodHints = step.hintText;
-            w.cadenceProgress = step.progressText;
+        // Phase 7: Map cadence fields from CadenceResult (replaces Phase 6 CadenceStep)
+        NbaCadenceService.CadenceResult cadResult =
+            NbaCadenceService.lastEvaluatedResults.get(candidate.Opportunity__c);
+        if (cadResult != null && cadResult.currentStep != null) {
+            w.isCadenceAction = true;
+            w.cadenceName = cadResult.cadenceName;
+            w.cadenceStepNumber = cadResult.currentStep.stepNumber;
+            w.cadenceTotalSteps = cadResult.context != null ? cadResult.context.totalSteps : null;
+            w.stepMethod = cadResult.currentStep.method;
+            w.stepInstruction = cadResult.currentStep.instructionText;
+            w.cadenceProgress = cadResult.progressText;
+            w.progressFraction = cadResult.progressFraction;
+            w.upcomingSteps = cadResult.upcomingSteps;
+            // Backward compat fields
+            w.cadenceStage = cadResult.currentStep.stepNumber;
+            w.cadenceDay = cadResult.currentStep.dayNumber;
+            w.todayCallCount = cadResult.position != null
+                ? cadResult.position.lastCompletedStep : 0;
+            w.maxCallsToday = 0;
+            w.methodHints = null;
+        } else {
+            w.isCadenceAction = false;
         }
 
         return w;
@@ -361,13 +376,22 @@ public with sharing class NbaActionController {
         @AuraEnabled public String accountName;
         @AuraEnabled public String opportunityName;
         @AuraEnabled public String oppStage;
-        // Phase 6: Cadence fields
+        // Phase 7: Cadence fields (replaces Phase 6)
+        @AuraEnabled public String cadenceName;
+        @AuraEnabled public Integer cadenceStepNumber;
+        @AuraEnabled public Integer cadenceTotalSteps;
+        @AuraEnabled public String stepMethod;        // Call, SMS, Email
+        @AuraEnabled public String stepInstruction;   // Human-readable step instruction
+        @AuraEnabled public String cadenceProgress;   // "Step 3 of 12 — Day 0, SMS"
+        @AuraEnabled public String progressFraction;  // "3/12"
+        @AuraEnabled public List<String> upcomingSteps; // Next 2-3 step previews
+        @AuraEnabled public Boolean isCadenceAction;
+        // Kept for backward compat display
         @AuraEnabled public Integer cadenceStage;
         @AuraEnabled public Integer cadenceDay;
         @AuraEnabled public Integer todayCallCount;
         @AuraEnabled public Integer maxCallsToday;
         @AuraEnabled public String methodHints;
-        @AuraEnabled public String cadenceProgress;
     }
 
     public class ActionResultWrapper {

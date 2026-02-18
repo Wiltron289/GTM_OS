@@ -235,13 +235,18 @@ export default class NbaDemoWorkspace extends LightningElement {
     // Action lifecycle handlers (App Page mode)
     // ────────────────────────────────────────────
     async handleCompleteAction(event) {
-        const { actionId, opportunityId, actionType } = event.detail;
+        const { actionId, opportunityId, actionType, stepOutcome } = event.detail;
         if (!opportunityId) {
             console.warn('[nbaDemoWorkspace] completeAction called with null opportunityId. event.detail:', JSON.stringify(event.detail), 'currentAction:', JSON.stringify(this.currentAction));
         }
         this.isTransitioning = true;
         try {
-            const result = await completeAction({ actionId, opportunityId, actionType });
+            const result = await completeAction({
+                actionId,
+                opportunityId,
+                actionType,
+                stepOutcome: stepOutcome || null
+            });
             await this._handleActionResult(result);
         } catch (err) {
             this.error = err;

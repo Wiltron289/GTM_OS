@@ -17,23 +17,34 @@
                 <!-- Action Mode: instruction + reason -->
                 <template lwc:if={showActionContext}>
                     <div class="action-instruction">
-                        <lightning-icon icon-name="utility:info" size="xx-small"></lightning-icon>
-                        <span>{currentAction.actionInstruction}</span>
+                        <lightning-icon icon-name={stepMethodIcon} size="xx-small"></lightning-icon>
+                        <span>{stepInstruction}</span>
                     </div>
                     <template lwc:if={currentAction.reasonText}>
                         <p class="action-reason">{currentAction.reasonText}</p>
                     </template>
-                    <!-- Phase 6: Cadence context -->
+                    <!-- Phase 7: Enhanced cadence context -->
                     <template lwc:if={showCadenceContext}>
                         <div class="cadence-context">
-                            <div class="cadence-progress">
+                            <!-- Progress bar -->
+                            <div class="cadence-progress-row">
                                 <lightning-icon icon-name="utility:steps" size="xx-small"></lightning-icon>
-                                <span>{currentAction.cadenceProgress}</span>
+                                <span class="cadence-progress-text">{cadenceProgressText}</span>
+                                <span class="cadence-fraction-badge">{cadenceProgressFraction}</span>
                             </div>
-                            <template lwc:if={cadenceMethodHint}>
-                                <div class="cadence-hint">
-                                    <lightning-icon icon-name="utility:forward" size="xx-small"></lightning-icon>
-                                    <span>{cadenceMethodHint}</span>
+                            <div class="progress-bar-track">
+                                <div class="progress-bar-fill" style={progressBarStyle}></div>
+                            </div>
+                            <!-- Upcoming steps -->
+                            <template lwc:if={hasUpcomingSteps}>
+                                <div class="upcoming-steps">
+                                    <span class="upcoming-label">Up next:</span>
+                                    <template for:each={upcomingStepsList} for:item="step">
+                                        <div key={step.key} class="upcoming-step-item">
+                                            <lightning-icon icon-name="utility:chevronright" size="xx-small"></lightning-icon>
+                                            <span>{step.text}</span>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                         </div>

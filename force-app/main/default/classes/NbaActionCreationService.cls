@@ -94,24 +94,26 @@ public with sharing class NbaActionCreationService {
             // Step 2: Determine action type
             String actionType = determineActionType(signal);
 
-            // Phase 6: Cadence integration for First Touch
-            NbaCadenceService.CadenceStep cadenceStep = null;
-            if (actionType == 'First Touch') {
-                // Resolve AE variant from Hierarchy Custom Setting (0 SOQL)
-                String variant = 'A';
-                NBA_AE_Config__c aeConfig = NBA_AE_Config__c.getInstance(signal.ownerId);
-                if (aeConfig != null && String.isNotBlank(aeConfig.Cadence_Variant__c)) {
-                    variant = aeConfig.Cadence_Variant__c;
-                }
-                cadenceStep = NbaCadenceService.getCurrentStep(signal, variant);
-                // If cadence suppresses (spacing/cap/complete), fall through to non-cadence type
-                if (cadenceStep == null) {
+            // Phase 7: Universal cadence integration — try cadence for any action type
+            NbaCadenceService.CadenceResult cadenceResult = null;
+            String variant = 'A';
+            NBA_AE_Config__c aeConfig = NBA_AE_Config__c.getInstance(signal.ownerId);
+            if (aeConfig != null && String.isNotBlank(aeConfig.Cadence_Variant__c)) {
+                variant = aeConfig.Cadence_Variant__c;
+            }
+            cadenceResult = NbaCadenceService.getNextStep(signal, variant, actionType);
+
+            if (cadenceResult != null) {
+                if (cadenceResult.isComplete || cadenceResult.isSuppressed || cadenceResult.currentStep == null) {
+                    // Cadence exhausted or suppressed — fall through to non-cadence
+                    String originalType = actionType;
                     actionType = determineNonCadenceActionType(signal);
                     if (actionType == null) {
-                        result.suppressedReasons.add(signal.oppId + ': Cadence suppressed, no fallback');
+                        result.suppressedReasons.add(signal.oppId + ': ' + originalType + ' cadence suppressed, no fallback');
                         result.suppressedCount++;
                         continue;
                     }
+                    cadenceResult = null; // Clear so we use non-cadence path below
                 }
             }
 
@@ -131,14 +133,21 @@ public with sharing class NbaActionCreationService {
             Integer cadenceStageVal = 1;
             Integer attemptCountVal = 0;
             String lastMethodVal = 'Call';
+            String cadenceNameVal = null;
+            Integer cadenceStepNumVal = null;
+            String stepMethodVal = null;
 
-            if (cadenceStep != null) {
+            if (cadenceResult != null && cadenceResult.currentStep != null) {
                 // Use cadence step values
-                instruction = cadenceStep.instruction;
-                ruleName = cadenceStep.ruleName;
-                cadenceStageVal = cadenceStep.cadenceStage;
-                attemptCountVal = cadenceStep.todayCalls != null ? cadenceStep.todayCalls : 0;
-                lastMethodVal = cadenceStep.method;
+                instruction = cadenceResult.currentStep.instructionText;
+                ruleName = cadenceResult.currentStep.developerName;
+                cadenceStageVal = cadenceResult.currentStep.stepNumber;
+                attemptCountVal = cadenceResult.position != null
+                    ? cadenceResult.position.lastCompletedStep : 0;
+                lastMethodVal = cadenceResult.currentStep.method;
+                cadenceNameVal = cadenceResult.cadenceName;
+                cadenceStepNumVal = cadenceResult.currentStep.stepNumber;
+                stepMethodVal = cadenceResult.currentStep.method;
             } else {
                 instruction = buildInstruction(signal, actionType);
                 ruleName = actionType + '_Auto';
@@ -169,7 +178,10 @@ public with sharing class NbaActionCreationService {
                 LastEvaluatedAt__c = Datetime.now(),
                 UniqueKey__c = buildUniqueKey(signal.oppId, actionType),
                 Opportunity_Stage__c = signal.stageName,
-                Due_Date__c = Date.today()
+                Due_Date__c = Date.today(),
+                Cadence_Name__c = cadenceNameVal,
+                Cadence_Step_Number__c = cadenceStepNumVal,
+                Step_Method__c = stepMethodVal
             );
 
             result.actionsToCreate.add(action);

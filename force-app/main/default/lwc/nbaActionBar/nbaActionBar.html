@@ -1,4 +1,32 @@
 <template>
+    <!-- Call Outcome Panel (cadence call steps) -->
+    <template lwc:if={showOutcomePanel}>
+        <div class="panel-overlay" onclick={handleOutcomePanelClose}></div>
+        <div class="action-panel outcome-panel">
+            <div class="panel-header">
+                <span class="panel-title">Call Outcome</span>
+                <button class="panel-close" onclick={handleOutcomePanelClose}>&times;</button>
+            </div>
+            <div class="panel-body">
+                <p class="outcome-prompt">What happened on the call?</p>
+                <div class="outcome-options">
+                    <button class="outcome-btn outcome-connected" data-outcome="Connected" onclick={handleOutcomeSelect}>
+                        <lightning-icon icon-name="utility:success" size="xx-small" variant="inverse"></lightning-icon>
+                        Connected
+                    </button>
+                    <button class="outcome-btn outcome-vm" data-outcome="VM" onclick={handleOutcomeSelect}>
+                        <lightning-icon icon-name="utility:voicemail_drop" size="xx-small" variant="inverse"></lightning-icon>
+                        Left VM
+                    </button>
+                    <button class="outcome-btn outcome-noanswer" data-outcome="No_Answer" onclick={handleOutcomeSelect}>
+                        <lightning-icon icon-name="utility:missed_call" size="xx-small" variant="inverse"></lightning-icon>
+                        No Answer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
     <!-- Snooze Panel (slides up above bar) -->
     <template lwc:if={showSnoozePanel}>
         <div class="panel-overlay" onclick={handlePanelClose}></div>
@@ -70,8 +98,8 @@
     <!-- Fixed Bottom Bar -->
     <div class="bar-container">
         <button class={completeBtnClass} onclick={handleComplete} disabled={isDisabled}>
-            <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
-            Complete
+            <lightning-icon icon-name={completeButtonIcon} size="xx-small" variant="inverse"></lightning-icon>
+            {completeButtonLabel}
         </button>
         <button class={snoozeBtnClass} onclick={handleSnoozeToggle} disabled={isDisabled}>
             <lightning-icon icon-name="utility:clock" size="xx-small"></lightning-icon>

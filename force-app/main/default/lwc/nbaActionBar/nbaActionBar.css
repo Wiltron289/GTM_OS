@@ -254,6 +254,82 @@
     background: var(--nba-red-500, #ef4444);
 }
 
+/* ── SMS/Email Complete Button Variants ───────────── */
+
+.complete-btn.sms-btn {
+    background: var(--nba-blue-600, #2563eb);
+}
+
+.complete-btn.sms-btn:hover:not(.disabled) {
+    background: var(--nba-blue-500, #3b82f6);
+}
+
+.complete-btn.email-btn {
+    background: var(--nba-indigo-600, #4f46e5);
+}
+
+.complete-btn.email-btn:hover:not(.disabled) {
+    background: var(--nba-indigo-500, #6366f1);
+}
+
+/* ── Call Outcome Panel ──────────────────────────── */
+
+.outcome-prompt {
+    font-size: 13px;
+    color: var(--nba-text-600, #475569);
+    margin: 0;
+}
+
+.outcome-options {
+    display: flex;
+    gap: 8px;
+}
+
+.outcome-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border: none;
+    border-radius: var(--nba-radius, 8px);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: white;
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.outcome-btn:hover {
+    transform: translateY(-1px);
+}
+
+.outcome-connected {
+    background: var(--nba-emerald-600, #059669);
+}
+
+.outcome-connected:hover {
+    background: var(--nba-emerald-500, #10b981);
+}
+
+.outcome-vm {
+    background: var(--nba-amber-600, #d97706);
+}
+
+.outcome-vm:hover {
+    background: var(--nba-amber-500, #f59e0b);
+}
+
+.outcome-noanswer {
+    background: var(--nba-slate-500, #64748b);
+}
+
+.outcome-noanswer:hover {
+    background: var(--nba-slate-400, #94a3b8);
+}
+
 /* ── Responsive ───────────────────────────────────── */
 
 @media (max-width: 768px) {

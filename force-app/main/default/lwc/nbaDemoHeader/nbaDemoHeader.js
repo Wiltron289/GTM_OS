@@ -27,15 +27,18 @@ export default class NbaDemoHeader extends LightningElement {
     }
 
     get showCadenceStep() {
-        return this.isActionMode && this.currentAction?.cadenceProgress
-            && this.currentAction?.todayCallCount != null
-            && this.currentAction?.maxCallsToday != null;
+        return this.isActionMode && this.currentAction?.isCadenceAction;
     }
 
     get cadenceStepLabel() {
-        const current = (this.currentAction?.todayCallCount || 0) + 1;
-        const max = this.currentAction?.maxCallsToday || 0;
-        return `${current}/${max}`;
+        return this.currentAction?.progressFraction || '';
+    }
+
+    get stepMethodIcon() {
+        const method = this.currentAction?.stepMethod;
+        if (method === 'SMS') return 'utility:chat';
+        if (method === 'Email') return 'utility:email';
+        return 'utility:call';
     }
 
     get formattedMrr() {
