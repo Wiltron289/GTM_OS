@@ -20,6 +20,10 @@ public with sharing class NbaActionStateService {
     @TestVisible
     private static Integer TIMEBOUND_EXPIRE_MINUTES = 15;
 
+    // Expiration threshold for Layer 1 non-time-bound (new-assignment) interrupts
+    @TestVisible
+    private static Integer INTERRUPT_EXPIRE_HOURS = 24;
+
     // Default cooldown after completing an action (minutes)
     private static final Integer DEFAULT_COOLDOWN_MINUTES = 60;
 
@@ -123,17 +127,18 @@ public with sharing class NbaActionStateService {
     // ─── System-Invoked: Expire Stale Layer 1 Actions ─────────────
 
     /**
-     * Expire stale Layer 1 time-bound actions that have passed their DueAt
-     * plus the expiration threshold (default 15 minutes).
-     *
-     * In Phase 5, only Layer 1 (time-bound) actions are persisted in DB,
-     * so this only processes Is_Time_Bound__c = true records.
+     * Expire stale Layer 1 actions:
+     * 1. Time-bound actions past their DueAt + expiration threshold (default 15 min)
+     * 2. Non-time-bound L1 interrupt records older than 24 hours
      *
      * @return Count of expired records
      */
     public static Integer expireStaleActions() {
+        List<NBA_Queue__c> toExpire = new List<NBA_Queue__c>();
+
+        // 1. Expire stale time-bound actions (meetings past due)
         Datetime timeboundCutoff = Datetime.now().addMinutes(-TIMEBOUND_EXPIRE_MINUTES);
-        List<NBA_Queue__c> toExpire = [
+        List<NBA_Queue__c> staleTimeBound = [
             SELECT Id, Status__c, Sales_Rep__c
             FROM NBA_Queue__c
             WHERE Is_Time_Bound__c = true
@@ -143,6 +148,21 @@ public with sharing class NbaActionStateService {
             WITH SECURITY_ENFORCED
             LIMIT 200
         ];
+        toExpire.addAll(staleTimeBound);
+
+        // 2. Expire stale non-time-bound L1 interrupt records (new-assignment > 24h)
+        Datetime interruptCutoff = Datetime.now().addHours(-INTERRUPT_EXPIRE_HOURS);
+        List<NBA_Queue__c> staleInterrupts = [
+            SELECT Id, Status__c, Sales_Rep__c
+            FROM NBA_Queue__c
+            WHERE Priority_Layer__c = 'Layer 1 - Time Bound'
+              AND Is_Time_Bound__c = false
+              AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
+              AND CreatedDate < :interruptCutoff
+            WITH SECURITY_ENFORCED
+            LIMIT 200
+        ];
+        toExpire.addAll(staleInterrupts);
 
         if (toExpire.isEmpty()) {
             return 0;
