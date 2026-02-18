@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>On_No_Answer_Action__c</fullName>
+    <description>What happens when the prospect does not answer and no voicemail is left. Only applies to Call steps.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>On No Answer Action</label>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>End_Cadence</fullName>
+                <default>false</default>
+                <label>End Cadence</label>
+            </value>
+            <value>
+                <fullName>Skip_To_Step</fullName>
+                <default>false</default>
+                <label>Skip To Step</label>
+            </value>
+            <value>
+                <fullName>Skip_To_Day</fullName>
+                <default>false</default>
+                <label>Skip To Day</label>
+            </value>
+            <value>
+                <fullName>Continue</fullName>
+                <default>true</default>
+                <label>Continue</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

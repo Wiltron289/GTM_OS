@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cadence_Step_Number__c</fullName>
+    <description>Step number that was completed in the cadence. Maps to NBA_Cadence_Step__mdt.Step_Number__c.</description>
+    <externalId>false</externalId>
+    <label>Cadence Step Number</label>
+    <precision>3</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

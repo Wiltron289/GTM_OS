@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Exit_Conditions__c</fullName>
+    <description>Comma-separated conditions that end the cadence early. Values: Connected_Call, Meeting_Scheduled, Opp_Closed, Manual_Override.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Exit Conditions</label>
+    <length>1000</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

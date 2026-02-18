@@ -76,6 +76,12 @@ public with sharing class NbaSignalService {
         public Integer todayCallCount;
         public List<Datetime> todayCallDates;
 
+        // Cadence progress (Phase 7 — populated from audit records)
+        public String lastCadenceName;
+        public Integer lastCadenceStepNumber;
+        public String lastCadenceStepOutcome;
+        public Datetime lastCadenceStepDate;
+
         public OpportunitySignal() {
             this.hadConnectedCall = false;
             this.hadNoConnect = false;

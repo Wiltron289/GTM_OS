@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Day_Map__c</fullName>
+    <description>JSON mapping of raw calendar days to cadence days. E.g., {"0":0,"1":1,"2":3,"3":3,"4":5,"5":5}. If null, raw days are used directly.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Day Map</label>
+    <length>500</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>First Touch A</label>
+    <protected>false</protected>
+    <values>
+        <field>Scenario__c</field>
+        <value xsi:type="xsd:string">First Touch</value>
+    </values>
+    <values>
+        <field>Variant__c</field>
+        <value xsi:type="xsd:string">A</value>
+    </values>
+    <values>
+        <field>Anchor_Field__c</field>
+        <value xsi:type="xsd:string">daysSinceCreation</value>
+    </values>
+    <values>
+        <field>Total_Steps__c</field>
+        <value xsi:type="xsd:double">12</value>
+    </values>
+    <values>
+        <field>Total_Days__c</field>
+        <value xsi:type="xsd:double">5</value>
+    </values>
+    <values>
+        <field>Exit_Conditions__c</field>
+        <value xsi:type="xsd:string">Connected_Call,Meeting_Scheduled,Opp_Closed</value>
+    </values>
+    <values>
+        <field>Day_Map__c</field>
+        <value xsi:type="xsd:string">{"0":0,"1":1,"2":3,"3":3,"4":5,"5":5}</value>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">5-day First Touch cadence (Variant A). 12 steps across Days 0/1/3/5. Mix of Call, SMS, Email. Connected call or meeting scheduled ends cadence.</value>
+    </values>
+</CustomMetadata>
