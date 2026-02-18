@@ -60,9 +60,9 @@ When developing features or debugging, update the appropriate doc file:
 |------|-------|
 | **Active Branch** | `feature/nba-v2-demo-lwc` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
-| **Apex Tests** | 116 total (8 cache + 10 controller + 10 state + 8 signal + 19 creation + 5 selection + 6 opp trigger + 5 event trigger + 7 task trigger + 3 creation sched + 2 expiration sched + 2 queueable + 23 cadence + 19 existing). 62 targeted Sprint 20 tests passing. |
-| **Current Phase** | **Phase 7 COMPLETE — NBA Cadence Redesign (Sprints 18-20)** |
-| **Phase Plan** | `.claude/plans/jiggly-inventing-candle.md` (Phase 7), `docs/nba-v2-phase6-cadence-plan.md` (Phase 6), `docs/nba-v2-phase-plan.md` (Phases 1-5) |
+| **Apex Tests** | 120 total (8 cache + 14 controller + 11 state + 8 signal + 21 creation + 5 selection + 7 opp trigger + 5 event trigger + 7 task trigger + 3 creation sched + 2 expiration sched + 2 queueable + 23 cadence + 19 existing). 52/53 targeted two-stream tests passing (1 pre-existing). |
+| **Current Phase** | **Sprint 21 — Two-Stream Architecture + Event Details (in progress)** |
+| **Phase Plan** | `.claude/plans/misty-cooking-scroll.md` (Sprint 21 — Event Details), `.claude/plans/jiggly-inventing-candle.md` (Phase 7), `docs/nba-v2-phase6-cadence-plan.md` (Phase 6), `docs/nba-v2-phase-plan.md` (Phases 1-5) |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
 ### What Exists
@@ -78,6 +78,44 @@ When developing features or debugging, update the appropriate doc file:
 - **Feature 9**: NBA V2 Cadence Integration (Phase 6) -- NbaCadenceService (cadence step resolution, spacing enforcement, daily caps), NBA_AE_Config__c hierarchy custom setting (variant assignment), 5 new CMDT fields + 12 redesigned cadence records (First Touch Variant A, 5-day cadence), signal enrichment (todayCallCount, daysSinceCreation), ActionWrapper cadence fields, LWC cadence display (progress + method hints). All deployed to UAT. **Superseded by Phase 7.**
 - **Feature 10**: NBA V2 Cadence Redesign — Sprint 18 Foundation (Phase 7) -- 2-CMDT parent/child architecture (NBA_Cadence__mdt parent + NBA_Cadence_Step__mdt child with outcome branching). NbaCadenceService complete rewrite (CadenceContext, CadenceStepDef, CadencePosition, CadenceResult classes; getNextStep(), applyBranching(), computeCadenceDay()). 4 new NBA_Queue__c fields (Cadence_Name__c, Cadence_Step_Number__c, Step_Outcome__c, Step_Method__c). 4 cadence progress fields on OpportunitySignal. 19 tests in rewritten NbaCadenceServiceTest. All deployed to UAT.
 - **Feature 11**: NBA V2 Cadence Redesign — Sprint 19 Integration + LWC (Phase 7) -- Universal cadence wired into all service layers: NbaSignalService (cadence progress extraction from audit records), NbaActionCreationService (universal cadence for any action type), NbaActionController (8 new ActionWrapper fields, stepOutcome parameter), NbaActionStateService (4-field cadence audit writing). LWC: nbaActionBar outcome capture panel (Connected/Left VM/No Answer for Call steps, auto-Sent for SMS/Email), nbaDemoInsightsPanel progress bar + upcoming steps, nbaDemoHeader method icon badge. 70 targeted tests passing. All deployed to UAT.
+- **Feature 12**: Two-Stream Architecture — Sprint 21 (in progress) -- Split action delivery into two independent streams: Stream 1 (Scored Queue) = getActiveAction() on-demand evaluation only (removed L1 DB check); Stream 2 (Real-Time Interrupts) = checkInterrupts() 15s poll for meetings within 5 min + new-assignment L1 records. LWC: indigo interrupt banner with "Jump to it"/"Later", _pausedAction state for resume after interrupt. NbaActionCreationService.createNewAssignmentActions() bulk method for trigger-based interrupt creation. NbaActionStateService expireStaleActions() extended for non-time-bound L1 expiry. 52/53 targeted tests passing. All deployed to UAT. **Next: Event Details component (nbaEventDetails) + suppress duplicate amber banner.**
+
+### Sprint 21 — Two-Stream Architecture (IN PROGRESS)
+
+Split action delivery into two independent streams. Deployed to UAT, tested. Event Details component planned but not yet built.
+
+#### Architecture: Two-Stream Action Delivery
+
+```
+Stream 1 (Scored Queue) — getActiveAction():
+  Platform Cache → cache miss → full on-demand evaluation (~12 SOQL)
+  Returns ActionWrapper for the top-priority scored action.
+  NO Layer 1 DB check — interrupts handled separately.
+
+Stream 2 (Real-Time Interrupts) — checkInterrupts():
+  15s LWC poll → 2 lightweight SOQL:
+    1. Meetings: DueAt within 5 min, Status IN (New/Pending/Accepted)
+    2. New-assignments: L1 non-time-bound, created within 24h
+  Returns List<ActionWrapper>. AE clicks "Jump to it" → acceptInterrupt()
+  sets Status='In Progress', saves _pausedAction, loads interrupt context.
+  On complete → resumes paused scored-queue action.
+```
+
+#### What Was Built
+
+| Component | Change |
+|-----------|--------|
+| `NbaActionController.cls` | Removed L1 check from getActiveAction. Added checkInterrupts() returning List<ActionWrapper>. Added acceptInterrupt(Id). |
+| `NbaActionCreationService.cls` | Added createNewAssignmentAction() single + createNewAssignmentActions() bulk (1 SOQL dedup). |
+| `NbaOpportunityTriggerHandler.cls` | AFTER_INSERT creates new-assignment interrupt via bulk method. |
+| `NbaActionStateService.cls` | expireStaleActions() extended: non-time-bound L1 older than 24h expired. INTERRUPT_EXPIRE_HOURS constant. |
+| `nbaDemoWorkspace` LWC | Replaced checkTimeBound with checkInterrupts + acceptInterrupt. Added _pausedAction, pendingInterrupts, _dismissedInterruptIds. |
+| `nbaDemoAlertBanner` LWC | Added indigo interrupt banner with "Jump to it" / "Later" buttons. Slide-down animation. |
+
+#### Pending (Sprint 21 continued)
+
+- **Suppress duplicate amber banner**: The `showBanner` getter in nbaDemoAlertBanner needs to return false when isActionMode && currentAction.actionType === 'Meeting' (amber "Meeting with..." banner is redundant after accepting interrupt).
+- **Event Details component**: New `nbaEventDetails` LWC showing Event Subject, Description, Location, Start/End Time when current action is a Meeting. Uses LDS `getRecord` (0 SOQL). Requires adding `eventId` to ActionWrapper (parsed from UniqueKey). Plan: `.claude/plans/misty-cooking-scroll.md`.
 
 ### Phase 2 Engine Core — COMPLETE (Sprint 12)
 
