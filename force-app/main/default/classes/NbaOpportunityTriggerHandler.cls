@@ -1,18 +1,17 @@
 /**
  * NbaOpportunityTriggerHandler — Handles Opportunity trigger events for NBA V2.
  *
- * Phase 5: In the on-demand model, Opportunity triggers no longer create actions
- * or enqueue async evaluation. Instead, they invalidate the Platform Cache for
- * affected AEs so the next getActiveAction() call reflects the new CRM state.
- *
- * After Insert: New open Opportunity → invalidate cache for the AE owner.
- * After Update: Stage change on open Opportunity → invalidate cache for the AE owner.
+ * Two-stream architecture:
+ * After Insert: New open Opportunity → create Layer 1 new-assignment interrupt
+ *   record (picked up by checkInterrupts 15s poll) + invalidate cache for AE.
+ * After Update: Stage change on open Opportunity → invalidate cache for AE.
  */
 public with sharing class NbaOpportunityTriggerHandler {
 
     /**
      * Entry point called by OpportunityTrigger.
      * Filters affected Opps, collects owner IDs, invalidates their cache.
+     * On AFTER_INSERT: also creates Layer 1 new-assignment interrupt records.
      */
     public static void handle(
         List<Opportunity> newList,
@@ -28,7 +27,11 @@ public with sharing class NbaOpportunityTriggerHandler {
         Set<Id> aeIdsToInvalidate = new Set<Id>();
 
         if (operationType == System.TriggerOperation.AFTER_INSERT) {
-            aeIdsToInvalidate = collectOwnerIds(filterNewOpps(newList));
+            List<Opportunity> newOpps = filterNewOpps(newList);
+            aeIdsToInvalidate = collectOwnerIds(newOpps);
+
+            // Two-stream: create Layer 1 new-assignment interrupt records
+            createNewAssignmentInterrupts(newOpps);
         } else if (operationType == System.TriggerOperation.AFTER_UPDATE) {
             aeIdsToInvalidate = collectOwnerIds(filterStageChanges(newList, oldMap));
         }
@@ -84,5 +87,30 @@ public with sharing class NbaOpportunityTriggerHandler {
             }
         }
         return ownerIds;
+    }
+
+    /**
+     * Create Layer 1 new-assignment interrupt records for newly inserted Opps.
+     * Delegates to NbaActionCreationService.createNewAssignmentAction() for
+     * each Opp, then bulk-inserts all non-null results.
+     */
+    private static void createNewAssignmentInterrupts(List<Opportunity> newOpps) {
+        if (newOpps.isEmpty()) {
+            return;
+        }
+
+        List<NBA_Queue__c> toInsert = new List<NBA_Queue__c>();
+        for (Opportunity opp : newOpps) {
+            NBA_Queue__c action = NbaActionCreationService.createNewAssignmentAction(
+                opp.Id, opp.AccountId, opp.OwnerId, opp.StageName
+            );
+            if (action != null) {
+                toInsert.add(action);
+            }
+        }
+
+        if (!toInsert.isEmpty()) {
+            insert toInsert;
+        }
     }
 }
