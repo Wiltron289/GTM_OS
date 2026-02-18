@@ -1,4 +1,23 @@
 <template>
+    <!-- Interrupt Banner (Stream 2 — two-stream, shown above everything) -->
+    <template lwc:if={showInterruptBanner}>
+        <div class="interrupt-banner">
+            <div class="banner-left">
+                <lightning-icon icon-name="utility:notification" size="x-small"></lightning-icon>
+                <span class="interrupt-text">
+                    {interruptMessage}
+                    <template lwc:if={interruptCountBadge}>
+                        <span class="interrupt-badge">{interruptCountBadge}</span>
+                    </template>
+                </span>
+            </div>
+            <div class="banner-right">
+                <button class="interrupt-accept-btn" onclick={handleAcceptInterrupt}>Jump to it</button>
+                <button class="interrupt-dismiss-btn" onclick={handleDismissInterrupt}>Later</button>
+            </div>
+        </div>
+    </template>
+
     <!-- Upcoming Meeting Banner (both modes) -->
     <template lwc:if={showBanner}>
         <div class="alert-banner">
