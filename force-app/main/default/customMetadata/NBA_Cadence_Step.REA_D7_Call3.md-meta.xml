@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>REA D7 Call3</label>
+    <protected>false</protected>
+    <values>
+        <field>Cadence_Name__c</field>
+        <value xsi:type="xsd:string">Re_engage_A</value>
+    </values>
+    <values>
+        <field>Step_Number__c</field>
+        <value xsi:type="xsd:double">6</value>
+    </values>
+    <values>
+        <field>Day_Number__c</field>
+        <value xsi:type="xsd:double">7</value>
+    </values>
+    <values>
+        <field>Step_Order_In_Day__c</field>
+        <value xsi:type="xsd:double">1</value>
+    </values>
+    <values>
+        <field>Method__c</field>
+        <value xsi:type="xsd:string">Call</value>
+    </values>
+    <values>
+        <field>Instruction_Text__c</field>
+        <value xsi:type="xsd:string">Final re-engagement attempt. Leave detailed voicemail if no answer.</value>
+    </values>
+    <values>
+        <field>Max_Attempts__c</field>
+        <value xsi:type="xsd:double">1</value>
+    </values>
+    <values>
+        <field>Spacing_Minutes__c</field>
+        <value xsi:type="xsd:double">60</value>
+    </values>
+    <values>
+        <field>On_Connect_Action__c</field>
+        <value xsi:type="xsd:string">End_Cadence</value>
+    </values>
+    <values>
+        <field>On_Connect_Target__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>On_VM_Action__c</field>
+        <value xsi:type="xsd:string">Continue</value>
+    </values>
+    <values>
+        <field>On_VM_Target__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>On_No_Answer_Action__c</field>
+        <value xsi:type="xsd:string">Continue</value>
+    </values>
+    <values>
+        <field>On_No_Answer_Target__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>On_Meeting_Action__c</field>
+        <value xsi:type="xsd:string">End_Cadence</value>
+    </values>
+    <values>
+        <field>On_Meeting_Target__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Day 7, Step 6: Final re-engagement call. Leave detailed VM. Connected ends cadence.</value>
+    </values>
+</CustomMetadata>
