@@ -1,7 +1,7 @@
 /**
  * Test class for NbaOpportunityTriggerHandler + OpportunityTrigger.
- * Phase 5: Verifies that Opportunity insert/update fires cache invalidation
- * (no longer creates actions via Queueable).
+ * Two-stream: Verifies cache invalidation + new-assignment interrupt creation
+ * on Opportunity insert/update.
  */
 @isTest
 private class NbaOpportunityTriggerHandlerTest {
@@ -117,6 +117,47 @@ private class NbaOpportunityTriggerHandlerTest {
 
         System.assertEquals(0, actions.size(),
             'Hand-Off stage should be excluded from action creation');
+    }
+
+    @isTest
+    static void testNewOpp_createsNewAssignmentInterrupt() {
+        Account acc = [SELECT Id FROM Account WHERE Name = 'OppTrigger Test Account 1' LIMIT 1];
+        Id rtId = getPayrollRecordTypeId();
+
+        // Reset recursion guard so it fires fresh (testNewOpp_invalidatesCache may
+        // have run in same thread in some contexts)
+        NbaTriggerContext.resetAll();
+
+        Opportunity opp = new Opportunity(
+            Name = 'Interrupt Trigger Opp',
+            AccountId = acc.Id,
+            StageName = 'New',
+            CloseDate = Date.today().addDays(30),
+            Amount = 10000,
+            Source__c = 'N/A'
+        );
+        if (rtId != null) opp.RecordTypeId = rtId;
+
+        Test.startTest();
+        insert opp;
+        Test.stopTest();
+
+        // Verify a new-assignment interrupt record was created
+        List<NBA_Queue__c> interrupts = [
+            SELECT Id, Action_Type__c, Priority_Layer__c, Is_Time_Bound__c,
+                   Source_Path__c, UniqueKey__c
+            FROM NBA_Queue__c
+            WHERE Opportunity__c = :opp.Id
+              AND Source_Path__c = 'Immediate'
+              AND Is_Time_Bound__c = false
+              AND Priority_Layer__c = 'Layer 1 - Time Bound'
+        ];
+        System.assertEquals(1, interrupts.size(),
+            'Should create 1 new-assignment interrupt record');
+        System.assertEquals('First Touch', interrupts[0].Action_Type__c,
+            'Interrupt should be First Touch');
+        System.assert(interrupts[0].UniqueKey__c.contains('NewAssignment'),
+            'UniqueKey should contain NewAssignment');
     }
 
     // ─── After Update Tests ──────────────────────────────────────────

@@ -280,6 +280,44 @@ private class NbaActionStateServiceTest {
     }
 
     @isTest
+    static void testExpireStaleActions_NonTimeBoundL1OlderThan24h() {
+        // Create a non-time-bound L1 interrupt record and backdate it via
+        // a low INTERRUPT_EXPIRE_HOURS threshold (test override)
+        Account acc3 = new Account(Name = 'Interrupt Expire Account', Entity_ID__c = 'IEXP-001');
+        insert acc3;
+        Opportunity opp3 = new Opportunity(
+            Name = 'Interrupt Expire Opp', AccountId = acc3.Id, StageName = 'New',
+            CloseDate = Date.today().addDays(30), Amount = 2000, Source__c = 'N/A'
+        );
+        List<RecordType> rts3 = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND DeveloperName = 'Payroll' LIMIT 1];
+        if (!rts3.isEmpty()) opp3.RecordTypeId = rts3[0].Id;
+        insert opp3;
+
+        NBA_Queue__c interruptAction = new NBA_Queue__c(
+            Opportunity__c = opp3.Id, Account__c = acc3.Id,
+            Sales_Rep__c = UserInfo.getUserId(), Status__c = 'Pending',
+            Action_Type__c = 'First Touch', Is_Time_Bound__c = false,
+            Priority_Score__c = 0.80, Priority_Layer__c = 'Layer 1 - Time Bound',
+            Priority_Bucket__c = 'Cadence Due Today', Workflow_Mode__c = 'Pipeline',
+            UniqueKey__c = 'V2|' + opp3.Id + '|First Touch|NewAssignment'
+        );
+        insert interruptAction;
+
+        // Override expire threshold to 0 hours so the just-created record qualifies
+        NbaActionStateService.INTERRUPT_EXPIRE_HOURS = 0;
+
+        Test.startTest();
+        Integer count = NbaActionStateService.expireStaleActions();
+        Test.stopTest();
+
+        NBA_Queue__c result = [SELECT Status__c, UniqueKey__c FROM NBA_Queue__c WHERE Id = :interruptAction.Id];
+        System.assertEquals('Expired', result.Status__c,
+            'Non-time-bound L1 interrupt older than threshold should expire');
+        System.assertEquals(null, result.UniqueKey__c, 'UniqueKey should be cleared');
+        System.assert(count >= 1, 'Should expire at least 1 action');
+    }
+
+    @isTest
     static void testExpireStaleActions_InvalidatesCacheForAffectedAEs() {
         Id userId = UserInfo.getUserId();
 

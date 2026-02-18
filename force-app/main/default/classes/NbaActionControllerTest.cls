@@ -1,12 +1,15 @@
 /**
- * Test class for NbaActionController (Phase 5 — on-demand evaluation).
+ * Test class for NbaActionController (Two-stream architecture).
  *
  * Verifies:
- * - getActiveAction returns Layer 1 time-bound when present
- * - getActiveAction returns cached action on cache hit
- * - getActiveAction evaluates on-demand on cache miss (via open Opps)
+ * - getActiveAction returns cached action (Stream 1 — scored queue)
+ * - getActiveAction evaluates on-demand on cache miss
+ * - getActiveAction does NOT return Layer 1 time-bound (Stream 2 handles these)
  * - getActiveAction returns null when AE has no open pipeline
- * - checkTimeBound returns only Layer 1 actions
+ * - checkInterrupts returns meetings due within 5 min
+ * - checkInterrupts returns new-assignment L1 non-time-bound records
+ * - checkInterrupts returns empty list when no interrupts
+ * - acceptInterrupt sets status to 'In Progress'
  * - completeAction writes audit + invalidates cache + returns next
  * - snoozeAction writes audit + returns next
  * - dismissAction writes audit + returns next
@@ -73,21 +76,22 @@ private class NbaActionControllerTest {
         return tb;
     }
 
-    // ─── getActiveAction Tests ──────────────────────────────────────
+    // ─── getActiveAction Tests (Stream 1 — Scored Queue) ───────────
 
     @isTest
-    static void testGetActiveAction_ReturnsTimeBoundFirst() {
-        // Create a Layer 1 time-bound action
+    static void testGetActiveAction_SkipsTimeBound() {
+        // Create a Layer 1 time-bound action — should NOT be returned by getActiveAction
         NBA_Queue__c tb = createTimeBoundAction();
 
         Test.startTest();
         NbaActionController.ActionWrapper result = NbaActionController.getActiveAction();
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'Should return the time-bound action');
-        System.assertEquals(tb.Id, result.actionId, 'Should return the Layer 1 action ID');
-        System.assertEquals('Meeting', result.actionType, 'Action type should be Meeting');
-        System.assertEquals(true, result.isTimeBound, 'Should be time-bound');
+        // getActiveAction no longer returns L1 time-bound — Stream 2 handles those
+        if (result != null) {
+            System.assertNotEquals(tb.Id, result.actionId,
+                'getActiveAction should NOT return Layer 1 time-bound action');
+        }
     }
 
     @isTest
@@ -147,27 +151,145 @@ private class NbaActionControllerTest {
         System.assertEquals(null, result, 'Should return null when AE has no open opps');
     }
 
-    // ─── checkTimeBound Tests ───────────────────────────────────────
+    // ─── checkInterrupts Tests (Stream 2 — Real-Time Interrupts) ───
 
     @isTest
-    static void testCheckTimeBound_ReturnsTimeBound() {
-        NBA_Queue__c tb = createTimeBoundAction();
+    static void testCheckInterrupts_ReturnsMeetingDueWithin5Min() {
+        Opportunity opp = getTestOpp();
+        Account acc = [SELECT Id FROM Account WHERE Name = 'Controller Test Account' LIMIT 1];
+
+        // Create a time-bound meeting with DueAt 3 minutes from now (within 5-min window)
+        NBA_Queue__c meeting = new NBA_Queue__c(
+            Opportunity__c = opp.Id,
+            Account__c = acc.Id,
+            Sales_Rep__c = UserInfo.getUserId(),
+            Status__c = 'Pending',
+            Action_Type__c = 'Meeting',
+            Action_Instruction__c = 'Prepare for meeting',
+            ReasonText__c = 'Time-bound meeting',
+            Priority_Score__c = 0.90,
+            Priority_Layer__c = 'Layer 1 - Time Bound',
+            Priority_Bucket__c = 'Cadence Due Today',
+            Is_Time_Bound__c = true,
+            DueAt__c = Datetime.now().addMinutes(3),
+            Workflow_Mode__c = 'Pipeline'
+        );
+        insert meeting;
 
         Test.startTest();
-        NbaActionController.ActionWrapper result = NbaActionController.checkTimeBound();
+        List<NbaActionController.ActionWrapper> results = NbaActionController.checkInterrupts();
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'Should return the time-bound action');
-        System.assertEquals(tb.Id, result.actionId, 'Should return the Layer 1 record ID');
+        System.assert(!results.isEmpty(), 'Should return the meeting due within 5 minutes');
+        System.assertEquals(meeting.Id, results[0].actionId, 'Should return the meeting record ID');
+        System.assertEquals(true, results[0].isTimeBound, 'Should be time-bound');
     }
 
     @isTest
-    static void testCheckTimeBound_ReturnsNullWhenNone() {
+    static void testCheckInterrupts_ExcludesMeetingMoreThan5MinAway() {
+        // The helper creates a meeting 1 hour from now — outside 5-min window
+        NBA_Queue__c tb = createTimeBoundAction();
+
         Test.startTest();
-        NbaActionController.ActionWrapper result = NbaActionController.checkTimeBound();
+        List<NbaActionController.ActionWrapper> results = NbaActionController.checkInterrupts();
         Test.stopTest();
 
-        System.assertEquals(null, result, 'Should return null when no time-bound actions');
+        // Meeting is 1 hour from now — should NOT appear in interrupt list
+        Boolean found = false;
+        for (NbaActionController.ActionWrapper w : results) {
+            if (w.actionId == tb.Id) {
+                found = true;
+            }
+        }
+        System.assertEquals(false, found,
+            'Meeting 1 hour away should not appear in interrupt list');
+    }
+
+    @isTest
+    static void testCheckInterrupts_ReturnsNewAssignmentInterrupt() {
+        Opportunity opp = getTestOpp();
+        Account acc = [SELECT Id FROM Account WHERE Name = 'Controller Test Account' LIMIT 1];
+
+        // Create a new-assignment L1 interrupt (non-time-bound)
+        NBA_Queue__c interrupt = new NBA_Queue__c(
+            Opportunity__c = opp.Id,
+            Account__c = acc.Id,
+            Sales_Rep__c = UserInfo.getUserId(),
+            Status__c = 'Pending',
+            Action_Type__c = 'First Touch',
+            Action_Instruction__c = 'New opportunity assigned',
+            Priority_Score__c = 0.80,
+            Priority_Layer__c = 'Layer 1 - Time Bound',
+            Priority_Bucket__c = 'Cadence Due Today',
+            Is_Time_Bound__c = false,
+            Workflow_Mode__c = 'Pipeline',
+            UniqueKey__c = 'V2|' + opp.Id + '|First Touch|NewAssignment'
+        );
+        insert interrupt;
+
+        Test.startTest();
+        List<NbaActionController.ActionWrapper> results = NbaActionController.checkInterrupts();
+        Test.stopTest();
+
+        Boolean found = false;
+        for (NbaActionController.ActionWrapper w : results) {
+            if (w.actionId == interrupt.Id) {
+                found = true;
+            }
+        }
+        System.assert(found, 'Should return the new-assignment interrupt');
+    }
+
+    @isTest
+    static void testCheckInterrupts_ReturnsEmptyWhenNone() {
+        Test.startTest();
+        List<NbaActionController.ActionWrapper> results = NbaActionController.checkInterrupts();
+        Test.stopTest();
+
+        System.assert(results.isEmpty(), 'Should return empty list when no interrupts');
+    }
+
+    // ─── acceptInterrupt Tests ───────────────────────────────────────
+
+    @isTest
+    static void testAcceptInterrupt_SetsInProgress() {
+        Opportunity opp = getTestOpp();
+        Account acc = [SELECT Id FROM Account WHERE Name = 'Controller Test Account' LIMIT 1];
+
+        NBA_Queue__c interrupt = new NBA_Queue__c(
+            Opportunity__c = opp.Id,
+            Account__c = acc.Id,
+            Sales_Rep__c = UserInfo.getUserId(),
+            Status__c = 'Pending',
+            Action_Type__c = 'First Touch',
+            Action_Instruction__c = 'New opp assigned',
+            Priority_Score__c = 0.80,
+            Priority_Layer__c = 'Layer 1 - Time Bound',
+            Priority_Bucket__c = 'Cadence Due Today',
+            Is_Time_Bound__c = false,
+            Workflow_Mode__c = 'Pipeline'
+        );
+        insert interrupt;
+
+        Test.startTest();
+        NbaActionController.ActionWrapper result = NbaActionController.acceptInterrupt(interrupt.Id);
+        Test.stopTest();
+
+        System.assertNotEquals(null, result, 'Should return the accepted interrupt');
+        System.assertEquals(interrupt.Id, result.actionId, 'Should return the correct action ID');
+
+        NBA_Queue__c updated = [SELECT Status__c FROM NBA_Queue__c WHERE Id = :interrupt.Id];
+        System.assertEquals('In Progress', updated.Status__c,
+            'Accepted interrupt should have Status = In Progress');
+    }
+
+    @isTest
+    static void testAcceptInterrupt_NullIdReturnsNull() {
+        Test.startTest();
+        NbaActionController.ActionWrapper result = NbaActionController.acceptInterrupt(null);
+        Test.stopTest();
+
+        System.assertEquals(null, result, 'Null actionId should return null');
     }
 
     // ─── completeAction Tests ───────────────────────────────────────

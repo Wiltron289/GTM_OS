@@ -455,6 +455,56 @@ private class NbaActionCreationServiceTest {
             'UniqueKey should follow V2|oppId|actionType format');
     }
 
+    // ─── New Assignment Interrupt Tests (Two-Stream) ────────────────
+
+    @isTest
+    static void testCreateNewAssignmentAction_Success() {
+        Opportunity opp = [
+            SELECT Id, AccountId, OwnerId, StageName
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 1'
+            AND StageName = 'New' LIMIT 1
+        ];
+
+        Test.startTest();
+        NBA_Queue__c action = NbaActionCreationService.createNewAssignmentAction(
+            opp.Id, opp.AccountId, opp.OwnerId, opp.StageName
+        );
+        Test.stopTest();
+
+        System.assertNotEquals(null, action, 'Should create a new-assignment interrupt');
+        System.assertEquals('First Touch', action.Action_Type__c, 'Type should be First Touch');
+        System.assertEquals('Layer 1 - Time Bound', action.Priority_Layer__c, 'Layer should be L1');
+        System.assertEquals(false, action.Is_Time_Bound__c, 'Should NOT be time-bound');
+        System.assertEquals('Immediate', action.Source_Path__c, 'Source should be Immediate');
+        System.assertEquals('Pending', action.Status__c, 'Status should be Pending');
+        System.assertEquals(null, action.DueAt__c, 'DueAt should be null for non-time-bound');
+        System.assert(action.UniqueKey__c.contains('NewAssignment'),
+            'UniqueKey should contain NewAssignment');
+    }
+
+    @isTest
+    static void testCreateNewAssignmentAction_DuplicatePrevented() {
+        Opportunity opp = [
+            SELECT Id, AccountId, OwnerId, StageName
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 1'
+            AND StageName = 'New' LIMIT 1
+        ];
+
+        // Create first and insert
+        NBA_Queue__c first = NbaActionCreationService.createNewAssignmentAction(
+            opp.Id, opp.AccountId, opp.OwnerId, opp.StageName
+        );
+        insert first;
+
+        Test.startTest();
+        NBA_Queue__c second = NbaActionCreationService.createNewAssignmentAction(
+            opp.Id, opp.AccountId, opp.OwnerId, opp.StageName
+        );
+        Test.stopTest();
+
+        System.assertEquals(null, second, 'Duplicate should return null');
+    }
+
     // ─── Time-Bound Action Tests (Phase 4) ──────────────────────────
 
     @isTest
