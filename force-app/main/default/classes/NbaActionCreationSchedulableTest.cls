@@ -24,7 +24,7 @@ private class NbaActionCreationSchedulableTest {
 
         List<CronTrigger> jobs = [
             SELECT Id FROM CronTrigger
-            WHERE CronJobDetail.Name LIKE 'NBA Action Creation - :%'
+            WHERE CronJobDetail.Name LIKE 'GTM Action Creation - :%'
         ];
         System.assertEquals(6, jobs.size(), 'Should register 6 scheduled jobs (every 10 min)');
     }
@@ -40,7 +40,7 @@ private class NbaActionCreationSchedulableTest {
 
         List<CronTrigger> jobs = [
             SELECT Id FROM CronTrigger
-            WHERE CronJobDetail.Name LIKE 'NBA Action Creation - :%'
+            WHERE CronJobDetail.Name LIKE 'GTM Action Creation - :%'
         ];
         System.assertEquals(0, jobs.size(), 'All creation jobs should be aborted');
     }

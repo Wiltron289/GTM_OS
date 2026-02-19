@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>Individual step in an NBA cadence. Each step is a full actionable item (Call, SMS, Email) with outcome-based branching. Child of NBA_Cadence__mdt via Cadence_Name__c text FK.</description>
-    <label>NBA Cadence Step</label>
-    <pluralLabel>NBA Cadence Steps</pluralLabel>
+    <description>Individual step in a GTM cadence. Each step is a full actionable item (Call, SMS, Email) with outcome-based branching. Child of NBA_Cadence__mdt via Cadence_Name__c text FK.</description>
+    <label>GTM Cadence Step</label>
+    <pluralLabel>GTM Cadence Steps</pluralLabel>
     <visibility>Public</visibility>
 </CustomObject>

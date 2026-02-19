@@ -78,7 +78,7 @@ private class NbaActionExpirationSchedulableTest {
 
         List<CronTrigger> jobs = [
             SELECT Id FROM CronTrigger
-            WHERE CronJobDetail.Name LIKE 'NBA Action Expiration - :%'
+            WHERE CronJobDetail.Name LIKE 'GTM Action Expiration - :%'
         ];
         System.assertEquals(6, jobs.size(), 'Should register 6 scheduled jobs (every 10 min)');
     }

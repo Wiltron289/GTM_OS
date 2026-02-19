@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
     <description>Defines a complete outreach cadence (e.g., First Touch, Re-engage). Parent record for NBA_Cadence_Step__mdt steps. Controls exit conditions, day mapping, and variant assignment.</description>
-    <label>NBA Cadence</label>
-    <pluralLabel>NBA Cadences</pluralLabel>
+    <label>GTM Cadence</label>
+    <pluralLabel>GTM Cadences</pluralLabel>
     <visibility>Public</visibility>
 </CustomObject>

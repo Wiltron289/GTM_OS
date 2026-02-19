@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/metadata">
-    <description>Full CRUD access to Account Scoring records with all field read/write permissions and tab visibility. Intended for NBA V2 administrators and the scoring pipeline integration user.</description>
+    <description>Full CRUD access to Account Scoring records with all field read/write permissions and tab visibility. Intended for GTM OS administrators and the scoring pipeline integration user.</description>
     <hasActivationRequired>false</hasActivationRequired>
-    <label>NBA Account Scoring Admin</label>
+    <label>GTM Account Scoring Admin</label>
     <objectPermissions>
         <allowCreate>true</allowCreate>
         <allowDelete>true</allowDelete>

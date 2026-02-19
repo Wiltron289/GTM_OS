@@ -160,14 +160,14 @@
     <enableSharing>true</enableSharing>
     <enableStreamingApi>true</enableStreamingApi>
     <externalSharingModel>ReadWrite</externalSharingModel>
-    <label>NBA Queue</label>
+    <label>GTM Queue</label>
     <nameField>
-        <displayFormat>NBA-{0000000}</displayFormat>
-        <label>NBA Queue Name</label>
+        <displayFormat>GTM-{0000000}</displayFormat>
+        <label>GTM Queue Name</label>
         <trackHistory>false</trackHistory>
         <type>AutoNumber</type>
     </nameField>
-    <pluralLabel>NBA Queue</pluralLabel>
+    <pluralLabel>GTM Queues</pluralLabel>
     <searchLayouts></searchLayouts>
     <sharingModel>ReadWrite</sharingModel>
     <visibility>Public</visibility>

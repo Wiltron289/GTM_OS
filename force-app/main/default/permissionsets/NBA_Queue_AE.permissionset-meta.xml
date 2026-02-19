@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/metadata">
-    <description>AE access to NBA Queue records for the V2 on-demand action engine. Grants read, create, and edit on NBA_Queue__c plus field-level access to V2 action fields. Assign to all AEs using the NBA App Page.</description>
+    <description>AE access to GTM Queue records for the on-demand action engine. Grants read, create, and edit on NBA_Queue__c plus field-level access to action fields. Assign to all AEs using the GTM OS App Page.</description>
     <hasActivationRequired>false</hasActivationRequired>
-    <label>NBA Queue AE</label>
+    <label>GTM Queue AE</label>
     <objectPermissions>
         <allowCreate>true</allowCreate>
         <allowDelete>false</allowDelete>

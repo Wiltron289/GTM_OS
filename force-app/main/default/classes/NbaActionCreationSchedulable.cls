@@ -22,19 +22,19 @@ public with sharing class NbaActionCreationSchedulable implements Schedulable {
     public static void schedule() {
         List<Integer> minutes = new List<Integer>{ 0, 10, 20, 30, 40, 50 };
         for (Integer m : minutes) {
-            String jobName = 'NBA Action Creation - :' + String.valueOf(m).leftPad(2, '0');
+            String jobName = 'GTM Action Creation - :' + String.valueOf(m).leftPad(2, '0');
             String cron = '0 ' + m + ' * * * ?';
             System.schedule(jobName, cron, new NbaActionCreationSchedulable());
         }
     }
 
     /**
-     * Unschedule all NBA Action Creation jobs from the org.
+     * Unschedule all GTM Action Creation jobs from the org.
      */
     public static void unschedule() {
         for (CronTrigger ct : [
             SELECT Id FROM CronTrigger
-            WHERE CronJobDetail.Name LIKE 'NBA Action Creation - :%'
+            WHERE CronJobDetail.Name LIKE 'GTM Action Creation - :%'
         ]) {
             System.abortJob(ct.Id);
         }

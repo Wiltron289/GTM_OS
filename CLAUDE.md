@@ -38,7 +38,7 @@ When developing features or debugging, update the appropriate doc file:
 
 ### 4. Local Dev for LWC Development
 - **Always start Local Dev** at the beginning of any session involving LWC CSS, HTML, or JS changes
-- **Command**: `sf lightning dev app --target-org lwilson@joinhomebase.com.uat --device-type desktop --name "Homebase NBA"`
+- **Command**: `sf lightning dev app --target-org lwilson@joinhomebase.com.uat --device-type desktop --name "GTM OS"`
 - CSS/HTML/JS changes appear in ~1-2 seconds on save -- no deploy needed
 - **Still needs deploy**: Apex changes, new `@api` properties, `@wire` signature changes, `.js-meta.xml` changes
 - **Port**: 8081. If `EADDRINUSE`: `netstat -ano | findstr ":8081"` then `taskkill //PID <pid> //F`
