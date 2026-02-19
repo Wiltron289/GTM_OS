@@ -10,6 +10,11 @@ export default class NbaDemoAlertBanner extends LightningElement {
     urgencyDismissed = false;
 
     get showBanner() {
+        // Hide amber "Meeting with..." banner when we're already showing a Meeting action
+        // (the interrupt banner + urgency banner handle the notification flow)
+        if (this.isActionMode && this.currentAction?.actionType === 'Meeting') {
+            return false;
+        }
         return this.upcomingEvent?.hasUpcoming && !this.dismissed;
     }
 

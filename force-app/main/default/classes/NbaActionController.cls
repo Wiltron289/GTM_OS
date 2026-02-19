@@ -85,7 +85,7 @@ public with sharing class NbaActionController {
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
                    Action_Instruction__c, ReasonText__c, Priority_Layer__c,
                    Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
-                   DueAt__c, Status__c,
+                   DueAt__c, Status__c, UniqueKey__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
             WHERE Id = :actionId
@@ -273,7 +273,7 @@ public with sharing class NbaActionController {
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
                    Action_Instruction__c, ReasonText__c, Priority_Layer__c,
                    Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
-                   DueAt__c, Status__c,
+                   DueAt__c, Status__c, UniqueKey__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
             WHERE Sales_Rep__c = :userId
@@ -296,7 +296,7 @@ public with sharing class NbaActionController {
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
                    Action_Instruction__c, ReasonText__c, Priority_Layer__c,
                    Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
-                   DueAt__c, Status__c,
+                   DueAt__c, Status__c, UniqueKey__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
             WHERE Sales_Rep__c = :userId
@@ -347,6 +347,14 @@ public with sharing class NbaActionController {
         w.accountName = action.Account__r?.Name;
         w.opportunityName = action.Opportunity__r?.Name;
         w.oppStage = action.Opportunity__r?.StageName;
+
+        // Parse eventId from UniqueKey for Meeting actions (format: V2|oppId|Meeting|eventId)
+        if (action.Action_Type__c == 'Meeting' && action.UniqueKey__c != null) {
+            List<String> parts = action.UniqueKey__c.split('\\|');
+            if (parts.size() >= 4) {
+                w.eventId = parts[3];
+            }
+        }
 
         // Layer 1 time-bound actions are meetings, not cadence
         w.isCadenceAction = false;
@@ -444,6 +452,7 @@ public with sharing class NbaActionController {
         @AuraEnabled public String progressFraction;  // "3/12"
         @AuraEnabled public List<String> upcomingSteps; // Next 2-3 step previews
         @AuraEnabled public Boolean isCadenceAction;
+        @AuraEnabled public String eventId;          // Event ID parsed from UniqueKey for Meeting actions
     }
 
     public class ActionResultWrapper {

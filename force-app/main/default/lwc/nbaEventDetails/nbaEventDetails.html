@@ -1,0 +1,42 @@
+<template>
+    <template lwc:if={isLoaded}>
+        <div class="event-container">
+            <div class="event-header">
+                <div class="event-header-left">
+                    <div class="calendar-icon">
+                        <lightning-icon icon-name="standard:event" size="small"></lightning-icon>
+                    </div>
+                    <div class="event-title-group">
+                        <span class="event-subject">{subject}</span>
+                        <span class="event-date">{dateLabel}</span>
+                    </div>
+                </div>
+                <div class="event-time-badge">{timeRange}</div>
+            </div>
+
+            <div class="event-body">
+                <template lwc:if={hasLocation}>
+                    <div class="event-detail-row">
+                        <lightning-icon icon-name="utility:location" size="xx-small"></lightning-icon>
+                        <span class="event-detail-text">{location}</span>
+                    </div>
+                </template>
+
+                <template lwc:if={hasDescription}>
+                    <div class="event-detail-row event-description-row">
+                        <lightning-icon icon-name="utility:description" size="xx-small"></lightning-icon>
+                        <div class="event-description-content">
+                            <span class="event-detail-text">{displayDescription}</span>
+                            <template lwc:if={showExpandLink}>
+                                <button class="expand-link" onclick={handleExpandDescription}>Show more</button>
+                            </template>
+                            <template lwc:if={showCollapseLink}>
+                                <button class="expand-link" onclick={handleCollapseDescription}>Show less</button>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+</template>

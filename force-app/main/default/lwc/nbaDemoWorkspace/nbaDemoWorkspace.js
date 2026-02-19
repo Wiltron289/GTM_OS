@@ -226,6 +226,12 @@ export default class NbaDemoWorkspace extends LightningElement {
         return this.isActionMode && this.currentAction;
     }
 
+    get showEventDetails() {
+        return this.isActionMode
+            && this.currentAction?.actionType === 'Meeting'
+            && this.currentAction?.eventId;
+    }
+
     get workspaceBodyClass() {
         return this.showActionBar ? 'workspace-body workspace-body-with-bar' : 'workspace-body';
     }

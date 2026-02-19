@@ -50,6 +50,11 @@
             is-action-mode={isActionMode}>
         </c-nba-demo-insights-panel>
 
+        <!-- Event Details (Meeting actions only) -->
+        <template lwc:if={showEventDetails}>
+            <c-nba-event-details event-id={currentAction.eventId}></c-nba-event-details>
+        </template>
+
         <!-- Two Column Layout: Tabs + Sidebar -->
         <div class={workspaceBodyClass}>
             <!-- Left Column: Tabs -->
