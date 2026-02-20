@@ -801,15 +801,13 @@ public with sharing class NbaActionCreationService {
         return 0;
     }
 
+    /**
+     * Return a fixed MRR ceiling for consistent normalization across evaluations.
+     * Opps with MRR > ceiling cap at 1.0 normalized score. Prevents a single
+     * high-MRR outlier from suppressing all other opps' impact scores.
+     */
     private static Decimal calculateMaxMrr(List<NbaSignalService.OpportunitySignal> signals) {
-        Decimal maxMrr = DEFAULT_MRR_CEILING;
-        for (NbaSignalService.OpportunitySignal sig : signals) {
-            Decimal val = sig.mrr != null ? sig.mrr : (sig.amount != null ? sig.amount : 0);
-            if (val > maxMrr) {
-                maxMrr = val;
-            }
-        }
-        return maxMrr;
+        return DEFAULT_MRR_CEILING;
     }
 
     /**

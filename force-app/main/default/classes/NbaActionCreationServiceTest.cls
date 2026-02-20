@@ -673,4 +673,37 @@ private class NbaActionCreationServiceTest {
 
         System.assertEquals(null, result, 'No matching action should return null');
     }
+
+    // ─── MRR Normalization Tests (Sprint 22) ────────────────────────
+
+    @isTest
+    static void testScoring_HighMrrCappedByFixedCeiling() {
+        // A $200K MRR opp should cap at 1.0 normalized MRR (ceiling = $50K)
+        Opportunity opp = [
+            SELECT Id, AccountId, OwnerId, StageName, Amount, IsClosed
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 2'
+            AND StageName = 'Closing' LIMIT 1
+        ];
+
+        NbaSignalService.OpportunitySignal sig = buildSignal(opp, 5);
+        sig.mrr = 200000;
+        sig.amount = 200000;
+        sig.probPayrollConversion = 50;
+
+        Map<Id, NbaSignalService.OpportunitySignal> signals =
+            new Map<Id, NbaSignalService.OpportunitySignal>{ opp.Id => sig };
+
+        Test.startTest();
+        NbaActionCreationService.CreationResult result =
+            NbaActionCreationService.evaluateAndCreate(signals);
+        Test.stopTest();
+
+        System.assert(!result.actionsToCreate.isEmpty(), 'Should create an action');
+        NBA_Queue__c action = result.actionsToCreate[0];
+        // MRR normalized = min(200000/50000, 1.0) = 1.0
+        // closeProb = 50/100 = 0.50
+        // impact = (0.6 * 1.0) + (0.4 * 0.50) = 0.60 + 0.20 = 0.80
+        System.assert(action.Impact_Score__c >= 0.70 && action.Impact_Score__c <= 0.90,
+            'High MRR should cap at ceiling, not inflate. Got: ' + action.Impact_Score__c);
+    }
 }

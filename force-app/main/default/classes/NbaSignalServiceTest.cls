@@ -281,4 +281,42 @@ private class NbaSignalServiceTest {
         System.assertEquals(1, NbaSignalService.getStageNumber('Unknown Stage'), 'Unknown defaults to 1');
         System.assertEquals(1, NbaSignalService.getStageNumber(null), 'Null defaults to 1');
     }
+
+    // ─── Graceful Degradation Tests (Sprint 22) ─────────────────────
+
+    @isTest
+    static void testGetSignals_EngineWorksWithoutExternalData() {
+        // Verify the engine returns valid signals even when no Talkdesk or
+        // Mogli records exist. The try/catch wrappers ensure the engine
+        // degrades gracefully if those packages are ever removed.
+        Account acc = new Account(Name = 'Degrade Test Account', Entity_ID__c = 'DEG-001');
+        insert acc;
+
+        Id payrollRtId;
+        List<RecordType> rts = [
+            SELECT Id FROM RecordType
+            WHERE SObjectType = 'Opportunity' AND DeveloperName = 'Payroll'
+            LIMIT 1
+        ];
+        if (!rts.isEmpty()) payrollRtId = rts[0].Id;
+
+        Opportunity opp = new Opportunity(
+            Name = 'Degrade Test Opp', AccountId = acc.Id,
+            StageName = 'Consult', CloseDate = Date.today().addDays(30),
+            Amount = 4000, Source__c = 'N/A'
+        );
+        if (payrollRtId != null) opp.RecordTypeId = payrollRtId;
+        insert opp;
+
+        Test.startTest();
+        Map<Id, NbaSignalService.OpportunitySignal> signals =
+            NbaSignalService.getSignals(new Set<Id>{ opp.Id });
+        Test.stopTest();
+
+        NbaSignalService.OpportunitySignal sig = signals.get(opp.Id);
+        System.assertNotEquals(null, sig, 'Signal should exist without external data');
+        System.assertEquals(null, sig.lastCallDate, 'No Talkdesk data expected');
+        System.assertEquals(null, sig.lastSmsDate, 'No Mogli data expected');
+        System.assertEquals(false, sig.hadConnectedCall, 'No connected call without Talkdesk');
+    }
 }

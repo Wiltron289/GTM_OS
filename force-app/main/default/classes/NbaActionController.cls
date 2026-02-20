@@ -204,7 +204,7 @@ public with sharing class NbaActionController {
 
     /**
      * Full on-demand evaluation: query AE's Opps → signals → create → rank → return top.
-     * ~12 SOQL queries (1 Opps + 7 signals + 3-4 CMDT via creation + 1 cooldown via selection).
+     * ~11 SOQL queries (1 Opps + 7 signals + 3 CMDT via creation).
      */
     private static ActionWrapper evaluateOnDemand(Id userId) {
         // Query AE's open Opportunities
@@ -215,6 +215,7 @@ public with sharing class NbaActionController {
               AND IsClosed = false
               AND StageName NOT IN :EXCLUDED_STAGES
             WITH SECURITY_ENFORCED
+            ORDER BY Amount DESC NULLS LAST, CreatedDate DESC
             LIMIT 200
         ];
 

@@ -287,45 +287,57 @@ public with sharing class NbaSignalService {
     private static Map<Id, List<talkdesk__Talkdesk_Activity__c>> queryRecentTalkdesk(Set<Id> oppIds) {
         Map<Id, List<talkdesk__Talkdesk_Activity__c>> resultMap =
             new Map<Id, List<talkdesk__Talkdesk_Activity__c>>();
-        List<talkdesk__Talkdesk_Activity__c> activities = [
-            SELECT Id, talkdesk__Opportunity__c, talkdesk__Type__c,
-                   talkdesk__DispositionCode__r.talkdesk__Label__c,
-                   talkdesk__Total_Talk_Time_sec__c, CreatedDate
-            FROM talkdesk__Talkdesk_Activity__c
-            WHERE talkdesk__Opportunity__c IN :oppIds
-              AND talkdesk__Type__c IN ('Outbound', 'Inbound')
-              AND CreatedDate >= LAST_N_DAYS:7
-            WITH SECURITY_ENFORCED
-            ORDER BY CreatedDate DESC
-            LIMIT 1000
-        ];
-        // Keep all activities per Opp (ordered by most recent first)
-        for (talkdesk__Talkdesk_Activity__c a : activities) {
-            if (!resultMap.containsKey(a.talkdesk__Opportunity__c)) {
-                resultMap.put(a.talkdesk__Opportunity__c, new List<talkdesk__Talkdesk_Activity__c>());
+        try {
+            List<talkdesk__Talkdesk_Activity__c> activities = [
+                SELECT Id, talkdesk__Opportunity__c, talkdesk__Type__c,
+                       talkdesk__DispositionCode__r.talkdesk__Label__c,
+                       talkdesk__Total_Talk_Time_sec__c, CreatedDate
+                FROM talkdesk__Talkdesk_Activity__c
+                WHERE talkdesk__Opportunity__c IN :oppIds
+                  AND talkdesk__Type__c IN ('Outbound', 'Inbound')
+                  AND CreatedDate >= LAST_N_DAYS:7
+                WITH SECURITY_ENFORCED
+                ORDER BY CreatedDate DESC
+                LIMIT 1000
+            ];
+            // Keep all activities per Opp (ordered by most recent first)
+            for (talkdesk__Talkdesk_Activity__c a : activities) {
+                if (!resultMap.containsKey(a.talkdesk__Opportunity__c)) {
+                    resultMap.put(a.talkdesk__Opportunity__c, new List<talkdesk__Talkdesk_Activity__c>());
+                }
+                resultMap.get(a.talkdesk__Opportunity__c).add(a);
             }
-            resultMap.get(a.talkdesk__Opportunity__c).add(a);
+        } catch (Exception e) {
+            System.debug(LoggingLevel.WARN,
+                'NbaSignalService.queryRecentTalkdesk: Query failed (package may be unavailable): '
+                + e.getMessage());
         }
         return resultMap;
     }
 
     private static Map<Id, Mogli_SMS__SMS__c> queryRecentSms(Set<Id> oppIds) {
         Map<Id, Mogli_SMS__SMS__c> resultMap = new Map<Id, Mogli_SMS__SMS__c>();
-        List<Mogli_SMS__SMS__c> messages = [
-            SELECT Id, Mogli_SMS__Opportunity__c, Mogli_SMS__Direction__c,
-                   Mogli_SMS__Status__c, CreatedDate
-            FROM Mogli_SMS__SMS__c
-            WHERE Mogli_SMS__Opportunity__c IN :oppIds
-              AND Mogli_SMS__Status__c != 'Error'
-              AND CreatedDate >= LAST_N_DAYS:7
-            WITH SECURITY_ENFORCED
-            ORDER BY CreatedDate DESC
-            LIMIT 1000
-        ];
-        for (Mogli_SMS__SMS__c m : messages) {
-            if (!resultMap.containsKey(m.Mogli_SMS__Opportunity__c)) {
-                resultMap.put(m.Mogli_SMS__Opportunity__c, m);
+        try {
+            List<Mogli_SMS__SMS__c> messages = [
+                SELECT Id, Mogli_SMS__Opportunity__c, Mogli_SMS__Direction__c,
+                       Mogli_SMS__Status__c, CreatedDate
+                FROM Mogli_SMS__SMS__c
+                WHERE Mogli_SMS__Opportunity__c IN :oppIds
+                  AND Mogli_SMS__Status__c != 'Error'
+                  AND CreatedDate >= LAST_N_DAYS:7
+                WITH SECURITY_ENFORCED
+                ORDER BY CreatedDate DESC
+                LIMIT 1000
+            ];
+            for (Mogli_SMS__SMS__c m : messages) {
+                if (!resultMap.containsKey(m.Mogli_SMS__Opportunity__c)) {
+                    resultMap.put(m.Mogli_SMS__Opportunity__c, m);
+                }
             }
+        } catch (Exception e) {
+            System.debug(LoggingLevel.WARN,
+                'NbaSignalService.queryRecentSms: Query failed (package may be unavailable): '
+                + e.getMessage());
         }
         return resultMap;
     }

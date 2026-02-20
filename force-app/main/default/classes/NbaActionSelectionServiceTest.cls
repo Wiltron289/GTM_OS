@@ -86,16 +86,17 @@ private class NbaActionSelectionServiceTest {
     }
 
     @isTest
-    static void testSelectTop_CooldownFiltered() {
-        // Verify that the cooldown action is NOT returned
+    static void testSelectTop_CooldownGateRemoved() {
+        // CooldownUntil__c gate was removed — suppression handled upstream by
+        // NbaActionCreationService. Action with CooldownUntil__c now passes gating.
         Test.startTest();
         NBA_Queue__c top = NbaActionSelectionService.selectTop(UserInfo.getUserId());
         Test.stopTest();
 
         System.assertNotEquals(null, top, 'Should return an action');
-        // The cooldown action has score 0.60 — it should be filtered out
-        System.assertNotEquals(0.60, top.Priority_Score__c,
-            'Cooldown action should not be selected');
+        // Layer 1 still wins over Layer 3 regardless of cooldown
+        System.assertEquals('Layer 1 - Time Bound', top.Priority_Layer__c,
+            'Layer 1 should still be selected first');
     }
 
     @isTest
@@ -121,14 +122,16 @@ private class NbaActionSelectionServiceTest {
 
     @isTest
     static void testRankActions_SortOrder() {
+        // Query only the 3 manually-created test actions (exclude trigger-created interrupts)
         List<NBA_Queue__c> candidates = [
             SELECT Id, Opportunity__c, Status__c, Action_Type__c,
                    Priority_Score__c, Priority_Layer__c, Priority_Bucket__c,
                    Is_Time_Bound__c, Impact_Score__c, Urgency_Score__c,
-                   CooldownUntil__c, Workflow_Mode__c, Sales_Rep__c, DueAt__c
+                   Workflow_Mode__c, Sales_Rep__c, DueAt__c
             FROM NBA_Queue__c
             WHERE Status__c = 'Pending'
               AND Sales_Rep__c = :UserInfo.getUserId()
+              AND Priority_Score__c IN (0.95, 0.30, 0.60)
         ];
 
         Test.startTest();
@@ -136,11 +139,14 @@ private class NbaActionSelectionServiceTest {
             NbaActionSelectionService.rankActions(candidates);
         Test.stopTest();
 
-        // Should have 2 actions (cooldown one is filtered)
-        System.assertEquals(2, ranked.size(), 'Should have 2 actions after gating (1 in cooldown)');
-        // First should be Layer 1
+        // All 3 manually-created test actions should pass gating (cooldown gate removed)
+        System.assertEquals(3, ranked.size(),
+            'All 3 test actions should pass gating. Got: ' + ranked.size());
+        // First should be Layer 1 (score 0.30)
         System.assertEquals(1, ranked[0].layerRank, 'First ranked should be Layer 1');
-        // Second should be Layer 3 with score 0.95
+        // Remaining should be Layer 3, sorted by score desc (0.95, then 0.60)
         System.assertEquals(3, ranked[1].layerRank, 'Second ranked should be Layer 3');
+        System.assert(ranked[1].finalScore >= ranked[2].finalScore,
+            'Layer 3 actions should be sorted by score descending');
     }
 }

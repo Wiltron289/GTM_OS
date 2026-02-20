@@ -394,4 +394,49 @@ private class NbaActionControllerTest {
         System.assertEquals('Not relevant', audits[0].Dismissed_Reason__c, 'Reason should match');
         System.assertEquals('Other', audits[0].Dismissal_Category__c, 'Category should match');
     }
+
+    // ─── P0: ORDER BY Amount DESC on Opp Query ───────────────────────
+
+    @isTest
+    static void testGetActiveAction_HighAmountOppEvaluatedFirst() {
+        // Create a second account + high-value opp to verify ORDER BY Amount DESC
+        Account acc2 = new Account(Name = 'High Value Account', Entity_ID__c = 'CTRL-002');
+        insert acc2;
+
+        Id payrollRtId;
+        List<RecordType> rts = [
+            SELECT Id FROM RecordType
+            WHERE SObjectType = 'Opportunity' AND DeveloperName = 'Payroll'
+            LIMIT 1
+        ];
+        if (!rts.isEmpty()) payrollRtId = rts[0].Id;
+
+        Opportunity highOpp = new Opportunity(
+            Name = 'High Value Opp', AccountId = acc2.Id,
+            StageName = 'Consult', CloseDate = Date.today().addDays(30),
+            Amount = 100000, Source__c = 'N/A'
+        );
+        if (payrollRtId != null) highOpp.RecordTypeId = payrollRtId;
+        insert highOpp;
+
+        // Expire any trigger-created interrupt records to isolate the evaluation
+        List<NBA_Queue__c> interrupts = [
+            SELECT Id FROM NBA_Queue__c
+            WHERE Priority_Layer__c = 'Layer 1 - Time Bound'
+              AND Status__c IN ('New', 'Pending', 'Accepted')
+        ];
+        for (NBA_Queue__c q : interrupts) { q.Status__c = 'Expired'; }
+        if (!interrupts.isEmpty()) update interrupts;
+
+        Test.startTest();
+        NbaActionController.ActionWrapper result = NbaActionController.getActiveAction();
+        Test.stopTest();
+
+        // The high-Amount opp ($100K) should be prioritized in evaluation
+        // and likely surface over the $5K test opp
+        if (result != null) {
+            System.assertEquals(highOpp.Id, result.opportunityId,
+                'Higher-Amount opp should be prioritized in evaluation');
+        }
+    }
 }

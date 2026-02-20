@@ -2,8 +2,8 @@
  * NbaActionSelectionService — Gate/Bucket/Rank prioritization for NBA V2 engine.
  *
  * Lightweight selection layer. Most scoring and bucketing happens at creation
- * time in NbaActionCreationService. This service applies final gating (cooldown,
- * mode filter) and selects the top-ranked Pending action for an AE.
+ * time in NbaActionCreationService. This service applies final gating (mode
+ * filter) and selects the top-ranked Pending action for an AE.
  *
  * Called by NbaActionController.evaluateOnDemand() during on-demand evaluation.
  */
@@ -54,7 +54,7 @@ public with sharing class NbaActionSelectionService {
             SELECT Id, Opportunity__c, Status__c, Action_Type__c,
                    Priority_Score__c, Priority_Layer__c, Priority_Bucket__c,
                    Is_Time_Bound__c, Impact_Score__c, Urgency_Score__c,
-                   CooldownUntil__c, Workflow_Mode__c, Sales_Rep__c, DueAt__c,
+                   Workflow_Mode__c, Sales_Rep__c, DueAt__c,
                    Action_Instruction__c, ReasonText__c
             FROM NBA_Queue__c
             WHERE Sales_Rep__c = :aeUserId
@@ -81,26 +81,14 @@ public with sharing class NbaActionSelectionService {
      * Returns sorted list (Layer ASC, Score DESC) with only passing actions.
      */
     public static List<RankedAction> rankActions(List<NBA_Queue__c> candidates) {
-        // Load cooldown rules (cached, 0 SOQL)
-        Map<String, NBA_Cooldown_Rule__mdt> cooldownMap = new Map<String, NBA_Cooldown_Rule__mdt>();
-        for (NBA_Cooldown_Rule__mdt rule : [
-            SELECT Method__c, Min_Spacing_Minutes__c, Daily_Cap__c
-            FROM NBA_Cooldown_Rule__mdt
-            WHERE Is_Active__c = true
-        ]) {
-            cooldownMap.put(rule.Method__c, rule);
-        }
+        // NOTE: NBA_Cooldown_Rule__mdt records exist (Call/SMS/Email spacing) but are
+        // not applied in on-demand ranking. Suppression is handled upstream by
+        // NbaActionCreationService via signal.lastCompletedDate + NBA_Suppression_Rule__mdt.
 
         // Step 1: Gate filter
         List<RankedAction> ranked = new List<RankedAction>();
         for (NBA_Queue__c candidate : candidates) {
             RankedAction ra = new RankedAction(candidate);
-
-            // Cooldown gate
-            if (candidate.CooldownUntil__c != null
-                && candidate.CooldownUntil__c > Datetime.now()) {
-                ra.passedGate = false;
-            }
 
             // Mode gate (Phase 2: Pipeline only)
             if (candidate.Workflow_Mode__c != null
