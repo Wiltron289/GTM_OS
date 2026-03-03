@@ -72,6 +72,11 @@
                 <label>Blitz Outreach</label>
             </value>
             <value>
+                <fullName>Call Completed</fullName>
+                <default>false</default>
+                <label>Call Completed</label>
+            </value>
+            <value>
                 <fullName>Demo</fullName>
                 <default>false</default>
                 <isActive>false</isActive>

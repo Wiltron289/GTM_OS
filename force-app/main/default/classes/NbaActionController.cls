@@ -86,7 +86,8 @@ public with sharing class NbaActionController {
                    Action_Instruction__c, ReasonText__c, Priority_Layer__c,
                    Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
                    DueAt__c, Status__c, UniqueKey__c,
-                   Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
+                   Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName,
+                   Talkdesk_Activity__c, Talkdesk_Disposition__c, Talk_Time_Sec__c, Rep_Notes__c
             FROM NBA_Queue__c
             WHERE Id = :actionId
               AND Status__c IN ('New', 'Pending', 'Accepted')
@@ -200,6 +201,51 @@ public with sharing class NbaActionController {
         return buildResultFromEvaluation(userId);
     }
 
+    // ─── Call Notes: Save & Complete ────────────────────────────────
+
+    /**
+     * Save call notes as a ContentNote linked to the Opportunity,
+     * close the Call Completed interrupt, and complete the current action.
+     * @param callCompletedActionId The "Call Completed" interrupt NBA_Queue__c ID
+     * @param opportunityId The Opportunity to save notes to
+     * @param notes Edited call notes (may be blank)
+     * @param currentActionType The scored-queue action type being completed
+     * @param stepOutcome Cadence step outcome
+     * @return ActionResultWrapper with next action
+     */
+    @AuraEnabled
+    public static ActionResultWrapper saveCallNotesAndComplete(
+        Id callCompletedActionId, Id opportunityId, String notes,
+        String currentActionType, String stepOutcome
+    ) {
+        // 1. Save notes as ContentNote linked to Opportunity
+        if (String.isNotBlank(notes)) {
+            ContentNote cn = new ContentNote();
+            cn.Title = 'Call Notes';
+            cn.Content = Blob.valueOf(notes);
+            insert cn;
+
+            ContentDocumentLink cdl = new ContentDocumentLink();
+            cdl.ContentDocumentId = cn.Id;
+            cdl.LinkedEntityId = opportunityId;
+            cdl.ShareType = 'V';
+            insert cdl;
+        }
+
+        // 2. Close the Call Completed interrupt record
+        if (callCompletedActionId != null) {
+            NBA_Queue__c interrupt = new NBA_Queue__c(
+                Id = callCompletedActionId,
+                Status__c = 'Completed',
+                Completed_Date__c = Datetime.now()
+            );
+            update interrupt;
+        }
+
+        // 3. Complete the current scored-queue action + re-evaluate
+        return completeAction(null, opportunityId, currentActionType, stepOutcome);
+    }
+
     // ─── On-Demand Evaluation Pipeline ──────────────────────────────
 
     /**
@@ -298,7 +344,8 @@ public with sharing class NbaActionController {
                    Action_Instruction__c, ReasonText__c, Priority_Layer__c,
                    Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
                    DueAt__c, Status__c, UniqueKey__c,
-                   Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
+                   Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName,
+                   Talkdesk_Activity__c, Talkdesk_Disposition__c, Talk_Time_Sec__c, Rep_Notes__c
             FROM NBA_Queue__c
             WHERE Sales_Rep__c = :userId
               AND Priority_Layer__c = 'Layer 1 - Time Bound'
@@ -355,6 +402,14 @@ public with sharing class NbaActionController {
             if (parts.size() >= 4) {
                 w.eventId = parts[3];
             }
+        }
+
+        // Map Talkdesk/Call Completed fields
+        if (action.Action_Type__c == 'Call Completed') {
+            w.talkdeskActivityId = action.Talkdesk_Activity__c;
+            w.callNotes = action.Rep_Notes__c;
+            w.callDisposition = action.Talkdesk_Disposition__c;
+            w.talkTimeSec = action.Talk_Time_Sec__c;
         }
 
         // Layer 1 time-bound actions are meetings, not cadence
@@ -454,6 +509,11 @@ public with sharing class NbaActionController {
         @AuraEnabled public List<String> upcomingSteps; // Next 2-3 step previews
         @AuraEnabled public Boolean isCadenceAction;
         @AuraEnabled public String eventId;          // Event ID parsed from UniqueKey for Meeting actions
+        // Call Completed fields (Post-Call Notes Capture)
+        @AuraEnabled public Id talkdeskActivityId;     // Talkdesk Activity record ID
+        @AuraEnabled public String callNotes;           // Pre-populated from talkdesk__Notes__c via Rep_Notes__c
+        @AuraEnabled public String callDisposition;     // From Talkdesk_Disposition__c formula
+        @AuraEnabled public Decimal talkTimeSec;        // From Talk_Time_Sec__c formula
     }
 
     public class ActionResultWrapper {

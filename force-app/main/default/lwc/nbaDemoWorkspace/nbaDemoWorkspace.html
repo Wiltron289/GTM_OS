@@ -144,6 +144,15 @@
             </c-nba-action-bar>
         </template>
 
+        <!-- Call Notes Capture Overlay (Post-Call Notes) -->
+        <template lwc:if={showCallNoteCapture}>
+            <c-nba-call-note-capture
+                call-note={_pendingCallNote}
+                onsavecallnotes={handleSaveCallNotes}
+                onskipcallnotes={handleSkipCallNotes}>
+            </c-nba-call-note-capture>
+        </template>
+
         <!-- Email Modal (conditional) -->
         <template lwc:if={showEmailModal}>
             <c-nba-demo-email-modal

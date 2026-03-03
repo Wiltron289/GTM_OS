@@ -8,6 +8,7 @@ import acceptInterrupt from '@salesforce/apex/NbaActionController.acceptInterrup
 import completeAction from '@salesforce/apex/NbaActionController.completeAction';
 import snoozeAction from '@salesforce/apex/NbaActionController.snoozeAction';
 import dismissAction from '@salesforce/apex/NbaActionController.dismissAction';
+import saveCallNotesAndComplete from '@salesforce/apex/NbaActionController.saveCallNotesAndComplete';
 
 export default class NbaDemoWorkspace extends LightningElement {
     @api recordId;
@@ -40,6 +41,7 @@ export default class NbaDemoWorkspace extends LightningElement {
     // ── Two-stream: interrupt state ─────────────────────────
     pendingInterrupts = [];     // List of interrupt ActionWrappers from checkInterrupts
     _pausedAction = null;       // Saved scored-queue action when rep jumps to interrupt
+    _pendingCallNote = null;    // ActionWrapper for a Call Completed interrupt matching current Opp
 
     // Data properties populated from the Apex wrapper
     headerData;
@@ -196,10 +198,25 @@ export default class NbaDemoWorkspace extends LightningElement {
         try {
             const interrupts = await checkInterrupts();
             // Filter out any interrupt the rep already dismissed this session
-            const newInterrupts = (interrupts || []).filter(
+            const filtered = (interrupts || []).filter(
                 (i) => !this._dismissedInterruptIds.has(i.actionId)
             );
-            this.pendingInterrupts = newInterrupts;
+
+            // Separate Call Completed interrupts matching current Opp
+            const callCompleted = filtered.find(
+                (i) =>
+                    i.actionType === 'Call Completed' &&
+                    i.opportunityId === this.currentAction?.opportunityId
+            );
+
+            if (callCompleted && !this._pendingCallNote) {
+                this._pendingCallNote = callCompleted;
+            }
+
+            // Regular interrupts (exclude all Call Completed — handled separately)
+            this.pendingInterrupts = filtered.filter(
+                (i) => i.actionType !== 'Call Completed'
+            );
         } catch (err) {
             // Silent fail on polling — don't disrupt the UI
         }
@@ -224,6 +241,10 @@ export default class NbaDemoWorkspace extends LightningElement {
 
     get showActionBar() {
         return this.isActionMode && this.currentAction;
+    }
+
+    get showCallNoteCapture() {
+        return this.isActionMode && this._pendingCallNote != null;
     }
 
     get showEventDetails() {
@@ -280,6 +301,37 @@ export default class NbaDemoWorkspace extends LightningElement {
         this.pendingInterrupts = this.pendingInterrupts.filter(
             (i) => i.actionId !== actionId
         );
+    }
+
+    // ────────────────────────────────────────────
+    // Call Notes capture handlers
+    // ────────────────────────────────────────────
+    async handleSaveCallNotes(event) {
+        const { callCompletedActionId, notes, stepOutcome } = event.detail;
+        this.isTransitioning = true;
+        this._pendingCallNote = null;
+        try {
+            const result = await saveCallNotesAndComplete({
+                callCompletedActionId,
+                opportunityId: this.currentAction?.opportunityId,
+                notes,
+                currentActionType: this.currentAction?.actionType,
+                stepOutcome: stepOutcome || null
+            });
+            await this._handleActionResult(result);
+        } catch (err) {
+            this.error = err;
+            this.isTransitioning = false;
+        }
+    }
+
+    handleSkipCallNotes(event) {
+        const { callCompletedActionId } = event.detail;
+        // Dismiss the overlay — add to dismissed set so it doesn't reappear
+        if (callCompletedActionId) {
+            this._dismissedInterruptIds.add(callCompletedActionId);
+        }
+        this._pendingCallNote = null;
     }
 
     // ────────────────────────────────────────────
