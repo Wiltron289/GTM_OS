@@ -50,6 +50,12 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
                 WHERE Account.Name = 'TDActivity Test Account' LIMIT 1];
     }
 
+    private static Integer tdIdCounter = 0;
+    private static String nextTalkdeskId() {
+        tdIdCounter++;
+        return 'TEST-TD-' + String.valueOf(Datetime.now().getTime()) + '-' + tdIdCounter;
+    }
+
     // ─── Insert with Opp Link → Creates Call Completed ──────────────
 
     @isTest
@@ -59,6 +65,7 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         NbaTriggerContext.resetAll();
 
         talkdesk__Talkdesk_Activity__c ta = new talkdesk__Talkdesk_Activity__c(
+            talkdesk__Talkdesk_Id__c = nextTalkdeskId(),
             talkdesk__Opportunity__c = opp.Id,
             talkdesk__Type__c = 'Outbound',
             talkdesk__Notes__c = 'Discussed premium tier pricing. Follow up next week.'
@@ -101,6 +108,7 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         NbaTriggerContext.resetAll();
 
         talkdesk__Talkdesk_Activity__c ta = new talkdesk__Talkdesk_Activity__c(
+            talkdesk__Talkdesk_Id__c = nextTalkdeskId(),
             talkdesk__Type__c = 'Outbound',
             talkdesk__Notes__c = 'General call, no opp.'
         );
@@ -128,6 +136,7 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
 
         // Insert without Opp
         talkdesk__Talkdesk_Activity__c ta = new talkdesk__Talkdesk_Activity__c(
+            talkdesk__Talkdesk_Id__c = nextTalkdeskId(),
             talkdesk__Type__c = 'Outbound',
             talkdesk__Notes__c = 'Call notes added later.'
         );
@@ -170,6 +179,7 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         NbaTriggerContext.resetAll();
 
         talkdesk__Talkdesk_Activity__c ta = new talkdesk__Talkdesk_Activity__c(
+            talkdesk__Talkdesk_Id__c = nextTalkdeskId(),
             talkdesk__Opportunity__c = opp.Id,
             talkdesk__Type__c = 'Outbound',
             talkdesk__Notes__c = 'First call.'
@@ -229,6 +239,7 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         List<talkdesk__Talkdesk_Activity__c> activities = new List<talkdesk__Talkdesk_Activity__c>();
         for (Integer i = 0; i < 200; i++) {
             activities.add(new talkdesk__Talkdesk_Activity__c(
+                talkdesk__Talkdesk_Id__c = 'BULK-' + String.valueOf(Datetime.now().getTime()) + '-' + i,
                 talkdesk__Opportunity__c = Math.mod(i, 2) == 0 ? opp.Id : opp2.Id,
                 talkdesk__Type__c = 'Outbound',
                 talkdesk__Notes__c = 'Bulk call note ' + i
@@ -270,6 +281,7 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         NbaTriggerContext.resetAll();
 
         talkdesk__Talkdesk_Activity__c ta = new talkdesk__Talkdesk_Activity__c(
+            talkdesk__Talkdesk_Id__c = nextTalkdeskId(),
             talkdesk__Opportunity__c = opp.Id,
             talkdesk__Type__c = 'Outbound',
             talkdesk__Notes__c = 'Cache invalidation test.'
