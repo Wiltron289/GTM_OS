@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Disposition__c</fullName>
+    <description>Disposition label from talkdesk__DispositionCode__r.talkdesk__Label__c</description>
+    <label>Disposition</label>
+    <length>255</length>
+    <type>Text</type>
+</CustomField>

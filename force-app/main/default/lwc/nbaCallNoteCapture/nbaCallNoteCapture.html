@@ -30,8 +30,8 @@
                 <textarea
                     id="call-notes-input"
                     class="notes-textarea"
-                    value={editedNotes}
-                    onchange={handleNotesChange}
+                    value={notesValue}
+                    oninput={handleNotesChange}
                     rows="5"
                     placeholder="Add call notes..."></textarea>
             </div>

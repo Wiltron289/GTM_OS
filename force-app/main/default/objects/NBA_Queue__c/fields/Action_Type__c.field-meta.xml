@@ -74,6 +74,7 @@
             <value>
                 <fullName>Call Completed</fullName>
                 <default>false</default>
+                <isActive>false</isActive>
                 <label>Call Completed</label>
             </value>
             <value>

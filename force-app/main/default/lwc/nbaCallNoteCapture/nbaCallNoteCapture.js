@@ -1,15 +1,27 @@
 import { LightningElement, api } from 'lwc';
 
 export default class NbaCallNoteCapture extends LightningElement {
-    @api callNote; // ActionWrapper for the Call Completed interrupt
+    @api callNote; // Platform Event payload object with callNotes, callDisposition, talkTimeSec, etc.
 
-    editedNotes = '';
-    _initialized = false;
+    _userEditedNotes = null; // null = user hasn't edited yet; use callNote.callNotes
+    _domInitialized = false;
+
+    get notesValue() {
+        if (this._userEditedNotes !== null) {
+            return this._userEditedNotes;
+        }
+        return this.callNote?.callNotes || '';
+    }
 
     renderedCallback() {
-        if (!this._initialized && this.callNote) {
-            this.editedNotes = this.callNote.callNotes || '';
-            this._initialized = true;
+        // Belt-and-suspenders: directly set DOM textarea value
+        // in case value={} binding doesn't propagate on native <textarea>
+        if (!this._domInitialized && this.callNote?.callNotes) {
+            const ta = this.template.querySelector('.notes-textarea');
+            if (ta && !ta.value) {
+                ta.value = this.callNote.callNotes;
+            }
+            this._domInitialized = true;
         }
     }
 
@@ -48,15 +60,14 @@ export default class NbaCallNoteCapture extends LightningElement {
     // ── Event Handlers ───────────────────────────────────
 
     handleNotesChange(event) {
-        this.editedNotes = event.target.value;
+        this._userEditedNotes = event.target.value;
     }
 
     handleSave() {
         this.dispatchEvent(
             new CustomEvent('savecallnotes', {
                 detail: {
-                    callCompletedActionId: this.callNote?.actionId,
-                    notes: this.editedNotes,
+                    notes: this.notesValue,
                     stepOutcome: null
                 }
             })
@@ -66,9 +77,7 @@ export default class NbaCallNoteCapture extends LightningElement {
     handleSkip() {
         this.dispatchEvent(
             new CustomEvent('skipcallnotes', {
-                detail: {
-                    callCompletedActionId: this.callNote?.actionId
-                }
+                detail: {}
             })
         );
     }

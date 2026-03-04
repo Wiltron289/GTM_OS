@@ -1,5 +1,6 @@
 import { LightningElement, api, wire } from 'lwc';
 import { refreshApex } from '@salesforce/apex';
+import { subscribe, unsubscribe, onError } from 'lightning/empApi';
 import Id from '@salesforce/user/Id';
 import getPageData from '@salesforce/apex/NbaDemoController.getPageData';
 import getActiveAction from '@salesforce/apex/NbaActionController.getActiveAction';
@@ -8,7 +9,7 @@ import acceptInterrupt from '@salesforce/apex/NbaActionController.acceptInterrup
 import completeAction from '@salesforce/apex/NbaActionController.completeAction';
 import snoozeAction from '@salesforce/apex/NbaActionController.snoozeAction';
 import dismissAction from '@salesforce/apex/NbaActionController.dismissAction';
-import saveCallNotesAndComplete from '@salesforce/apex/NbaActionController.saveCallNotesAndComplete';
+import saveCallNotes from '@salesforce/apex/NbaActionController.saveCallNotes';
 
 export default class NbaDemoWorkspace extends LightningElement {
     @api recordId;
@@ -41,7 +42,10 @@ export default class NbaDemoWorkspace extends LightningElement {
     // ── Two-stream: interrupt state ─────────────────────────
     pendingInterrupts = [];     // List of interrupt ActionWrappers from checkInterrupts
     _pausedAction = null;       // Saved scored-queue action when rep jumps to interrupt
-    _pendingCallNote = null;    // ActionWrapper for a Call Completed interrupt matching current Opp
+    _pendingCallNote = null;    // Platform Event payload for Call Completed overlay
+
+    // ── Platform Event subscription ─────────────────────────
+    _callCompletedSubscription = null;
 
     // Data properties populated from the Apex wrapper
     headerData;
@@ -68,6 +72,9 @@ export default class NbaDemoWorkspace extends LightningElement {
             // App Page mode — no recordId injected
             this.isActionMode = true;
             this._loadActiveAction();
+
+            // Subscribe to Call Completed Platform Events
+            this._subscribeToCallCompletedEvents();
 
             // 15s poll: lightweight interrupt check (Stream 2 — meetings + new assignments)
             // eslint-disable-next-line @lwc/lwc/no-async-operation
@@ -96,6 +103,63 @@ export default class NbaDemoWorkspace extends LightningElement {
             clearInterval(this._fullRefreshInterval);
             this._fullRefreshInterval = null;
         }
+        // Unsubscribe from Platform Event channel
+        if (this._callCompletedSubscription) {
+            unsubscribe(this._callCompletedSubscription, () => {
+                this._callCompletedSubscription = null;
+            });
+        }
+    }
+
+    // ────────────────────────────────────────────
+    // Platform Event: Call Completed subscription
+    // ────────────────────────────────────────────
+    _subscribeToCallCompletedEvents() {
+        const channel = '/event/Call_Completed_Event__e';
+
+        // Register error listener
+        onError((error) => {
+            console.error('[nbaDemoWorkspace] empApi error:', JSON.stringify(error));
+        });
+
+        subscribe(channel, -1, (message) => {
+            this._handleCallCompletedEvent(message);
+        }).then((subscription) => {
+            this._callCompletedSubscription = subscription;
+        });
+    }
+
+    _handleCallCompletedEvent(message) {
+        const payload = message.data?.payload;
+        if (!payload) {
+            return;
+        }
+
+        // Filter: only events for the current user
+        if (payload.Sales_Rep_Id__c !== this.userId) {
+            return;
+        }
+
+        // Filter: only events matching the currently displayed Opportunity
+        if (payload.Opportunity_Id__c !== this.currentAction?.opportunityId) {
+            return;
+        }
+
+        // Don't overwrite an existing pending call note
+        if (this._pendingCallNote) {
+            return;
+        }
+
+        // Build the call note object matching what nbaCallNoteCapture expects
+        this._pendingCallNote = {
+            opportunityId: payload.Opportunity_Id__c,
+            activityId: payload.Activity_Id__c,
+            callNotes: payload.Call_Notes__c,
+            callDisposition: payload.Disposition__c,
+            talkTimeSec: payload.Talk_Time_Sec__c,
+            accountName: payload.Account_Name__c,
+            oppName: payload.Opp_Name__c
+        };
     }
 
     // ────────────────────────────────────────────
@@ -202,21 +266,8 @@ export default class NbaDemoWorkspace extends LightningElement {
                 (i) => !this._dismissedInterruptIds.has(i.actionId)
             );
 
-            // Separate Call Completed interrupts matching current Opp
-            const callCompleted = filtered.find(
-                (i) =>
-                    i.actionType === 'Call Completed' &&
-                    i.opportunityId === this.currentAction?.opportunityId
-            );
-
-            if (callCompleted && !this._pendingCallNote) {
-                this._pendingCallNote = callCompleted;
-            }
-
-            // Regular interrupts (exclude all Call Completed — handled separately)
-            this.pendingInterrupts = filtered.filter(
-                (i) => i.actionType !== 'Call Completed'
-            );
+            // Regular interrupts only (Call Completed now handled via Platform Events)
+            this.pendingInterrupts = filtered;
         } catch (err) {
             // Silent fail on polling — don't disrupt the UI
         }
@@ -307,30 +358,22 @@ export default class NbaDemoWorkspace extends LightningElement {
     // Call Notes capture handlers
     // ────────────────────────────────────────────
     async handleSaveCallNotes(event) {
-        const { callCompletedActionId, notes, stepOutcome } = event.detail;
+        const { notes } = event.detail;
         this.isTransitioning = true;
         this._pendingCallNote = null;
         try {
-            const result = await saveCallNotesAndComplete({
-                callCompletedActionId,
+            await saveCallNotes({
                 opportunityId: this.currentAction?.opportunityId,
-                notes,
-                currentActionType: this.currentAction?.actionType,
-                stepOutcome: stepOutcome || null
+                notes
             });
-            await this._handleActionResult(result);
         } catch (err) {
             this.error = err;
+        } finally {
             this.isTransitioning = false;
         }
     }
 
-    handleSkipCallNotes(event) {
-        const { callCompletedActionId } = event.detail;
-        // Dismiss the overlay — add to dismissed set so it doesn't reappear
-        if (callCompletedActionId) {
-            this._dismissedInterruptIds.add(callCompletedActionId);
-        }
+    handleSkipCallNotes() {
         this._pendingCallNote = null;
     }
 

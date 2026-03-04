@@ -2,11 +2,10 @@
  * Test class for NbaTalkdeskActivityTriggerHandler + TalkdeskActivityTrigger.
  *
  * Verifies:
- * - Insert with Opp link creates "Call Completed" NBA_Queue__c record
- * - Insert without Opp link creates nothing
- * - Update that adds Opp link creates record
- * - Duplicate suppression (same activity ID in UniqueKey)
- * - Bulk insert (200 activities) — governor limits safe
+ * - Insert with Opp link publishes Call_Completed_Event__e with correct fields
+ * - Insert without Opp link publishes nothing
+ * - Update that adds Opp link publishes event
+ * - Bulk insert (200 activities) publishes 200 events without governor limit breach
  * - Cache invalidation for affected AEs
  */
 @isTest
@@ -46,7 +45,7 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
     // ─── Helpers ────────────────────────────────────────────────────
 
     private static Opportunity getTestOpp() {
-        return [SELECT Id, AccountId, OwnerId FROM Opportunity
+        return [SELECT Id, AccountId, OwnerId, Name, Account.Name FROM Opportunity
                 WHERE Account.Name = 'TDActivity Test Account' LIMIT 1];
     }
 
@@ -56,10 +55,10 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         return 'TEST-TD-' + String.valueOf(Datetime.now().getTime()) + '-' + tdIdCounter;
     }
 
-    // ─── Insert with Opp Link → Creates Call Completed ──────────────
+    // ─── Insert with Opp Link → Publishes Event ─────────────────────
 
     @isTest
-    static void testInsertWithOppLink() {
+    static void testInsertWithOppLink_PublishesEvent() {
         Opportunity opp = getTestOpp();
 
         NbaTriggerContext.resetAll();
@@ -75,37 +74,25 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         insert ta;
         Test.stopTest();
 
-        List<NBA_Queue__c> created = [
-            SELECT Id, Action_Type__c, Status__c, Opportunity__c, Account__c,
-                   Sales_Rep__c, Talkdesk_Activity__c, Rep_Notes__c,
-                   Action_Instruction__c, Rule_Name__c, UniqueKey__c,
-                   Priority_Layer__c, Is_Time_Bound__c
-            FROM NBA_Queue__c
-            WHERE Action_Type__c = 'Call Completed'
-              AND Talkdesk_Activity__c = :ta.Id
-        ];
+        List<Call_Completed_Event__e> events = NbaTalkdeskActivityTriggerHandler.lastPublishedEvents;
 
-        System.assertEquals(1, created.size(), 'Should create 1 Call Completed record');
-        NBA_Queue__c rec = created[0];
-        System.assertEquals(opp.Id, rec.Opportunity__c, 'Opp should match');
-        System.assertEquals(opp.AccountId, rec.Account__c, 'Account should match');
-        System.assertEquals(opp.OwnerId, rec.Sales_Rep__c, 'Sales Rep should match Opp owner');
-        System.assertEquals('Pending', rec.Status__c, 'Status should be Pending');
-        System.assertEquals(ta.Id, rec.Talkdesk_Activity__c, 'Talkdesk Activity should be linked');
-        System.assertEquals('Discussed premium tier pricing. Follow up next week.', rec.Rep_Notes__c,
-            'Notes should be pre-populated from Talkdesk');
-        System.assertEquals('Review and save call notes', rec.Action_Instruction__c, 'Instruction should match');
-        System.assertEquals('CallCompleted_Interrupt', rec.Rule_Name__c, 'Rule name should match');
-        System.assertEquals('Layer 1 - Time Bound', rec.Priority_Layer__c, 'Priority layer should be L1');
-        System.assertEquals(false, rec.Is_Time_Bound__c, 'Should be non-time-bound');
-        System.assert(rec.UniqueKey__c.contains('CallCompleted'), 'UniqueKey should contain CallCompleted');
+        System.assertNotEquals(null, events, 'Should have published events');
+        System.assertEquals(1, events.size(), 'Should publish 1 event');
+
+        Call_Completed_Event__e evt = events[0];
+        System.assertEquals(String.valueOf(opp.Id), evt.Opportunity_Id__c, 'Opp ID should match');
+        System.assertEquals(String.valueOf(ta.Id), evt.Activity_Id__c, 'Activity ID should match');
+        System.assertEquals(String.valueOf(opp.OwnerId), evt.Sales_Rep_Id__c, 'Sales Rep should match Opp owner');
+        System.assertEquals(opp.Account.Name, evt.Account_Name__c, 'Account name should match');
+        System.assertEquals(opp.Name, evt.Opp_Name__c, 'Opp name should match');
     }
 
-    // ─── Insert without Opp Link → No Record ───────────────────────
+    // ─── Insert without Opp Link → No Event ────────────────────────
 
     @isTest
-    static void testInsertWithoutOppLink() {
+    static void testInsertWithoutOppLink_NoEvent() {
         NbaTriggerContext.resetAll();
+        NbaTalkdeskActivityTriggerHandler.lastPublishedEvents = null;
 
         talkdesk__Talkdesk_Activity__c ta = new talkdesk__Talkdesk_Activity__c(
             talkdesk__Talkdesk_Id__c = nextTalkdeskId(),
@@ -117,19 +104,14 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         insert ta;
         Test.stopTest();
 
-        List<NBA_Queue__c> created = [
-            SELECT Id FROM NBA_Queue__c
-            WHERE Action_Type__c = 'Call Completed'
-              AND Talkdesk_Activity__c = :ta.Id
-        ];
-
-        System.assertEquals(0, created.size(), 'Should NOT create record when no Opp linked');
+        List<Call_Completed_Event__e> events = NbaTalkdeskActivityTriggerHandler.lastPublishedEvents;
+        System.assertEquals(null, events, 'Should NOT publish events when no Opp linked');
     }
 
-    // ─── Update: Add Opp Link → Creates Record ─────────────────────
+    // ─── Update: Add Opp Link → Publishes Event ────────────────────
 
     @isTest
-    static void testUpdateNewOppLink() {
+    static void testUpdateNewOppLink_PublishesEvent() {
         Opportunity opp = getTestOpp();
 
         NbaTriggerContext.resetAll();
@@ -142,16 +124,9 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         );
         insert ta;
 
-        // Verify no record created yet
-        List<NBA_Queue__c> beforeUpdate = [
-            SELECT Id FROM NBA_Queue__c
-            WHERE Action_Type__c = 'Call Completed'
-              AND Talkdesk_Activity__c = :ta.Id
-        ];
-        System.assertEquals(0, beforeUpdate.size(), 'No record before Opp link');
-
-        // Reset recursion guard for the update trigger
+        // Reset recursion guard and clear published events for the update trigger
         NbaTriggerContext.resetAll();
+        NbaTalkdeskActivityTriggerHandler.lastPublishedEvents = null;
 
         // Update to add Opp link
         ta.talkdesk__Opportunity__c = opp.Id;
@@ -160,57 +135,17 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         update ta;
         Test.stopTest();
 
-        List<NBA_Queue__c> afterUpdate = [
-            SELECT Id, Opportunity__c FROM NBA_Queue__c
-            WHERE Action_Type__c = 'Call Completed'
-              AND Talkdesk_Activity__c = :ta.Id
-        ];
+        List<Call_Completed_Event__e> events = NbaTalkdeskActivityTriggerHandler.lastPublishedEvents;
 
-        System.assertEquals(1, afterUpdate.size(), 'Should create record when Opp linked via update');
-        System.assertEquals(opp.Id, afterUpdate[0].Opportunity__c, 'Opp should match');
-    }
-
-    // ─── Duplicate Suppression ──────────────────────────────────────
-
-    @isTest
-    static void testDuplicateSuppression() {
-        Opportunity opp = getTestOpp();
-
-        NbaTriggerContext.resetAll();
-
-        talkdesk__Talkdesk_Activity__c ta = new talkdesk__Talkdesk_Activity__c(
-            talkdesk__Talkdesk_Id__c = nextTalkdeskId(),
-            talkdesk__Opportunity__c = opp.Id,
-            talkdesk__Type__c = 'Outbound',
-            talkdesk__Notes__c = 'First call.'
-        );
-        insert ta;
-
-        // Manually create the NBA_Queue__c record with matching UniqueKey
-        // to simulate an already-existing record
-        Integer countAfterFirst = [
-            SELECT COUNT() FROM NBA_Queue__c
-            WHERE Action_Type__c = 'Call Completed' AND Talkdesk_Activity__c = :ta.Id
-        ];
-        System.assertEquals(1, countAfterFirst, 'Should have 1 record after first insert');
-
-        // Reset and trigger update (which re-fires handler)
-        NbaTriggerContext.resetAll();
-        ta.talkdesk__Notes__c = 'Updated notes';
-        // This update won't qualify (Opp was already set, not changed from null)
-        update ta;
-
-        Integer countAfterUpdate = [
-            SELECT COUNT() FROM NBA_Queue__c
-            WHERE Action_Type__c = 'Call Completed' AND Talkdesk_Activity__c = :ta.Id
-        ];
-        System.assertEquals(1, countAfterUpdate, 'Should still have only 1 record (no duplicate)');
+        System.assertNotEquals(null, events, 'Should have published events on Opp link update');
+        System.assertEquals(1, events.size(), 'Should publish 1 event');
+        System.assertEquals(String.valueOf(opp.Id), events[0].Opportunity_Id__c, 'Opp ID should match');
     }
 
     // ─── Bulk Test ──────────────────────────────────────────────────
 
     @isTest
-    static void testBulk() {
+    static void testBulk_PublishesEvents() {
         Opportunity opp = getTestOpp();
 
         // Create a second account + opp (one Payroll opp per account validation)
@@ -250,15 +185,10 @@ private class NbaTalkdeskActivityTriggerHandlerTest {
         insert activities;
         Test.stopTest();
 
-        // Verify records created (governor limits not exceeded)
-        Integer callCompletedCount = [
-            SELECT COUNT() FROM NBA_Queue__c
-            WHERE Action_Type__c = 'Call Completed'
-        ];
-        System.assert(callCompletedCount > 0,
-            'Should create Call Completed records from bulk insert');
-        System.assert(callCompletedCount <= 200,
-            'Should not exceed the number of activities inserted');
+        List<Call_Completed_Event__e> events = NbaTalkdeskActivityTriggerHandler.lastPublishedEvents;
+
+        System.assertNotEquals(null, events, 'Should have published events');
+        System.assertEquals(200, events.size(), 'Should publish 200 events for 200 activities');
     }
 
     // ─── Cache Invalidation ─────────────────────────────────────────

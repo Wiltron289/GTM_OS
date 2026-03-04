@@ -1,18 +1,20 @@
 /**
- * NbaTalkdeskActivityTriggerHandler — Creates "Call Completed" interrupt
- * records when a Talkdesk Activity is linked to an Opportunity.
+ * NbaTalkdeskActivityTriggerHandler — Publishes Call_Completed_Event__e
+ * Platform Events when a Talkdesk Activity is linked to an Opportunity.
  *
  * Fires on AFTER INSERT and AFTER UPDATE of talkdesk__Talkdesk_Activity__c.
- * - INSERT: creates interrupt if talkdesk__Opportunity__c is populated.
- * - UPDATE: creates interrupt if talkdesk__Opportunity__c changed from null to non-null.
+ * - INSERT: publishes event if talkdesk__Opportunity__c is populated.
+ * - UPDATE: publishes event if talkdesk__Opportunity__c changed from null to non-null.
  *
- * Creates NBA_Queue__c records with Action_Type = "Call Completed" and
- * Priority_Layer = "Layer 1 - Time Bound" (non-time-bound) so they appear
- * in the 15s interrupt poll (Stream 2).
+ * Platform Events are transient (no dedup needed) and delivered via
+ * lightning/empApi push — replacing the 15s NBA_Queue__c interrupt poll.
  *
- * SOQL budget: 2 (Opp query + dedup). Bulk-safe.
+ * SOQL budget: 2 (Opp query + Activity detail query). Bulk-safe.
  */
 public with sharing class NbaTalkdeskActivityTriggerHandler {
+
+    @TestVisible
+    static List<Call_Completed_Event__e> lastPublishedEvents;
 
     public static void handle(
         List<talkdesk__Talkdesk_Activity__c> newList,
@@ -30,76 +32,62 @@ public with sharing class NbaTalkdeskActivityTriggerHandler {
             return;
         }
 
-        // Collect Opp IDs from qualifying activities
+        // Collect Opp IDs and Activity IDs from qualifying activities
         Set<Id> oppIds = new Set<Id>();
+        Set<Id> activityIds = new Set<Id>();
         for (talkdesk__Talkdesk_Activity__c ta : qualifying) {
             oppIds.add(ta.talkdesk__Opportunity__c);
+            activityIds.add(ta.Id);
         }
 
-        // Query Opportunities for AccountId + OwnerId (1 SOQL)
+        // Query Opportunities for OwnerId + Name + Account.Name (1 SOQL)
         Map<Id, Opportunity> oppMap = new Map<Id, Opportunity>([
-            SELECT Id, AccountId, OwnerId
+            SELECT Id, AccountId, OwnerId, Name, Account.Name
             FROM Opportunity
             WHERE Id IN :oppIds
             WITH SECURITY_ENFORCED
         ]);
 
-        // Build unique keys for all qualifying activities
-        Set<String> allKeys = new Set<String>();
-        Map<Id, String> activityKeyMap = new Map<Id, String>();
-        for (talkdesk__Talkdesk_Activity__c ta : qualifying) {
-            String key = 'V2|' + ta.talkdesk__Opportunity__c + '|CallCompleted|' + ta.Id;
-            allKeys.add(key);
-            activityKeyMap.put(ta.Id, key);
-        }
-
-        // Bulk dedup (1 SOQL)
-        Set<String> existingKeys = new Set<String>();
-        for (NBA_Queue__c existing : [
-            SELECT UniqueKey__c FROM NBA_Queue__c
-            WHERE UniqueKey__c IN :allKeys
+        // Query Activity details for disposition + talk time (1 SOQL)
+        // Formula/relationship fields not available in trigger context
+        Map<Id, talkdesk__Talkdesk_Activity__c> activityDetailMap = new Map<Id, talkdesk__Talkdesk_Activity__c>([
+            SELECT Id, talkdesk__Notes__c, talkdesk__Total_Talk_Time_sec__c,
+                   talkdesk__DispositionCode__r.talkdesk__Label__c
+            FROM talkdesk__Talkdesk_Activity__c
+            WHERE Id IN :activityIds
             WITH SECURITY_ENFORCED
-        ]) {
-            existingKeys.add(existing.UniqueKey__c);
-        }
+        ]);
 
-        // Build NBA_Queue__c records for non-duplicates
-        List<NBA_Queue__c> toInsert = new List<NBA_Queue__c>();
+        // Build Platform Events
+        List<Call_Completed_Event__e> events = new List<Call_Completed_Event__e>();
         Set<Id> affectedAeIds = new Set<Id>();
 
         for (talkdesk__Talkdesk_Activity__c ta : qualifying) {
-            String key = activityKeyMap.get(ta.Id);
-            if (existingKeys.contains(key)) {
-                continue;
-            }
-
             Opportunity opp = oppMap.get(ta.talkdesk__Opportunity__c);
             if (opp == null) {
                 continue;
             }
 
-            NBA_Queue__c action = new NBA_Queue__c(
-                Opportunity__c = opp.Id,
-                Account__c = opp.AccountId,
-                Sales_Rep__c = opp.OwnerId,
-                Action_Type__c = 'Call Completed',
-                Priority_Layer__c = 'Layer 1 - Time Bound',
-                Is_Time_Bound__c = false,
-                Status__c = 'Pending',
-                Talkdesk_Activity__c = ta.Id,
-                Rep_Notes__c = ta.talkdesk__Notes__c,
-                Action_Instruction__c = 'Review and save call notes',
-                Rule_Name__c = 'CallCompleted_Interrupt',
-                UniqueKey__c = key,
-                Workflow_Mode__c = 'Pipeline'
+            talkdesk__Talkdesk_Activity__c detail = activityDetailMap.get(ta.Id);
+
+            Call_Completed_Event__e evt = new Call_Completed_Event__e(
+                Opportunity_Id__c = String.valueOf(opp.Id),
+                Activity_Id__c = String.valueOf(ta.Id),
+                Sales_Rep_Id__c = String.valueOf(opp.OwnerId),
+                Call_Notes__c = detail?.talkdesk__Notes__c,
+                Talk_Time_Sec__c = detail?.talkdesk__Total_Talk_Time_sec__c,
+                Disposition__c = detail?.talkdesk__DispositionCode__r.talkdesk__Label__c,
+                Account_Name__c = opp.Account?.Name,
+                Opp_Name__c = opp.Name
             );
-            toInsert.add(action);
+            events.add(evt);
             affectedAeIds.add(opp.OwnerId);
         }
 
-        // Insert records
-        if (!toInsert.isEmpty()) {
-            insert toInsert;
+        // Publish events
+        if (!events.isEmpty()) {
+            lastPublishedEvents = events;
+            EventBus.publish(events);
         }
 
         // Invalidate cache for affected AEs

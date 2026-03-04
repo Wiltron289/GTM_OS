@@ -9,10 +9,13 @@
  * - checkInterrupts returns meetings due within 5 min
  * - checkInterrupts returns new-assignment L1 non-time-bound records
  * - checkInterrupts returns empty list when no interrupts
+ * - checkInterrupts excludes Call Completed records (now Platform Events)
  * - acceptInterrupt sets status to 'In Progress'
  * - completeAction writes audit + invalidates cache + returns next
  * - snoozeAction writes audit + returns next
  * - dismissAction writes audit + returns next
+ * - saveCallNotes creates ContentNote + ContentDocumentLink
+ * - saveCallNotes returns false for blank notes
  */
 @isTest
 private class NbaActionControllerTest {
@@ -217,6 +220,7 @@ private class NbaActionControllerTest {
               AND Priority_Layer__c = 'Layer 1 - Time Bound'
               AND Is_Time_Bound__c = false
               AND Status__c IN ('New', 'Pending', 'Accepted')
+              AND Action_Type__c != 'Call Completed'
         ];
         System.assert(!triggerInterrupts.isEmpty(),
             'Trigger should have created a new-assignment interrupt during setup');
@@ -440,105 +444,43 @@ private class NbaActionControllerTest {
         }
     }
 
-    // ─── checkInterrupts: Call Completed Fields ──────────────────────
+    // ─── saveCallNotes Tests ────────────────────────────────────────
 
     @isTest
-    static void testCheckInterrupts_IncludesCallCompletedFields() {
+    static void testSaveCallNotes() {
         Opportunity opp = getTestOpp();
-        Account acc = [SELECT Id FROM Account WHERE Name = 'Controller Test Account' LIMIT 1];
-
-        // Create a Call Completed interrupt
-        NBA_Queue__c callCompleted = new NBA_Queue__c(
-            Opportunity__c = opp.Id,
-            Account__c = acc.Id,
-            Sales_Rep__c = UserInfo.getUserId(),
-            Status__c = 'Pending',
-            Action_Type__c = 'Call Completed',
-            Action_Instruction__c = 'Review and save call notes',
-            Priority_Score__c = 0.80,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
-            Is_Time_Bound__c = false,
-            Rep_Notes__c = 'Discussed premium pricing.',
-            Rule_Name__c = 'CallCompleted_Interrupt',
-            UniqueKey__c = 'V2|' + opp.Id + '|CallCompleted|testActivity001',
-            Workflow_Mode__c = 'Pipeline'
-        );
-        insert callCompleted;
 
         Test.startTest();
-        List<NbaActionController.ActionWrapper> results = NbaActionController.checkInterrupts();
-        Test.stopTest();
-
-        // Find the Call Completed interrupt in the results
-        NbaActionController.ActionWrapper found = null;
-        for (NbaActionController.ActionWrapper w : results) {
-            if (w.actionId == callCompleted.Id) {
-                found = w;
-                break;
-            }
-        }
-
-        System.assertNotEquals(null, found, 'Should return the Call Completed interrupt');
-        System.assertEquals('Call Completed', found.actionType, 'Action type should be Call Completed');
-        System.assertEquals('Discussed premium pricing.', found.callNotes,
-            'Call notes should be populated from Rep_Notes__c');
-    }
-
-    // ─── saveCallNotesAndComplete ────────────────────────────────────
-
-    @isTest
-    static void testSaveCallNotesAndComplete() {
-        Opportunity opp = getTestOpp();
-        Account acc = [SELECT Id FROM Account WHERE Name = 'Controller Test Account' LIMIT 1];
-
-        // Create a Call Completed interrupt record
-        NBA_Queue__c callCompleted = new NBA_Queue__c(
-            Opportunity__c = opp.Id,
-            Account__c = acc.Id,
-            Sales_Rep__c = UserInfo.getUserId(),
-            Status__c = 'Pending',
-            Action_Type__c = 'Call Completed',
-            Action_Instruction__c = 'Review and save call notes',
-            Priority_Score__c = 0.80,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
-            Is_Time_Bound__c = false,
-            Rep_Notes__c = 'Original notes from Talkdesk.',
-            UniqueKey__c = 'V2|' + opp.Id + '|CallCompleted|testActivity002',
-            Workflow_Mode__c = 'Pipeline'
+        Boolean result = NbaActionController.saveCallNotes(
+            opp.Id, 'Edited call notes — agreed to follow up Thursday.'
         );
-        insert callCompleted;
-
-        Test.startTest();
-        NbaActionController.ActionResultWrapper result =
-            NbaActionController.saveCallNotesAndComplete(
-                callCompleted.Id,
-                opp.Id,
-                'Edited call notes — agreed to follow up Thursday.',
-                'Follow Up',
-                null
-            );
         Test.stopTest();
 
-        System.assertNotEquals(null, result, 'Result should not be null');
+        System.assertEquals(true, result, 'Should return true when notes are saved');
 
-        // Verify ContentNote was created
+        // Verify ContentNote was created and linked
         List<ContentDocumentLink> links = [
             SELECT ContentDocumentId FROM ContentDocumentLink
             WHERE LinkedEntityId = :opp.Id
         ];
         System.assert(!links.isEmpty(), 'Should create ContentDocumentLink on the Opportunity');
+    }
 
-        // Verify the Call Completed interrupt is closed
-        NBA_Queue__c closed = [
-            SELECT Status__c, Completed_Date__c
-            FROM NBA_Queue__c
-            WHERE Id = :callCompleted.Id
+    @isTest
+    static void testSaveCallNotes_BlankNotes() {
+        Opportunity opp = getTestOpp();
+
+        Test.startTest();
+        Boolean result = NbaActionController.saveCallNotes(opp.Id, '');
+        Test.stopTest();
+
+        System.assertEquals(false, result, 'Should return false for blank notes');
+
+        // Verify no ContentNote was created
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocumentId FROM ContentDocumentLink
+            WHERE LinkedEntityId = :opp.Id
         ];
-        System.assertEquals('Completed', closed.Status__c,
-            'Call Completed interrupt should be marked Completed');
-        System.assertNotEquals(null, closed.Completed_Date__c,
-            'Completed_Date__c should be set');
+        System.assert(links.isEmpty(), 'Should NOT create ContentDocumentLink for blank notes');
     }
 }
