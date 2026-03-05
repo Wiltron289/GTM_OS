@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Sprint-by-sprint change logs, architecture details, and resolved bugs live in separate files to keep this file lean:
 
 - **`docs/architecture.md`** -- Component tree, data flow, design tokens, Mogli SMS architecture, reusable patterns
-- **`docs/sprint-history.md`** -- Detailed sprint logs (Sprints 2-10), commit history, files changed per sprint
+- **`docs/sprint-history.md`** -- Detailed sprint logs (Sprints 2-22), commit history, files changed per sprint
 - **`docs/troubleshooting.md`** -- All resolved bugs with root causes, fixes, and prevention notes
 - **`docs/nba-v2-field-mapping.csv`** -- 107 field mappings across all 13 visual sections
 - **`docs/nba-v2-phase-plan.md`** -- Full implementation plan for NBA V2 Action Orchestration Engine (Phases 1-5). Covers NBA_Queue__c data model, Custom Metadata rule framework, 3-engine architecture (Creation, State, Selection), Demo LWC refactor, App Page setup, and phased sprint plan.
@@ -54,15 +54,15 @@ When developing features or debugging, update the appropriate doc file:
 
 ## Current Project State
 
-**Last Updated**: 2026-02-18
+**Last Updated**: 2026-03-03
 
 | Item | Value |
 |------|-------|
-| **Active Branch** | `feature/nba-v2-demo-lwc` |
+| **Active Branch** | `testing/sprint-22-20260303` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
-| **Apex Tests** | 120 total (8 cache + 14 controller + 11 state + 8 signal + 21 creation + 5 selection + 7 opp trigger + 5 event trigger + 7 task trigger + 3 creation sched + 2 expiration sched + 2 queueable + 23 cadence + 19 existing). 52/53 targeted two-stream tests passing (1 pre-existing). |
-| **Current Phase** | **Sprint 21 — Two-Stream Architecture + Event Details (in progress)** |
-| **Phase Plan** | `.claude/plans/misty-cooking-scroll.md` (Sprint 21 — Event Details), `.claude/plans/jiggly-inventing-candle.md` (Phase 7), `docs/nba-v2-phase6-cadence-plan.md` (Phase 6), `docs/nba-v2-phase-plan.md` (Phases 1-5) |
+| **Apex Tests** | 130+ total (8 cache + 16 controller + 11 state + 9 signal + 22 creation + 4 selection + 7 opp trigger + 5 event trigger + 7 task trigger + 3 creation sched + 2 expiration sched + 2 queueable + 23 cadence + 6 talkdesk trigger + 19 existing). 55/57 targeted tests passing (2 pre-existing). |
+| **Current Phase** | **Sprint 22 — Engine Hardening + Talkdesk Call Notes + GTM OS Rebrand (COMPLETE)** |
+| **Phase Plan** | `.claude/plans/misty-cooking-scroll.md` (Sprint 21 — Event Details, COMPLETE), `.claude/plans/jiggly-inventing-candle.md` (Phase 7, COMPLETE), `docs/nba-v2-phase6-cadence-plan.md` (Phase 6), `docs/nba-v2-phase-plan.md` (Phases 1-5) |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
 
 ### What Exists
@@ -78,11 +78,14 @@ When developing features or debugging, update the appropriate doc file:
 - **Feature 9**: NBA V2 Cadence Integration (Phase 6) -- NbaCadenceService (cadence step resolution, spacing enforcement, daily caps), NBA_AE_Config__c hierarchy custom setting (variant assignment), 5 new CMDT fields + 12 redesigned cadence records (First Touch Variant A, 5-day cadence), signal enrichment (todayCallCount, daysSinceCreation), ActionWrapper cadence fields, LWC cadence display (progress + method hints). All deployed to UAT. **Superseded by Phase 7.**
 - **Feature 10**: NBA V2 Cadence Redesign — Sprint 18 Foundation (Phase 7) -- 2-CMDT parent/child architecture (NBA_Cadence__mdt parent + NBA_Cadence_Step__mdt child with outcome branching). NbaCadenceService complete rewrite (CadenceContext, CadenceStepDef, CadencePosition, CadenceResult classes; getNextStep(), applyBranching(), computeCadenceDay()). 4 new NBA_Queue__c fields (Cadence_Name__c, Cadence_Step_Number__c, Step_Outcome__c, Step_Method__c). 4 cadence progress fields on OpportunitySignal. 19 tests in rewritten NbaCadenceServiceTest. All deployed to UAT.
 - **Feature 11**: NBA V2 Cadence Redesign — Sprint 19 Integration + LWC (Phase 7) -- Universal cadence wired into all service layers: NbaSignalService (cadence progress extraction from audit records), NbaActionCreationService (universal cadence for any action type), NbaActionController (8 new ActionWrapper fields, stepOutcome parameter), NbaActionStateService (4-field cadence audit writing). LWC: nbaActionBar outcome capture panel (Connected/Left VM/No Answer for Call steps, auto-Sent for SMS/Email), nbaDemoInsightsPanel progress bar + upcoming steps, nbaDemoHeader method icon badge. 70 targeted tests passing. All deployed to UAT.
-- **Feature 12**: Two-Stream Architecture — Sprint 21 (in progress) -- Split action delivery into two independent streams: Stream 1 (Scored Queue) = getActiveAction() on-demand evaluation only (removed L1 DB check); Stream 2 (Real-Time Interrupts) = checkInterrupts() 15s poll for meetings within 5 min + new-assignment L1 records. LWC: indigo interrupt banner with "Jump to it"/"Later", _pausedAction state for resume after interrupt. NbaActionCreationService.createNewAssignmentActions() bulk method for trigger-based interrupt creation. NbaActionStateService expireStaleActions() extended for non-time-bound L1 expiry. 52/53 targeted tests passing. All deployed to UAT. **Next: Event Details component (nbaEventDetails) + suppress duplicate amber banner.**
+- **Feature 12**: Two-Stream Architecture — Sprint 21 (COMPLETE) -- Split action delivery into two independent streams: Stream 1 (Scored Queue) = getActiveAction() on-demand evaluation only (removed L1 DB check); Stream 2 (Real-Time Interrupts) = checkInterrupts() 15s poll for meetings within 5 min + new-assignment L1 records. LWC: indigo interrupt banner with "Jump to it"/"Later", _pausedAction state for resume after interrupt. NbaActionCreationService.createNewAssignmentActions() bulk method for trigger-based interrupt creation. NbaActionStateService expireStaleActions() extended for non-time-bound L1 expiry. nbaEventDetails LWC for Meeting action context (LDS getRecord, 0 SOQL). Amber banner suppressed for Meeting actions. All deployed to UAT.
+- **Feature 13**: GTM OS Rebrand — Sprint 22 -- Renamed all user-facing "NBA v2" labels to "GTM OS" across 23 files (FlexiPages, LWC, custom objects, CMDTs, permission sets, schedulable job names). API names unchanged (NBA_Queue__c etc. are immutable). All deployed to UAT.
+- **Feature 14**: Engine Hardening — Sprint 22 -- 4 fixes from code audit: (1) ORDER BY Amount DESC NULLS LAST on 200-opp query prevents non-deterministic truncation, (2) removed dead cooldown code from NbaActionSelectionService (saves 1 SOQL), (3) fixed MRR normalization to use fixed $50K ceiling instead of batch-relative max, (4) try/catch on Talkdesk/Mogli SOQL for graceful degradation. +3 new tests.
+- **Feature 15**: Post-Call Notes Capture — Sprint 22 (COMPLETE) -- Talkdesk Activity trigger detects completed calls, publishes Call_Completed_Event__e Platform Event. LWC subscribes via empApi, presents nbaCallNoteCapture overlay with pre-populated notes, disposition, talk time. AE saves edited notes as ContentNote linked to Opp. NbaTalkdeskActivityTrigger + handler (2 SOQL). 6 handler tests + 2 controller tests. All deployed to UAT.
 
-### Sprint 21 — Two-Stream Architecture (IN PROGRESS)
+### Sprint 21 — Two-Stream Architecture (COMPLETE)
 
-Split action delivery into two independent streams. Deployed to UAT, tested. Event Details component planned but not yet built.
+Split action delivery into two independent streams. All items deployed to UAT and tested, including Event Details component and duplicate banner suppression.
 
 #### Architecture: Two-Stream Action Delivery
 
@@ -112,10 +115,75 @@ Stream 2 (Real-Time Interrupts) — checkInterrupts():
 | `nbaDemoWorkspace` LWC | Replaced checkTimeBound with checkInterrupts + acceptInterrupt. Added _pausedAction, pendingInterrupts, _dismissedInterruptIds. |
 | `nbaDemoAlertBanner` LWC | Added indigo interrupt banner with "Jump to it" / "Later" buttons. Slide-down animation. |
 
-#### Pending (Sprint 21 continued)
+#### Sprint 21 Completed Items (formerly pending)
 
-- **Suppress duplicate amber banner**: The `showBanner` getter in nbaDemoAlertBanner needs to return false when isActionMode && currentAction.actionType === 'Meeting' (amber "Meeting with..." banner is redundant after accepting interrupt).
-- **Event Details component**: New `nbaEventDetails` LWC showing Event Subject, Description, Location, Start/End Time when current action is a Meeting. Uses LDS `getRecord` (0 SOQL). Requires adding `eventId` to ActionWrapper (parsed from UniqueKey). Plan: `.claude/plans/misty-cooking-scroll.md`.
+- **Suppress duplicate amber banner**: DONE (commit `1f45388`). `showBanner` getter in nbaDemoAlertBanner returns false when `isActionMode && currentAction?.actionType === 'Meeting'`.
+- **Event Details component**: DONE (commit `1f45388`). New `nbaEventDetails` LWC showing Event Subject, Description, Location, Start/End Time via LDS `getRecord` (0 SOQL). `eventId` added to ActionWrapper, parsed from UniqueKey. Wired into nbaDemoWorkspace with `showEventDetails` getter.
+
+### Sprint 22 — Engine Hardening + Talkdesk Call Notes + Rebrand (COMPLETE)
+
+Sprint 22 delivered 4 features across 6 commits (2026-02-19 to 2026-03-03).
+
+#### 22a. GTM OS Rebrand (commit `d930710`)
+
+Renamed all user-facing "NBA v2" labels to "GTM OS" across 23 files. API names unchanged (NBA_Queue__c, NBA_Cadence__mdt, etc. are immutable once deployed).
+
+| Scope | Change |
+|-------|--------|
+| FlexiPages | "NBA V2 Demo/Workspace" → "GTM OS Demo/Workspace" |
+| LWC | breadcrumb "NBAv2" → "GTM OS", field label "NBA Call Count" → "GTM Call Count" |
+| Custom Object | "NBA Queue" → "GTM Queue", auto-number "NBA-" → "GTM-" |
+| 7 CMDTs | "NBA Cadence/Suppression/Urgency/..." → "GTM ..." |
+| Custom Setting | "NBA AE Config" → "GTM AE Config" |
+| 3 Permission Sets | "NBA Queue AE/Account Scoring..." → "GTM ..." |
+| ListView | "NBA Ownership Transfer" → "GTM Ownership Transfer" |
+| Apex | Schedulable job names + test LIKE patterns |
+
+#### 22b. Engine Hardening (commit `fc0d83c`)
+
+4 fixes from code audit, 3 new tests added:
+
+| Priority | Fix | Impact |
+|----------|-----|--------|
+| P0 | `ORDER BY Amount DESC NULLS LAST` on 200-opp query in `evaluateOnDemand()` | Prevents non-deterministic truncation that could exclude high-value opps |
+| P1 | Removed dead cooldown code from `NbaActionSelectionService` | Saves 1 SOQL per evaluation. Note: `CooldownUntil__c` write in `NbaActionStateService` preserved — feeds `NbaSignalService` dismissed-record detection |
+| P1 | Fixed MRR normalization to use fixed $50K ceiling | Previously a $200K outlier would suppress all other opps' impact scores to near zero |
+| P3 | try/catch around Talkdesk + Mogli SOQL in `NbaSignalService` | Graceful degradation if managed packages are removed |
+
+#### 22c. Post-Call Notes Capture (commits `d235ed5`, `4fb7b43`, `f7f4ced`, `c7f2cd8`)
+
+Auto-detect Talkdesk calls and present editable notes overlay. Evolved through 4 commits: initial NBA_Queue__c interrupt approach → trigger naming fix → test data fix → Platform Event refactor.
+
+**Final architecture (Platform Event)**:
+```
+Talkdesk Activity inserted → NbaTalkdeskActivityTrigger fires
+  → NbaTalkdeskActivityTriggerHandler filters (has Opp link, correct type)
+  → EventBus.publish(Call_Completed_Event__e) with 8 payload fields
+  → LWC nbaDemoWorkspace subscribes via empApi
+  → Shows nbaCallNoteCapture overlay with pre-populated notes
+  → AE edits + saves → NbaActionController.saveCallNotes()
+  → Creates ContentNote + ContentDocumentLink to Opportunity
+```
+
+**Why Platform Event over NBA_Queue__c interrupt**: Eliminates polluting GTM Queue reporting with non-scored actions. Delivers overlay via push (empApi) instead of 15s polling.
+
+| Component | Purpose |
+|-----------|---------|
+| `Call_Completed_Event__e` | Platform Event (PublishAfterCommit) with 8 fields: Sales_Rep_Id, Opportunity_Id, Activity_Id, Call_Notes, Disposition, Account_Name, Opp_Name, Talk_Time_Sec |
+| `NbaTalkdeskActivityTrigger` | After insert on `talkdesk__Talkdesk_Activity__c` |
+| `NbaTalkdeskActivityTriggerHandler` | Filter → dedup → publish Platform Event (2 SOQL) |
+| `NbaActionController.saveCallNotes()` | Creates ContentNote linked to Opportunity |
+| `nbaCallNoteCapture` LWC | Overlay with notes textarea, disposition badge, talk time, save/cancel |
+| `nbaDemoWorkspace` | empApi subscription, `_pendingCallNote` state, overlay show/hide |
+
+**Test coverage**: 6 handler tests (NbaTalkdeskActivityTriggerHandlerTest) + 2 controller tests. All passing.
+
+#### Gotchas Discovered in Sprint 22
+
+- **Talkdesk trigger naming collision**: Production has managed `talkdesk.TalkdeskActivityTrigger`. Our trigger must use `NbaTalkdeskActivityTrigger` prefix to avoid ambiguity.
+- **`talkdesk__Talkdesk_Id__c` required**: External ID field is required by managed package. Test data must include unique values via helper method.
+- **Call Completed picklist value**: Added then deactivated on `Action_Type__c` — preserves existing records but prevents new selections. History remains queryable.
+- **empApi subscription**: `subscribe('/event/Call_Completed_Event__e', -1, handler)` in `connectedCallback`, `unsubscribe` in `disconnectedCallback`. Filter by `Sales_Rep_Id__c` matching current user.
 
 ### Phase 2 Engine Core — COMPLETE (Sprint 12)
 
@@ -384,12 +452,15 @@ Keep this reference for future phases — describes how the engine reads CRM dat
 **Opportunity Signals**: `Days_Since_Last_Interaction__c` formula (0 SOQL cost, returns 99999 if no interaction). Account_Scoring__c has only 3 records — fallback via `Opp.Amount + Opp.Probability`.
 
 ### Pending Actions
-- Merge feature branch to master (Phase 7 complete — ready for review)
+- Merge `testing/sprint-22-20260303` to master (Sprint 22 complete — ready for review)
 - Share data contract with Data Engineering for Account_Scoring__c pipeline
+- Assign GTM OS FlexiPages in production org
+- Assign GTM Queue AE permission set to AE profiles/users
 
 ### Known Org Issues
-- **15 pre-existing test failures** in `QuotaGapSchedulerTest` (14) and `ProjectTriggerHandlerTest` (1) — unrelated to NBA V2 work, block `--test-level RunLocalTests` deploys. Workaround: deploy with `NoTestRun`, then run targeted tests separately.
+- **15 pre-existing test failures** in `QuotaGapSchedulerTest` (14) and `ProjectTriggerHandlerTest` (1) — unrelated to GTM OS work, block `--test-level RunLocalTests` deploys. Workaround: deploy with `NoTestRun`, then run targeted tests separately.
 - **Org-wide test coverage at 26%** — well below the 75% production threshold. Not a UAT blocker but must be addressed before any production deployment.
+- **2 pre-existing test failures** in targeted suite (unchanged from Sprint 21) — not GTM OS code.
 
 ## SF CLI Commands (v2)
 
@@ -476,6 +547,9 @@ Keep this reference for future phases — describes how the engine reads CRM dat
 - **AuraHandledException message**: `e.getMessage()` doesn't reliably return the constructor message. Test that exception is thrown, not its text.
 - **Platform Cache keys**: Must be alphanumeric only (`[a-zA-Z0-9]`). No underscores, hyphens, or special characters. Failures are silent (caught exceptions) and hard to diagnose.
 - **CMDT suppression rules**: When adding new `Condition__c` handling in `checkSuppression()`, always deploy the corresponding NBA_Suppression_Rule__mdt record. Code without a matching CMDT record is a silent no-op.
+- **Talkdesk trigger naming**: Production has managed `talkdesk.TalkdeskActivityTrigger`. Custom triggers on `talkdesk__Talkdesk_Activity__c` must use a distinct name (e.g., `NbaTalkdeskActivityTrigger`).
+- **`talkdesk__Talkdesk_Id__c`**: Required unique External ID on Talkdesk Activity. Test data must include unique values.
+- **empApi subscription**: Use `-1` replay ID for new events only. Always `unsubscribe` in `disconnectedCallback` to prevent memory leaks.
 
 ## Detailed Patterns, Agents & Commands
 

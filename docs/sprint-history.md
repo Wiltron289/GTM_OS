@@ -711,3 +711,114 @@ Set `Is_Active__c = false` on all 12 `NBA_Cadence_Rule__mdt` records (Phase 6 fl
 - NbaActionStateServiceTest: 10/10
 
 **Files changed (22):** 7 new CMDT records + 12 deactivated CMDT records + 2 Apex classes modified + 1 test class modified
+
+---
+
+## Sprint 21 — Two-Stream Architecture + Event Details (2026-02-18 to 2026-02-19)
+
+**Commits**: `91a7103`, `5f8a6d1`, `c84262f`, `b92e1f1`, `3f00b9a`, `967848f`, `c05dc8d`, `0f41139`, `6993f09`, `1f45388`
+
+**Goal**: Split action delivery into two independent streams (Scored Queue + Real-Time Interrupts), add Event Details component for Meeting actions, suppress duplicate amber banner.
+
+### What Changed
+
+**Two-Stream Architecture (commits `91a7103` through `0f41139`):**
+
+| Component | Change |
+|-----------|--------|
+| `NbaActionController.cls` | Removed L1 check from `getActiveAction()`. Added `checkInterrupts()` (2 SOQL: meetings within 5 min + new-assignment L1). Added `acceptInterrupt(Id)`. Added `eventId` to ActionWrapper parsed from UniqueKey. |
+| `NbaActionCreationService.cls` | Added `createNewAssignmentAction()` single + `createNewAssignmentActions()` bulk (1 SOQL dedup). |
+| `NbaOpportunityTriggerHandler.cls` | AFTER_INSERT creates new-assignment interrupt via bulk method. |
+| `NbaActionStateService.cls` | `expireStaleActions()` extended: non-time-bound L1 older than 24h expired. INTERRUPT_EXPIRE_HOURS constant. |
+| `nbaDemoWorkspace` LWC | Replaced `checkTimeBound` with `checkInterrupts` + `acceptInterrupt`. Added `_pausedAction`, `pendingInterrupts`, `_dismissedInterruptIds`. Added `showEventDetails` getter. |
+| `nbaDemoAlertBanner` LWC | Added indigo interrupt banner with "Jump to it" / "Later" buttons. Slide-down animation. Suppress amber banner when `isActionMode && currentAction?.actionType === 'Meeting'`. |
+
+**Event Details Component (commit `1f45388`):**
+
+| Component | Change |
+|-----------|--------|
+| `nbaEventDetails` LWC (NEW) | Shows Event Subject, Location, Start/End Time, Description via LDS `getRecord` (0 SOQL). Expandable description (120 char truncation). Blue-indigo gradient card styling. |
+| `NbaActionController.cls` | `eventId` field on ActionWrapper, parsed from UniqueKey for Meeting actions. `UniqueKey__c` added to `checkInterrupts` + `acceptInterrupt` SELECT lists. |
+| `nbaDemoWorkspace` | `showEventDetails` getter + `c-nba-event-details` conditional section in HTML. |
+
+### Test Results
+
+52/53 targeted tests passing (1 pre-existing failure). All deployed to UAT.
+
+**Files created (8):** 4 nbaEventDetails LWC files
+**Files modified (6):** NbaActionController.cls, nbaDemoAlertBanner.js, nbaDemoWorkspace.html, nbaDemoWorkspace.js + all two-stream Apex/LWC changes
+
+---
+
+## Sprint 22 — Engine Hardening + Talkdesk Call Notes + Rebrand (2026-02-19 to 2026-03-03)
+
+**Commits**: `d930710`, `fc0d83c`, `d235ed5`, `4fb7b43`, `f7f4ced`, `c7f2cd8`
+
+**Goal**: Rebrand to GTM OS, harden engine from code audit findings, add post-call notes capture via Talkdesk Platform Event integration.
+
+### 22a. GTM OS Rebrand (commit `d930710`)
+
+Renamed all user-facing "NBA v2" labels to "GTM OS" across 23 files. API names unchanged.
+
+**Files changed (23):** 2 FlexiPages, 2 LWC HTML, 1 custom object, 7 CMDT objects, 1 custom setting, 3 permission sets, 1 listview, 2 Apex schedulables, 2 Apex schedulable tests, 1 CLAUDE.md, 1 new FlexiPage (`Next_Best_Action_v2.flexipage-meta.xml`)
+
+### 22b. Engine Hardening (commit `fc0d83c`)
+
+| File | Change |
+|------|--------|
+| `NbaActionController.cls` | Added `ORDER BY Amount DESC NULLS LAST` to 200-opp query |
+| `NbaActionControllerTest.cls` | +2 new tests for opp ordering |
+| `NbaActionCreationService.cls` | Fixed MRR normalization: fixed $50K ceiling instead of batch-relative max |
+| `NbaActionCreationServiceTest.cls` | +1 new test for MRR normalization |
+| `NbaActionSelectionService.cls` | Removed dead cooldown code (NBA_Cooldown_Rule__mdt query + CooldownUntil gate). Saves 1 SOQL. |
+| `NbaActionSelectionServiceTest.cls` | Updated tests for simplified selection (removed cooldown assertions) |
+| `NbaSignalService.cls` | try/catch around Talkdesk + Mogli SOQL queries for graceful degradation |
+| `NbaSignalServiceTest.cls` | +1 new test for graceful degradation |
+
+**Files changed (8):** 4 Apex classes + 4 test classes. +189/-68 lines.
+
+### 22c. Post-Call Notes Capture — Initial (commit `d235ed5`)
+
+Initial implementation using NBA_Queue__c "Call Completed" interrupt records.
+
+| Component | Change |
+|-----------|---------|
+| `NbaTriggerContext.cls` | Added `talkdeskActivityHandlerRun` recursion guard |
+| `TalkdeskActivityTrigger` (NEW) | After insert on `talkdesk__Talkdesk_Activity__c` |
+| `NbaTalkdeskActivityTriggerHandler` (NEW) | Filter, dedup, create Call Completed interrupt, invalidate cache |
+| `Action_Type__c` | Added 'Call Completed' picklist value |
+| `NbaActionController.cls` | 4 new ActionWrapper fields, `saveCallNotesAndComplete()` method |
+| `nbaCallNoteCapture` LWC (NEW) | Overlay with notes, disposition, talk time |
+| `nbaDemoWorkspace` | Import + state management + HTML for overlay |
+| `NbaTalkdeskActivityTriggerHandlerTest` (NEW) | 6 test methods |
+| `NbaActionControllerTest` | 2 new test methods |
+
+**Files created (16):** 4 nbaCallNoteCapture LWC, 2 trigger, 2 handler, 2 handler test, + modified 6 existing
+
+### 22d. Talkdesk Trigger Fixes (commits `4fb7b43`, `f7f4ced`)
+
+| Commit | Fix |
+|--------|-----|
+| `4fb7b43` | Renamed trigger `TalkdeskActivityTrigger` → `NbaTalkdeskActivityTrigger` to avoid managed package name collision with `talkdesk.TalkdeskActivityTrigger` |
+| `f7f4ced` | Added required `talkdesk__Talkdesk_Id__c` unique External ID to test data via `nextTalkdeskId()` helper |
+
+### 22e. Platform Event Refactor (commit `c7f2cd8`)
+
+Replaced NBA_Queue__c interrupt-based Call Completed flow with transient `Call_Completed_Event__e` Platform Event.
+
+**Why**: Eliminates polluting GTM Queue reporting with non-scored actions. Delivers overlay via push (empApi) instead of 15s polling.
+
+| Component | Change |
+|-----------|--------|
+| `Call_Completed_Event__e` (NEW) | Platform Event with 8 fields (PublishAfterCommit) |
+| `NbaTalkdeskActivityTriggerHandler` | Rewritten: `EventBus.publish()` instead of NBA_Queue__c insert |
+| `NbaActionController.cls` | Added `saveCallNotes()` (ContentNote only). Removed `saveCallNotesAndComplete()` + Call Completed ActionWrapper fields. Filtered Call Completed from `checkInterrupts` Query 2. |
+| `nbaCallNoteCapture` LWC | Simplified event dispatches |
+| `nbaDemoWorkspace` | empApi subscription to `/event/Call_Completed_Event__e`, filter by Sales_Rep_Id |
+| `Action_Type__c` | 'Call Completed' picklist value deactivated (preserves history) |
+
+**Files changed (17):** 4 Apex classes, 2 Apex test classes, 3 LWC files, 8 new Platform Event metadata files
+
+### Test Results
+
+55/57 targeted tests passing (2 pre-existing failures unchanged). All deployed to UAT.

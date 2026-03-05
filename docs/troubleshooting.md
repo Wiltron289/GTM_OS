@@ -101,3 +101,25 @@ Resolved issues encountered during NBA V2 development. Search this file when deb
 - **Root Cause**: The `nbaActionBar` LWC dispatched `this.currentAction.opportunityId` etc. from a read-only LWC proxy, and the properties were `undefined`. Likely caused by a stale LWC bundle in the browser cache after deployment.
 - **Fix**: (1) Action bar now uses `_extractActionDetail()` to safely read properties into a plain object. (2) Controller adds server-side null guards that re-evaluate on-demand if `opportunityId` is null. (3) Added `console.warn` logging for future debugging.
 - **Prevention**: After deploying LWC changes, always hard-refresh (Ctrl+Shift+R) the browser. Consider adding defensive null checks on both LWC and Apex sides for any data passed through event dispatch.
+
+---
+
+## Talkdesk Integration (Sprint 22)
+
+### Talkdesk Trigger Name Collision (2026-03-03)
+- **Problem**: Deploy failed — `TalkdeskActivityTrigger` collided with the existing managed package trigger `talkdesk.TalkdeskActivityTrigger` on the same object.
+- **Root Cause**: Salesforce allows multiple triggers on the same object, but having the same name as a managed package trigger causes confusion and potential deployment failures.
+- **Fix**: Renamed to `NbaTalkdeskActivityTrigger` using the project prefix convention.
+- **Prevention**: Always prefix custom triggers with `Nba` (or `Gtm`) to avoid collisions with managed package triggers. Check existing triggers before creating new ones: query `ApexTrigger WHERE TableEnumOrId = '<object>'`.
+
+### Talkdesk Activity Missing Required Field (2026-03-03)
+- **Problem**: 6 handler tests failed with "Required fields are missing: [talkdesk__Talkdesk_Id__c]" when inserting test `talkdesk__Talkdesk_Activity__c` records.
+- **Root Cause**: `talkdesk__Talkdesk_Id__c` is a required unique External ID field on the managed package object. Test data did not include it.
+- **Fix**: Added `nextTalkdeskId()` helper method to generate unique IDs (`'TK_TEST_' + counter`) for test records.
+- **Prevention**: Always query managed package object metadata (describe) before writing tests. Required fields on managed objects may not be obvious from the API name alone.
+
+### MRR Normalization Batch-Relative Bug (2026-02-19)
+- **Problem**: When a single $200K opportunity was in the AE's pipeline, all other opportunities' impact scores were suppressed to near zero.
+- **Root Cause**: MRR normalization used `Math.max()` across the batch to find the ceiling, so a single outlier made all other scores tiny by comparison.
+- **Fix**: Changed to fixed `DEFAULT_MRR_CEILING = 50000` normalization. Values above $50K are capped at 1.0.
+- **Prevention**: Use fixed normalization ceilings for scoring, not batch-relative. Batch-relative normalization creates unstable scores that change based on what else is in the pipeline.

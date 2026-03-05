@@ -237,7 +237,56 @@ Tasks DON'T create new actions. They update existing ones:
 
 ---
 
+## Platform Event Architecture (Sprint 22)
+
+### Call_Completed_Event__e
+
+Transient Platform Event for real-time call note capture. Replaces the earlier NBA_Queue__c interrupt-based approach.
+
+```
+Talkdesk Activity inserted
+  → NbaTalkdeskActivityTrigger (after insert)
+  → NbaTalkdeskActivityTriggerHandler
+    → Filter: talkdesk__Type__c IN (Outbound, Inbound), has talkdesk__Opportunity__c
+    → Dedup: Set<Id> to prevent duplicate events per Activity
+    → EventBus.publish(Call_Completed_Event__e) — PublishAfterCommit
+  → LWC nbaDemoWorkspace subscribes via empApi
+    → Filter: Sales_Rep_Id__c === currentUserId
+    → Store in _pendingCallNote state
+    → Show nbaCallNoteCapture overlay
+  → AE edits notes + saves
+    → NbaActionController.saveCallNotes(oppId, notes)
+    → Creates ContentNote + ContentDocumentLink to Opportunity
+```
+
+**Event Fields (8)**:
+- `Sales_Rep_Id__c` (Text) — User ID for LWC filtering
+- `Opportunity_Id__c` (Text) — Opp for ContentNote linking
+- `Activity_Id__c` (Text) — Talkdesk Activity ID
+- `Call_Notes__c` (LongTextArea) — Pre-populated from Talkdesk
+- `Disposition__c` (Text) — Call disposition code
+- `Account_Name__c` (Text) — Display in overlay
+- `Opp_Name__c` (Text) — Display in overlay
+- `Talk_Time_Sec__c` (Number) — Duration for display
+
+**Key Decisions**:
+- Platform Event over NBA_Queue__c: avoids polluting GTM Queue reporting with non-scored actions
+- Push (empApi) over poll (15s): instant overlay appearance, no wasted SOQL cycles
+- PublishAfterCommit: ensures Talkdesk Activity is committed before event fires
+- ContentNote over Task: structured note storage, better for reporting/search
+
+### nbaCallNoteCapture LWC
+
+Overlay component for post-call notes editing:
+- Pre-populated with Talkdesk call notes, disposition badge, talk time display
+- Editable textarea for AE to add/modify notes
+- Save creates ContentNote via `NbaActionController.saveCallNotes()`
+- Cancel dismisses overlay without saving
+- Dispatches `save` / `cancel` events to parent workspace
+
 ## Pending Actions
 
+- **Merge `testing/sprint-22-20260303`** to master + push to GitHub
 - **Share data contract** with Data Engineering for Account_Scoring__c pipeline
-- **Merge feature branch** to master + push to GitHub
+- **Assign GTM OS FlexiPages** in production org
+- **Assign GTM Queue AE permission set** to AE profiles/users
