@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Attempt_Number__c</fullName>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Attempt Number</label>
+    <description>The sequential attempt number (1-10)</description>
+    <precision>2</precision>
+    <required>true</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>
