@@ -137,8 +137,6 @@ private class NbaCacheServiceTest {
         w.actionType = actionType;
         w.actionInstruction = 'Test instruction for ' + actionType;
         w.reasonText = 'Test reason';
-        w.priorityLayer = 'Layer 3 - Impact+Urgency';
-        w.priorityBucket = 'General Pipeline';
         w.priorityScore = 0.75;
         w.isTimeBound = false;
         w.dueAt = null;

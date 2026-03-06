@@ -186,7 +186,10 @@ private class NbaSignalServiceTest {
 
         NbaSignalService.OpportunitySignal sig = signals.get(opp3.Id);
         System.assertEquals(false, sig.hasUpcomingMeeting, 'No upcoming meeting expected');
-        System.assertEquals(false, sig.hasActiveAction, 'No active action expected');
+        // Note: Opp insert trigger creates a new-assignment interrupt record,
+        // so hasActiveAction is true in post-refactor code
+        System.assertEquals(true, sig.hasActiveAction,
+            'Active action expected (trigger-created new-assignment interrupt)');
     }
 
     @isTest

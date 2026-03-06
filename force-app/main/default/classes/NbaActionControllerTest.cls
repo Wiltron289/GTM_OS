@@ -479,4 +479,62 @@ private class NbaActionControllerTest {
         ];
         System.assert(links.isEmpty(), 'Should NOT create ContentDocumentLink for blank notes');
     }
+
+    // ─── createFollowUp Tests ─────────────────────────────────────
+
+    @isTest
+    static void testCreateFollowUp_CreatesTask() {
+        Opportunity opp = getTestOpp();
+        Datetime followUpDt = Datetime.now().addDays(2);
+
+        Test.startTest();
+        Id taskId = NbaActionController.createFollowUp(
+            opp.Id, 'Call', followUpDt, 'Discuss pricing with DM'
+        );
+        Test.stopTest();
+
+        System.assertNotEquals(null, taskId, 'Should return the created Task ID');
+
+        Task created = [SELECT Subject, WhatId, Status, ActivityDate, ReminderDateTime
+                        FROM Task WHERE Id = :taskId];
+        System.assertEquals(opp.Id, created.WhatId, 'Task should be linked to the Opportunity');
+        System.assert(created.Subject.containsIgnoreCase('Follow-Up'),
+            'Subject should contain Follow-Up');
+    }
+
+    @isTest
+    static void testCreateFollowUp_PausesCadence() {
+        Opportunity opp = getTestOpp();
+        Account acc = [SELECT Id FROM Account WHERE Name = 'Controller Test Account' LIMIT 1];
+
+        // Create an active cadence action to verify pause behavior
+        NBA_Queue__c cadenceAction = new NBA_Queue__c(
+            Opportunity__c = opp.Id,
+            Account__c = acc.Id,
+            Sales_Rep__c = UserInfo.getUserId(),
+            Status__c = 'In Progress',
+            Action_Type__c = 'First Touch',
+            Priority_Score__c = 0.5,
+            Is_Time_Bound__c = false,
+            Source_Path__c = 'Pipeline Cadence',
+            Workflow_Mode__c = 'Pipeline',
+            UniqueKey__c = 'V2|' + opp.Id + '|First Touch|CadencePauseTest'
+        );
+        insert cadenceAction;
+
+        Datetime followUpDt = Datetime.now().addDays(3);
+
+        Test.startTest();
+        Id taskId = NbaActionController.createFollowUp(
+            opp.Id, 'Email', followUpDt, 'Send proposal'
+        );
+        Test.stopTest();
+
+        System.assertNotEquals(null, taskId, 'Should return the created Task ID');
+
+        // Verify cadence was paused (Snoozed_Until__c set)
+        NBA_Queue__c updated = [SELECT Snoozed_Until__c FROM NBA_Queue__c WHERE Id = :cadenceAction.Id];
+        System.assertNotEquals(null, updated.Snoozed_Until__c,
+            'Cadence action should be paused with Snoozed_Until__c set');
+    }
 }

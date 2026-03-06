@@ -119,7 +119,8 @@ private class NbaTaskTriggerHandlerTest {
 
         NBA_Queue__c actionBefore = [
             SELECT Id, Status__c, Attempt_Count_Today__c FROM NBA_Queue__c
-            WHERE Opportunity__c = :opp.Id AND Action_Type__c = 'First Touch' LIMIT 1
+            WHERE Opportunity__c = :opp.Id AND Action_Type__c = 'First Touch'
+              AND Source_Path__c = 'Pipeline Cadence' LIMIT 1
         ];
         System.assertEquals('In Progress', actionBefore.Status__c,
             'Action should be In Progress before test');
