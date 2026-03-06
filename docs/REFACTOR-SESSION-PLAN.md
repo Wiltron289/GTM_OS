@@ -272,7 +272,13 @@ Run anonymous Apex script:
 
 ## Phase C: UX & Features
 
-### Session 10: Tag System + Follow-Up Service [SMALL-MEDIUM]
+### Session 10: Tag System + Follow-Up Service [SMALL-MEDIUM] — COMPLETE (2026-03-06)
+
+- Commit `0eff449`: NbaTagService (23 tag definitions, 5 categories, priority-sorted 4-tag cap, JSON serialization) + NbaFollowUpService (Task creation with IsReminderSet + ReminderDateTime for time-bound surfacing, cadence pause via Snoozed_Until__c, cancel with snooze removal).
+- 23 new tests (15 tag + 8 follow-up), all passing. 0 regressions (6 pre-existing trigger test failures — to be fixed in Session 12).
+- **Gotcha**: `desc` is a reserved/problematic variable name in Apex — use `body` or `descText` instead.
+- **Gotcha**: Opp trigger fires in @TestSetup creating extra NBA_Queue__c records. Create audit records inside test methods (not TestSetup) and query by specific Id to avoid LIMIT 1 returning wrong record.
+- **Gotcha**: Query test Opps by Account.Name + StageName (not Opp Name — trigger renames them).
 
 **Entry**: Read TAG-TAXONOMY.md. Read PRD Sections 15, 16.
 
