@@ -127,6 +127,28 @@ private class NbaCacheServiceTest {
         System.assertEquals('Re-engage', cached.actionType, 'Should have overwritten with new action');
     }
 
+    @isTest
+    static void testRealCachePath_CacheAction_GracefulDegradation() {
+        // Force real Platform Cache path instead of test double.
+        // Covers the try/catch code paths (lines 41-48, 69-79, 99-105).
+        // If cache partition exists, operations succeed; if not, they degrade gracefully.
+        NbaCacheService.useTestCache = false;
+        Id userId = UserInfo.getUserId();
+
+        Test.startTest();
+        NbaCacheService.cacheAction(userId, buildTestWrapper('001000000000007', 'First Touch'));
+        NbaActionController.ActionWrapper result = NbaCacheService.getCachedAction(userId);
+        NbaCacheService.invalidate(userId);
+        Test.stopTest();
+
+        // After invalidation, cache should be empty
+        NbaActionController.ActionWrapper afterInvalidate = NbaCacheService.getCachedAction(userId);
+        System.assertEquals(null, afterInvalidate, 'Should be null after invalidation');
+
+        // Reset for other tests
+        NbaCacheService.useTestCache = true;
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────
 
     private static NbaActionController.ActionWrapper buildTestWrapper(String oppId, String actionType) {
