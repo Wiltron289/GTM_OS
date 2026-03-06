@@ -74,4 +74,12 @@
         <field>Description__c</field>
         <value xsi:type="xsd:string">Day 0, Step 5: Third call attempt with 60-min spacing.</value>
     </values>
+    <values>
+        <field>Execution_Type__c</field>
+        <value xsi:type="xsd:string">Human</value>
+    </values>
+    <values>
+        <field>Template_Name__c</field>
+        <value xsi:nil="true"/>
+    </values>
 </CustomMetadata>

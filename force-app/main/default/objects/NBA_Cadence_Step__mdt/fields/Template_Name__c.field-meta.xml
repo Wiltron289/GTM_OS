@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Template_Name__c</fullName>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Template Name</label>
+    <description>Template identifier for automated sends (SMS/Email)</description>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

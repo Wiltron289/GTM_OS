@@ -31,6 +31,16 @@
                 <default>false</default>
                 <label>Win Back</label>
             </value>
+            <value>
+                <fullName>Post-Demo Follow-Up</fullName>
+                <default>false</default>
+                <label>Post-Demo Follow-Up</label>
+            </value>
+            <value>
+                <fullName>Closing Follow-Through</fullName>
+                <default>false</default>
+                <label>Closing Follow-Through</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

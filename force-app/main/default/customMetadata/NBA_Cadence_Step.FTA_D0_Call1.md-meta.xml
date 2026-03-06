@@ -74,4 +74,12 @@
         <field>Description__c</field>
         <value xsi:type="xsd:string">Day 0, Step 1: Initial call within 5 min of assignment. Connected ends cadence.</value>
     </values>
+    <values>
+        <field>Execution_Type__c</field>
+        <value xsi:type="xsd:string">Human</value>
+    </values>
+    <values>
+        <field>Template_Name__c</field>
+        <value xsi:nil="true"/>
+    </values>
 </CustomMetadata>

@@ -1,30 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>FTA D0 SMS1</label>
+    <label>CFTA D2 SMS2</label>
     <protected>false</protected>
     <values>
         <field>Cadence_Name__c</field>
-        <value xsi:type="xsd:string">First_Touch_A</value>
+        <value xsi:type="xsd:string">Closing_Follow_Through_A</value>
     </values>
     <values>
         <field>Step_Number__c</field>
-        <value xsi:type="xsd:double">2</value>
+        <value xsi:type="xsd:double">4</value>
     </values>
     <values>
         <field>Day_Number__c</field>
-        <value xsi:type="xsd:double">0</value>
+        <value xsi:type="xsd:double">2</value>
     </values>
     <values>
         <field>Step_Order_In_Day__c</field>
-        <value xsi:type="xsd:double">2</value>
+        <value xsi:type="xsd:double">1</value>
     </values>
     <values>
         <field>Method__c</field>
         <value xsi:type="xsd:string">SMS</value>
     </values>
     <values>
+        <field>Execution_Type__c</field>
+        <value xsi:type="xsd:string">Automated</value>
+    </values>
+    <values>
+        <field>Template_Name__c</field>
+        <value xsi:type="xsd:string">CFT_Nudge_SMS</value>
+    </values>
+    <values>
         <field>Instruction_Text__c</field>
-        <value xsi:type="xsd:string">Send intro SMS. Reference the prospect by name.</value>
+        <value xsi:type="xsd:string">Friendly, low pressure — need anything to wrap up?</value>
     </values>
     <values>
         <field>Max_Attempts__c</field>
@@ -72,14 +80,6 @@
     </values>
     <values>
         <field>Description__c</field>
-        <value xsi:type="xsd:string">Day 0, Step 2: Send intro SMS after first call attempt.</value>
-    </values>
-    <values>
-        <field>Execution_Type__c</field>
-        <value xsi:type="xsd:string">Automated</value>
-    </values>
-    <values>
-        <field>Template_Name__c</field>
-        <value xsi:type="xsd:string">FT_Intro_SMS</value>
+        <value xsi:type="xsd:string">Day 2, Step 4: Friendly nudge SMS — need anything to wrap up?</value>
     </values>
 </CustomMetadata>

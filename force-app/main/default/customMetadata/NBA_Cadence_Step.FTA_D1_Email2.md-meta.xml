@@ -74,4 +74,12 @@
         <field>Description__c</field>
         <value xsi:type="xsd:string">Day 1, Step 9: Follow-up email end of day.</value>
     </values>
+    <values>
+        <field>Execution_Type__c</field>
+        <value xsi:type="xsd:string">Automated</value>
+    </values>
+    <values>
+        <field>Template_Name__c</field>
+        <value xsi:type="xsd:string">FT_EOD_Email</value>
+    </values>
 </CustomMetadata>
