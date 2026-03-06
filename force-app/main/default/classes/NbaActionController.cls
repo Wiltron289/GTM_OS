@@ -304,7 +304,17 @@ public with sharing class NbaActionController {
         }
 
         // Return the top-ranked candidate as an ActionWrapper
-        return toWrapperFromCandidate(ranked[0].action);
+        NBA_Queue__c topCandidate = ranked[0].action;
+        ActionWrapper wrapper = toWrapperFromCandidate(topCandidate);
+
+        // Generate prioritization tags using the signal data
+        NbaSignalService.OpportunitySignal signal = signals.get(topCandidate.Opportunity__c);
+        if (signal != null) {
+            List<NbaTagService.Tag> tags = NbaTagService.generateTags(wrapper, signal);
+            wrapper.actionTags = NbaTagService.toJson(tags);
+        }
+
+        return wrapper;
     }
 
     // ─── Private Helpers ────────────────────────────────────────────

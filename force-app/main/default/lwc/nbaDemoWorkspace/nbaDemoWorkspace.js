@@ -44,6 +44,10 @@ export default class NbaDemoWorkspace extends LightningElement {
     _pausedAction = null;       // Saved scored-queue action when rep jumps to interrupt
     _pendingCallNote = null;    // Platform Event payload for Call Completed overlay
 
+    // ── Follow-up modal state ────────────────────────────────
+    _showFollowUpModal = false;
+    _pendingCompleteResult = null;  // Stashed result from completeAction, used after follow-up decision
+
     // ── Platform Event subscription ─────────────────────────
     _callCompletedSubscription = null;
 
@@ -298,6 +302,14 @@ export default class NbaDemoWorkspace extends LightningElement {
         return this.isActionMode && this._pendingCallNote != null;
     }
 
+    get showTagPanel() {
+        return this.isActionMode && this.currentAction?.actionTags;
+    }
+
+    get showFollowUpModal() {
+        return this.isActionMode && this._showFollowUpModal;
+    }
+
     get showEventDetails() {
         return this.isActionMode
             && this.currentAction?.actionType === 'Meeting'
@@ -393,6 +405,16 @@ export default class NbaDemoWorkspace extends LightningElement {
                 actionType,
                 stepOutcome: stepOutcome || null
             });
+
+            // Show follow-up modal after completing a Call step (Connected or VM)
+            const isCallOutcome = stepOutcome === 'Connected' || stepOutcome === 'VM';
+            if (isCallOutcome) {
+                this._pendingCompleteResult = result;
+                this._showFollowUpModal = true;
+                this.isTransitioning = false;
+                return;
+            }
+
             await this._handleActionResult(result);
         } catch (err) {
             this.error = err;
@@ -468,6 +490,32 @@ export default class NbaDemoWorkspace extends LightningElement {
             this.currentAction = null;
             this.showEmptyState = true;
             this.isTransitioning = false;
+        }
+    }
+
+    // ────────────────────────────────────────────
+    // Follow-Up Modal handlers
+    // ────────────────────────────────────────────
+    async handleFollowUpSet() {
+        // Follow-up was created by the modal's Apex call.
+        // Now proceed with the stashed complete result.
+        this._showFollowUpModal = false;
+        const result = this._pendingCompleteResult;
+        this._pendingCompleteResult = null;
+        if (result) {
+            this.isTransitioning = true;
+            await this._handleActionResult(result);
+        }
+    }
+
+    async handleFollowUpSkip() {
+        // AE chose no follow-up — proceed with the stashed result.
+        this._showFollowUpModal = false;
+        const result = this._pendingCompleteResult;
+        this._pendingCompleteResult = null;
+        if (result) {
+            this.isTransitioning = true;
+            await this._handleActionResult(result);
         }
     }
 
