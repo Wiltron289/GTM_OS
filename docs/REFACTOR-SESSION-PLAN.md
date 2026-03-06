@@ -242,7 +242,14 @@ Run anonymous Apex script:
 
 ---
 
-### Session 9: Talkdesk Trigger Handler [MEDIUM]
+### Session 9: Talkdesk Trigger Handler [MEDIUM] — COMPLETE (2026-03-05)
+
+- NbaTalkdeskActivityTriggerHandler expanded: disposition detection (Connected/VM/No_Answer), 24hr cooldown on Connected, cadence step audit records, outcome-conditional auto-send (New stage), ContentNote creation, Platform Event publishing retained.
+- NbaCadenceService: `loadAndParseCadences()` and `stageCadenceMap` made public for trigger handler access.
+- 20 handler tests (was 6): 6 disposition classification, 4 original (insert/update/bulk/cache), 3 cooldown/no-cooldown, 2 ContentNote, 3 auto-send, 2 cadence position. All passing.
+- 0 regressions: 154/157 targeted (3 pre-existing failures unchanged from Session 8).
+- **Gotcha**: ContentNote bulk insert throws `System.UnexpectedException` for large batches (200+). Wrapped in try/catch for graceful degradation. Bulk test uses activities without notes.
+- **Gotcha**: `Source_Path__c` is a restricted picklist — only 'Pipeline Cadence' and 'Immediate' are valid.
 
 **Entry**: Read `NbaTalkdeskActivityTriggerHandler.cls` (~138 lines). Read PRD Sections 14.1, 17.
 

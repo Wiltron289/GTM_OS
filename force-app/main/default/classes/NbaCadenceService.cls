@@ -22,7 +22,8 @@ public with sharing class NbaCadenceService {
     // Parsed cadence contexts keyed by 'Scenario|Variant'
     private static Map<String, CadenceContext> cadenceContextMap;
     // Stage-based cadence contexts keyed by 'Stage|Variant'
-    private static Map<String, CadenceContext> stageCadenceMap;
+    // Public for trigger handler access (auto-send step lookup)
+    public static Map<String, CadenceContext> stageCadenceMap;
 
     // Populated during getNextStep(), read by NbaActionController + NbaActionStateService
     public static Map<Id, CadenceResult> lastEvaluatedResults = new Map<Id, CadenceResult>();
@@ -432,7 +433,8 @@ public with sharing class NbaCadenceService {
     // ─── CMDT Loaders ─────────────────────────────────────────────────
 
     @TestVisible
-    private static Map<String, CadenceContext> loadAndParseCadences() {
+    // Public for trigger handler access (auto-send step lookup)
+    public static Map<String, CadenceContext> loadAndParseCadences() {
         if (cadenceContextMap != null) {
             return cadenceContextMap;
         }
