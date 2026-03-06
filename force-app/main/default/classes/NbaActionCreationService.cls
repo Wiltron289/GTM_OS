@@ -177,6 +177,15 @@ public with sharing class NbaActionCreationService {
                 Step_Method__c = stepMethodVal
             );
 
+            // Session 8: Wire automated outreach fields when cadence step is Automated
+            if (cadenceResult != null && cadenceResult.executionType == 'Automated') {
+                action.Execution_Type__c = 'Automated';
+                action.Automated_Send_Status__c = 'Pending';
+                action.Template_Name__c = cadenceResult.templateName;
+                // Scheduled_Send_Time__c: immediate if spacing already satisfied, else spacing-based
+                action.Scheduled_Send_Time__c = Datetime.now();
+            }
+
             result.actionsToCreate.add(action);
             result.createdCount++;
         }
