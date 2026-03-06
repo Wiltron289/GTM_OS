@@ -102,6 +102,9 @@ public with sharing class NbaActionSelectionService {
      * Returns sorted list with only passing actions.
      */
     public static List<RankedAction> rankActions(List<NBA_Queue__c> candidates) {
+        // Build timezone map from Account.Timezone_Router__c (1 SOQL)
+        Map<Id, String> accountTzMap = getAccountTimezoneMap(candidates);
+
         List<RankedAction> ranked = new List<RankedAction>();
 
         for (NBA_Queue__c candidate : candidates) {
@@ -113,6 +116,14 @@ public with sharing class NbaActionSelectionService {
                 ra.passedGate = false;
             }
 
+            // Timezone gate — skip for time-bound actions (meetings always show)
+            if (ra.passedGate && !ra.isTimeBound) {
+                String tz = accountTzMap.get(candidate.Account__c);
+                if (!isLocalTimeAfterGateHour(tz)) {
+                    ra.passedGate = false;
+                }
+            }
+
             if (ra.passedGate) {
                 ranked.add(ra);
             }
@@ -122,6 +133,75 @@ public with sharing class NbaActionSelectionService {
         ranked.sort(new RankedActionComparator());
 
         return ranked;
+    }
+
+    // ─── Timezone Gate ──────────────────────────────────────────────
+
+    @TestVisible
+    private static final Integer TZ_GATE_HOUR = 8; // 8:00 AM local time
+
+    private static final Map<String, String> ROUTER_TO_IANA = new Map<String, String>{
+        'CST/EST Router' => 'America/Chicago',
+        'PST Router'     => 'America/Los_Angeles',
+        'MST Router'     => 'America/Denver',
+        'Not USA'        => 'America/Chicago'
+    };
+
+    private static final String DEFAULT_TZ = 'America/Chicago';
+
+    /**
+     * Query Account.Timezone_Router__c for all accounts referenced by candidates.
+     */
+    private static Map<Id, String> getAccountTimezoneMap(List<NBA_Queue__c> candidates) {
+        Set<Id> accountIds = new Set<Id>();
+        for (NBA_Queue__c c : candidates) {
+            if (c.Account__c != null) {
+                accountIds.add(c.Account__c);
+            }
+        }
+        Map<Id, String> tzMap = new Map<Id, String>();
+        if (accountIds.isEmpty()) {
+            return tzMap;
+        }
+        for (Account a : [
+            SELECT Id, Timezone_Router__c
+            FROM Account
+            WHERE Id IN :accountIds
+            WITH SECURITY_ENFORCED
+        ]) {
+            tzMap.put(a.Id, resolveIanaTimezone(a.Timezone_Router__c));
+        }
+        return tzMap;
+    }
+
+    /**
+     * Map Timezone_Router__c picklist value to IANA timezone ID.
+     */
+    @TestVisible
+    private static String resolveIanaTimezone(String routerValue) {
+        if (String.isBlank(routerValue) || !ROUTER_TO_IANA.containsKey(routerValue)) {
+            return DEFAULT_TZ;
+        }
+        return ROUTER_TO_IANA.get(routerValue);
+    }
+
+    // Test override: set to control "now" in timezone gate checks
+    @TestVisible
+    private static Datetime mockNow = null;
+
+    /**
+     * Check if the current time in the given IANA timezone is at or after the gate hour.
+     */
+    @TestVisible
+    private static Boolean isLocalTimeAfterGateHour(String ianaTimezone) {
+        if (String.isBlank(ianaTimezone)) {
+            ianaTimezone = DEFAULT_TZ;
+        }
+        Datetime now = mockNow != null ? mockNow : Datetime.now();
+        // Datetime.format('HH') returns 24-hour hour string in the given timezone
+        String hourStr = now.format('HH', ianaTimezone);
+        Integer localHour = Integer.valueOf(hourStr);
+        return localHour >= TZ_GATE_HOUR;
     }
 
     // ─── Comparator ───────────────────────────────────────────────────

@@ -51,6 +51,10 @@ private class NbaActionSelectionServiceTest {
     }
 
     private static List<Opportunity> getOpps() {
+        // Set mockNow to 5 PM UTC (noon ET / 11 AM CT / 9 AM PT) —
+        // past 8 AM gate hour in all US timezones, so existing tests are time-independent
+        NbaActionSelectionService.mockNow = Datetime.newInstanceGmt(
+            Date.today(), Time.newInstance(17, 0, 0, 0));
         return [SELECT Id, AccountId, StageName, Amount, CreatedDate,
                        Account.Name
                 FROM Opportunity ORDER BY Account.Name];
@@ -297,5 +301,112 @@ private class NbaActionSelectionServiceTest {
         System.assertEquals(1, ranked.size(), 'Blitz mode should be filtered out');
         System.assertEquals(opps[0].Id, ranked[0].action.Opportunity__c,
             'Only Pipeline action should pass');
+    }
+
+    // ─── Timezone Gate ────────────────────────────────────────────
+
+    @isTest
+    static void testTimezoneGate_GatesBeforeEightAM() {
+        // 7 AM Central = 13:00 UTC — before 8 AM gate
+        NbaActionSelectionService.mockNow = Datetime.newInstanceGmt(
+            Date.today(), Time.newInstance(13, 0, 0, 0));
+
+        Test.startTest();
+        Boolean result = NbaActionSelectionService.isLocalTimeAfterGateHour('America/Chicago');
+        Test.stopTest();
+
+        System.assertEquals(false, result,
+            '7 AM Central should be before 8 AM gate');
+    }
+
+    @isTest
+    static void testTimezoneGate_PassesAtEightAM() {
+        // 8 AM Central = 14:00 UTC — at gate hour
+        NbaActionSelectionService.mockNow = Datetime.newInstanceGmt(
+            Date.today(), Time.newInstance(14, 0, 0, 0));
+
+        Test.startTest();
+        Boolean result = NbaActionSelectionService.isLocalTimeAfterGateHour('America/Chicago');
+        Test.stopTest();
+
+        System.assertEquals(true, result,
+            '8 AM Central should pass the gate');
+    }
+
+    @isTest
+    static void testTimezoneGate_PSTGatedWhenEarlyMorning() {
+        // 7:30 AM Pacific = 15:30 UTC — before 8 AM PST gate
+        NbaActionSelectionService.mockNow = Datetime.newInstanceGmt(
+            Date.today(), Time.newInstance(15, 30, 0, 0));
+
+        Test.startTest();
+        Boolean result = NbaActionSelectionService.isLocalTimeAfterGateHour('America/Los_Angeles');
+        Test.stopTest();
+
+        System.assertEquals(false, result,
+            '7:30 AM Pacific should be before 8 AM gate');
+    }
+
+    @isTest
+    static void testTimezoneGate_TimeBoundBypassesGate() {
+        List<Opportunity> opps = getOpps();
+
+        // Set mockNow to 5 AM Central (11:00 UTC) — well before 8 AM
+        NbaActionSelectionService.mockNow = Datetime.newInstanceGmt(
+            Date.today(), Time.newInstance(11, 0, 0, 0));
+
+        // Time-bound meeting should bypass the timezone gate
+        NBA_Queue__c timeBound = makeAction(
+            opps[0].Id, opps[0].AccountId, 'Closing', 10000,
+            true, Datetime.now().addMinutes(3));
+
+        Test.startTest();
+        List<NbaActionSelectionService.RankedAction> ranked =
+            NbaActionSelectionService.rankActions(new List<NBA_Queue__c>{ timeBound });
+        Test.stopTest();
+
+        System.assertEquals(1, ranked.size(),
+            'Time-bound action should bypass timezone gate');
+    }
+
+    @isTest
+    static void testTimezoneGate_NotUSADefaultsToCST() {
+        Test.startTest();
+        String tz = NbaActionSelectionService.resolveIanaTimezone('Not USA');
+        Test.stopTest();
+
+        System.assertEquals('America/Chicago', tz,
+            'Not USA should default to America/Chicago');
+    }
+
+    @isTest
+    static void testTimezoneGate_BlankDefaultsToCST() {
+        Test.startTest();
+        String tz = NbaActionSelectionService.resolveIanaTimezone(null);
+        Test.stopTest();
+
+        System.assertEquals('America/Chicago', tz,
+            'Blank timezone should default to America/Chicago');
+    }
+
+    @isTest
+    static void testTimezoneGate_IntegrationWithRankActions() {
+        List<Opportunity> opps = getOpps();
+
+        // Set mockNow to 5 AM Central (11:00 UTC) — before gate
+        NbaActionSelectionService.mockNow = Datetime.newInstanceGmt(
+            Date.today(), Time.newInstance(11, 0, 0, 0));
+
+        // Non-time-bound action should be gated (account defaults to America/Chicago)
+        NBA_Queue__c action = makeAction(
+            opps[0].Id, opps[0].AccountId, 'Closing', 10000, false, null);
+
+        Test.startTest();
+        List<NbaActionSelectionService.RankedAction> ranked =
+            NbaActionSelectionService.rankActions(new List<NBA_Queue__c>{ action });
+        Test.stopTest();
+
+        System.assertEquals(0, ranked.size(),
+            'Non-time-bound action should be gated at 5 AM Central');
     }
 }

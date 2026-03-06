@@ -53,6 +53,9 @@ private class NbaActionControllerTest {
     // ─── Helpers ────────────────────────────────────────────────────
 
     private static Opportunity getTestOpp() {
+        // Ensure timezone gate doesn't block actions during tests (5 PM UTC = past 8 AM in all US TZs)
+        NbaActionSelectionService.mockNow = Datetime.newInstanceGmt(
+            Date.today(), Time.newInstance(17, 0, 0, 0));
         return [SELECT Id, AccountId FROM Opportunity WHERE Account.Name = 'Controller Test Account' LIMIT 1];
     }
 
