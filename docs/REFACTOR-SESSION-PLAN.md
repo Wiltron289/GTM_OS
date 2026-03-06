@@ -10,6 +10,15 @@
 
 Major refactor of GTM_OS codebase based on PRD v2.2. 14 sessions across 4 phases.
 
+### Key Breaking Changes (Current → Target)
+
+- **Scoring**: Blended (0.6×Impact + 0.4×Urgency) → Pure economic (`LTW × IIW × ConnectRate`)
+- **Selection**: Layer+Score → Time-Bound → TZ Gate → Stage Priority → Expected ARR
+- **Cadences**: 2 (First_Touch_A, Re_engage_A) → 5 stage-scoped (New, Connect, Consult, Closing, Re-engage)
+- **Cooldown**: Variable → 24 hours (connection)
+- **Outcomes**: Manual AE → Talkdesk disposition auto-detect
+- **New**: Automated outreach (SMS+Email), tag system, follow-up modal
+
 Each session has:
 - **Entry**: What to read before starting (keeps context lean)
 - **Work**: What to build/refactor
@@ -82,6 +91,8 @@ Sessions within a phase are sequential.
 
 ### Session 3: Test Stabilization + Schema Deploy [SMALL] — COMPLETE (2026-03-05)
 
+- 31 metadata components deployed — 7 NBA_Queue__c fields, 2 Account_Scoring__c fields, 2 NBA_Cadence_Step__mdt fields, NBA_Stage_Priority__mdt (4 records), NBA_Connect_Rate__mdt (10 records). 125/127 tests pass (no regressions).
+
 **Entry**: Read `CLAUDE.md` first 70 lines. Read `REFACTOR-PLAN.md` Section 7 (field changes).
 
 **Work**:
@@ -112,7 +123,9 @@ Sessions within a phase are sequential.
 
 ---
 
-### Session 4: Selection Engine Rewrite [SMALL]
+### Session 4: Selection Engine Rewrite [SMALL] — COMPLETE (2026-03-05)
+
+- Commit `be81e58`: Full rewrite of NbaActionSelectionService. Stage priority + Expected ARR ranking. Timezone gate stubbed (implemented in Session 12). 4 new tests.
 
 **Entry**: Read `NbaActionSelectionService.cls` (~136 lines). Read PRD Section 8 (Selection Engine).
 
@@ -136,7 +149,9 @@ Sessions within a phase are sequential.
 
 ---
 
-### Session 5: Scoring Logic Rewrite [XL — likely splits to 5a/5b]
+### Session 5: Scoring Logic Rewrite [XL — likely splits to 5a/5b] — COMPLETE (2026-03-05)
+
+- Commit `1bda64c`: Replaced blended scoring with `LTW × IIW × Connect_Rate(attempt)`. Stage-based fallback. Connect rate CMDT lookup. Urgency references removed. 22 creation tests passing.
 
 **Entry**: Read `NbaActionCreationService.cls` (~856 lines). Read PRD Section 8.3 (Scoring Formula).
 
@@ -159,7 +174,9 @@ Sessions within a phase are sequential.
 
 ---
 
-### Session 6: Signal Service + Cooldown + Cleanup [MEDIUM]
+### Session 6: Signal Service + Cooldown + Cleanup [MEDIUM] — COMPLETE (2026-03-05)
+
+- Commit `f319f74`: 24hr cooldown, Talkdesk-first outcomes, deprecated field cleanup. **PHASE A COMPLETE.**
 
 **Entry**: Read `NbaSignalService.cls` (~434 lines), `NbaActionStateService.cls` (~289 lines).
 
@@ -185,7 +202,10 @@ Run anonymous Apex script:
 
 ## Phase B: Cadence & Automation
 
-### Session 7: Stage-Scoped Cadences [MEDIUM]
+### Session 7: Stage-Scoped Cadences [MEDIUM] — COMPLETE (2026-03-05)
+
+- Commit `27cda20` (7a): 5 parent cadences with Stage__c, 39 step records with Execution_Type__c + Template_Name__c.
+- Commit `f38dbe3` (7b): NbaCadenceService refactored for stage-scoped lookup, stage change resets, ownership continuity. 33 cadence tests passing.
 
 **Entry**: Read `NbaCadenceService.cls` (~505 lines). Read PRD Section 11 (cadence definitions).
 
@@ -202,7 +222,11 @@ Run anonymous Apex script:
 
 ---
 
-### Session 8: Automated Outreach Engine [MEDIUM]
+### Session 8: Automated Outreach Engine [MEDIUM] — COMPLETE (2026-03-05)
+
+- Commit `6c2f25b`: NbaAutomatedOutreachService (SMS Mogli + Email), NbaAutomatedOutreachSchedulable (5-min batch), wired into NbaActionCreationService.evaluateAndCreate().
+- 19 new tests (16 service + 3 schedulable), all passing. 0 regressions (152/155 targeted, 3 pre-existing).
+- **Gotcha**: When calling service methods directly in tests, ensure Contact is queried with all compliance fields (HasOptedOutOfEmail, Mogli_SMS__Mogli_Opt_Out__c, etc.)
 
 **Entry**: Read PRD Section 12 (Automated Outreach Engine).
 
