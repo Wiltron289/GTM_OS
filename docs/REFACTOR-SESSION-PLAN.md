@@ -322,7 +322,7 @@ Run anonymous Apex script:
 
 ---
 
-### Session 12: Controller Update + Integration Wiring [MEDIUM] — IN PROGRESS (2026-03-06)
+### Session 12: Controller Update + Integration Wiring [MEDIUM] — COMPLETE (2026-03-06)
 
 - Commit `88f792a` (12a): Fixed all 6 pre-existing test failures (3 trigger tests + 3 stale-reference tests). Deployed updated handlers, services, and test classes to org. Added 2 createFollowUp controller test methods. 212/212 targeted tests passing (100%), 0 failures, +9 tests net.
 - Commit `dd14b75` (12b): Timezone gate wired into NbaActionSelectionService.rankActions(). Account.Timezone_Router__c (formula) → IANA timezone mapping → 8 AM local gate. Time-bound bypass. 7 new tests. 219/219 passing.
@@ -356,11 +356,16 @@ Run anonymous Apex script:
 
 ## Phase D: Polish & Ship
 
-### Session 13: Monitoring, Polish, E2E [LARGE — plan to split 13a/13b]
+### Session 13: Monitoring, Polish, E2E [LARGE — plan to split 13a/13b] — IN PROGRESS (2026-03-06)
+
+- Commit TBD (13a): NbaTestDataFactory utility class (12 builder methods: Account, Opportunity, Contact, Account_Scoring__c, NBA_Queue__c, Event, Task). Monitoring fields on Opportunity (Last_NBA_Served_Date__c, NBA_Action_Count__c). Custom Report Type "Opportunities with NBA Actions" (Opp ↔ NBA_Queue__c outer join, starvation monitoring). All 219/219 targeted tests passing, 0 regressions.
+- **Gotcha**: NBA_AE_Config__c is a CMDT (read-only at runtime) — monitoring fields that need runtime DML cannot live there. Deferred engine-level monitoring to a future custom object.
+- **Gotcha**: Cadence_Stage__c is a Number field (step number), not a Text field (stage name). Factory parameter adjusted from String to Integer.
+- **Gotcha**: Report Type requires `sections` element with explicit field definitions. Relationship name is `NBA_Queue_Items__r` (from NBA_Queue__c.Opportunity__c relationshipName), not `NBA_Queue__r`.
 
 **Entry**: Read PRD Section 19. Read TESTING-PLAN Section 4.
 
-**Work 13a**: Monitoring fields, Custom Report Type, `NbaTestDataFactory`
+**Work 13a**: Monitoring fields, Custom Report Type, `NbaTestDataFactory` — COMPLETE
 **Work 13b**: 9 integration test scenarios (TESTING-PLAN 4.1-4.9), fix issues
 
 **Test Milestone**: All 9 integration scenarios pass.
