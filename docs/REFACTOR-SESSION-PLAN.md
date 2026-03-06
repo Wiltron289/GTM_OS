@@ -325,9 +325,11 @@ Run anonymous Apex script:
 ### Session 12: Controller Update + Integration Wiring [MEDIUM] — IN PROGRESS (2026-03-06)
 
 - Commit `88f792a` (12a): Fixed all 6 pre-existing test failures (3 trigger tests + 3 stale-reference tests). Deployed updated handlers, services, and test classes to org. Added 2 createFollowUp controller test methods. 212/212 targeted tests passing (100%), 0 failures, +9 tests net.
+- Commit `dd14b75` (12b): Timezone gate wired into NbaActionSelectionService.rankActions(). Account.Timezone_Router__c (formula) → IANA timezone mapping → 8 AM local gate. Time-bound bypass. 7 new tests. 219/219 passing.
 - **Gotcha**: Org had stale test classes referencing deleted `Priority_Layer__c` and `priorityBucket` fields. Fix: deploy local versions.
 - **Gotcha**: Opp insert trigger creates First Touch interrupt — `LIMIT 1` queries without `Source_Path__c` filter pick up the wrong record. Fix: add `AND Source_Path__c = 'Pipeline Cadence'` to disambiguate.
 - **Gotcha**: NbaSignalServiceTest `hasActiveAction` assertion changed from `false` to `true` — trigger now creates interrupt on Opp insert.
+- **Gotcha**: `Timezone_Router__c` is a formula field — can't write in tests. Use `@TestVisible` methods for unit tests and `mockNow` for time-independent integration tests.
 
 **Entry**: Read `NbaActionController.cls` (~462 lines).
 
