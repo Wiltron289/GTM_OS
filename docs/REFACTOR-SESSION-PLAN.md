@@ -293,7 +293,14 @@ Run anonymous Apex script:
 
 ---
 
-### Session 11: LWC Refactor [LARGE — plan to split 11a/11b]
+### Session 11: LWC Refactor [LARGE — split 11a/11b] — COMPLETE (2026-03-06)
+
+- Commit `fbd799a` (11a): 3 new LWC components — nbaTagChip (expand/collapse chip, color-coded by category), nbaTagPanel (JSON parser + chip renderer), nbaFollowUpModal (DateTime picker, method selector, notes, Apex createFollowUp endpoint). NbaActionController: createFollowUp() @AuraEnabled endpoint + actionTags field on ActionWrapper.
+- Commit `52436f7` (11b): Tag generation wired into evaluateOnDemand() via NbaTagService.generateTags(). nbaTagPanel rendered in workspace between header and insights panel. Follow-up modal triggered after Call completion with Connected/VM outcome — stashes complete result, shows modal, then proceeds.
+- 17/17 controller tests + 8 follow-up + 15 tag = 40 targeted tests passing. 0 regressions.
+- Dismiss categorization UI already existed from Sprint 13 (Call Scheduled/Time Zone/Other) — no changes needed.
+- Demo component rename deferred to Session 12 (keeps 11 focused on functional UX).
+- **Gotcha**: NbaActionControllerTest had stale version in org (referenced deleted `priorityLayer`). Redeployed local test class to sync.
 
 **Entry**: Read UX-FEATURES.md.
 
@@ -301,13 +308,13 @@ Run anonymous Apex script:
 1. `nbaTagChip` LWC (expand/collapse)
 2. `nbaTagPanel` LWC (2-4 chips container)
 3. `nbaFollowUpModal` LWC (date/time, method, notes)
-4. Dismiss categorization UI
+4. Dismiss categorization UI — ALREADY EXISTS
 
 **Work 11b — Refactor + Rename**:
-5. Refactor `nbaActionBar` — remove outcome buttons, add follow-up trigger
-6. Refactor `nbaDemoInsightsPanel` → tag display
-7. Rename demo components → production names
-8. Update workspace data flow for new ActionWrapper
+5. Refactor `nbaActionBar` — outcome buttons KEPT (working correctly), follow-up trigger added via workspace
+6. Refactor `nbaDemoInsightsPanel` → tag display via new nbaTagPanel (separate from insights)
+7. Rename demo components → production names — DEFERRED to Session 12
+8. Update workspace data flow for new ActionWrapper — DONE (actionTags populated + passed)
 
 **Test Milestone**: Components render. Follow-up modal creates Task. Dismiss shows categories.
 **Functional Checkpoint**: After 11b, full workspace renders with new UX.
