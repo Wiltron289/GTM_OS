@@ -24,8 +24,8 @@ public with sharing class NbaActionStateService {
     @TestVisible
     private static Integer INTERRUPT_EXPIRE_HOURS = 24;
 
-    // Default cooldown after completing an action (minutes)
-    private static final Integer DEFAULT_COOLDOWN_MINUTES = 60;
+    // Default cooldown after completing an action (24 hours per PRD v2.2)
+    private static final Integer DEFAULT_COOLDOWN_MINUTES = 1440;
 
     // ─── AE-Invoked: Complete ──────────────────────────────────────
 
@@ -155,7 +155,7 @@ public with sharing class NbaActionStateService {
         List<NBA_Queue__c> staleInterrupts = [
             SELECT Id, Status__c, Sales_Rep__c
             FROM NBA_Queue__c
-            WHERE Priority_Layer__c = 'Layer 1 - Time Bound'
+            WHERE Source_Path__c = 'Immediate'
               AND Is_Time_Bound__c = false
               AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
               AND CreatedDate < :interruptCutoff

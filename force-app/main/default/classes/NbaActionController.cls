@@ -61,7 +61,7 @@ public with sharing class NbaActionController {
     /**
      * Stream 2 (Real-Time Interrupts): Lightweight check for Layer 1 interrupt actions.
      * Returns meetings due within 5 minutes AND new-assignment interrupt records
-     * (Priority_Layer='L1', Is_Time_Bound=false) created within 24h.
+     * (Source_Path='Immediate', Is_Time_Bound=false) created within 24h.
      * Excludes Call Completed actions (now handled via Platform Events).
      * Used by the LWC's 15-second poll.
      * @return List of interrupt ActionWrappers (empty list if none)
@@ -87,8 +87,8 @@ public with sharing class NbaActionController {
 
         List<NBA_Queue__c> actions = [
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
-                   Action_Instruction__c, ReasonText__c, Priority_Layer__c,
-                   Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
+                   Action_Instruction__c, ReasonText__c,
+                   Priority_Score__c, Is_Time_Bound__c,
                    DueAt__c, Status__c, UniqueKey__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
@@ -296,7 +296,7 @@ public with sharing class NbaActionController {
      * Check for Layer 1 interrupt actions in the DB.
      * Returns:
      *   - Meetings with DueAt within 5 minutes (not 24h)
-     *   - New-assignment interrupts (L1, Is_Time_Bound=false) created within 24h
+     *   - New-assignment interrupts (Source_Path='Immediate', Is_Time_Bound=false) created within 24h
      * Excludes 'In Progress' records (already accepted by acceptInterrupt).
      * Excludes 'Call Completed' actions (now delivered via Platform Events).
      */
@@ -307,8 +307,8 @@ public with sharing class NbaActionController {
         Datetime fiveMinFromNow = Datetime.now().addMinutes(5);
         List<NBA_Queue__c> meetings = [
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
-                   Action_Instruction__c, ReasonText__c, Priority_Layer__c,
-                   Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
+                   Action_Instruction__c, ReasonText__c,
+                   Priority_Score__c, Is_Time_Bound__c,
                    DueAt__c, Status__c, UniqueKey__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
@@ -331,13 +331,13 @@ public with sharing class NbaActionController {
         Datetime twentyFourHoursAgo = Datetime.now().addHours(-24);
         List<NBA_Queue__c> assignments = [
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
-                   Action_Instruction__c, ReasonText__c, Priority_Layer__c,
-                   Priority_Bucket__c, Priority_Score__c, Is_Time_Bound__c,
+                   Action_Instruction__c, ReasonText__c,
+                   Priority_Score__c, Is_Time_Bound__c,
                    DueAt__c, Status__c, UniqueKey__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
             WHERE Sales_Rep__c = :userId
-              AND Priority_Layer__c = 'Layer 1 - Time Bound'
+              AND Source_Path__c = 'Immediate'
               AND Is_Time_Bound__c = false
               AND Status__c IN ('New', 'Pending', 'Accepted')
               AND CreatedDate >= :twentyFourHoursAgo
@@ -376,8 +376,6 @@ public with sharing class NbaActionController {
         w.actionType = action.Action_Type__c;
         w.actionInstruction = action.Action_Instruction__c;
         w.reasonText = action.ReasonText__c;
-        w.priorityLayer = action.Priority_Layer__c;
-        w.priorityBucket = action.Priority_Bucket__c;
         w.priorityScore = action.Priority_Score__c;
         w.isTimeBound = action.Is_Time_Bound__c;
         w.dueAt = action.DueAt__c;
@@ -413,8 +411,6 @@ public with sharing class NbaActionController {
         w.actionType = candidate.Action_Type__c;
         w.actionInstruction = candidate.Action_Instruction__c;
         w.reasonText = candidate.ReasonText__c;
-        w.priorityLayer = candidate.Priority_Layer__c;
-        w.priorityBucket = candidate.Priority_Bucket__c;
         w.priorityScore = candidate.Priority_Score__c;
         w.isTimeBound = candidate.Is_Time_Bound__c;
         w.dueAt = candidate.DueAt__c;
@@ -471,8 +467,6 @@ public with sharing class NbaActionController {
         @AuraEnabled public String actionType;
         @AuraEnabled public String actionInstruction;
         @AuraEnabled public String reasonText;
-        @AuraEnabled public String priorityLayer;
-        @AuraEnabled public String priorityBucket;
         @AuraEnabled public Decimal priorityScore;
         @AuraEnabled public Boolean isTimeBound;
         @AuraEnabled public Datetime dueAt;

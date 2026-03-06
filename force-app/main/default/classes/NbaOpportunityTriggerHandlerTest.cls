@@ -144,13 +144,12 @@ private class NbaOpportunityTriggerHandlerTest {
 
         // Verify a new-assignment interrupt record was created
         List<NBA_Queue__c> interrupts = [
-            SELECT Id, Action_Type__c, Priority_Layer__c, Is_Time_Bound__c,
+            SELECT Id, Action_Type__c, Is_Time_Bound__c,
                    Source_Path__c, UniqueKey__c
             FROM NBA_Queue__c
             WHERE Opportunity__c = :opp.Id
               AND Source_Path__c = 'Immediate'
               AND Is_Time_Bound__c = false
-              AND Priority_Layer__c = 'Layer 1 - Time Bound'
         ];
         System.assertEquals(1, interrupts.size(),
             'Should create 1 new-assignment interrupt record');

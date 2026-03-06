@@ -69,10 +69,9 @@ private class NbaActionControllerTest {
             Action_Instruction__c = 'Prepare for meeting',
             ReasonText__c = 'Time-bound meeting action',
             Priority_Score__c = 0.90,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
             Is_Time_Bound__c = true,
             DueAt__c = Datetime.now().addHours(1),
+            Source_Path__c = 'Immediate',
             Workflow_Mode__c = 'Pipeline'
         );
         insert tb;
@@ -108,7 +107,6 @@ private class NbaActionControllerTest {
         cached.opportunityId = opp.Id;
         cached.actionType = 'Re-engage';
         cached.actionInstruction = 'Re-engage cold deal';
-        cached.priorityLayer = 'Layer 3 - Impact+Urgency';
         cached.isTimeBound = false;
         cached.status = 'Evaluated';
         NbaCacheService.cacheAction(userId, cached);
@@ -171,10 +169,9 @@ private class NbaActionControllerTest {
             Action_Instruction__c = 'Prepare for meeting',
             ReasonText__c = 'Time-bound meeting',
             Priority_Score__c = 0.90,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
             Is_Time_Bound__c = true,
             DueAt__c = Datetime.now().addMinutes(3),
+            Source_Path__c = 'Immediate',
             Workflow_Mode__c = 'Pipeline'
         );
         insert meeting;
@@ -217,7 +214,7 @@ private class NbaActionControllerTest {
         List<NBA_Queue__c> triggerInterrupts = [
             SELECT Id FROM NBA_Queue__c
             WHERE Opportunity__c = :opp.Id
-              AND Priority_Layer__c = 'Layer 1 - Time Bound'
+              AND Source_Path__c = 'Immediate'
               AND Is_Time_Bound__c = false
               AND Status__c IN ('New', 'Pending', 'Accepted')
               AND Action_Type__c != 'Call Completed'
@@ -244,7 +241,7 @@ private class NbaActionControllerTest {
         // Clean up any interrupt records created by @TestSetup trigger
         List<NBA_Queue__c> existing = [
             SELECT Id FROM NBA_Queue__c
-            WHERE Priority_Layer__c = 'Layer 1 - Time Bound'
+            WHERE Source_Path__c = 'Immediate'
               AND Status__c IN ('New', 'Pending', 'Accepted')
         ];
         if (!existing.isEmpty()) {
@@ -276,9 +273,8 @@ private class NbaActionControllerTest {
             Action_Type__c = 'First Touch',
             Action_Instruction__c = 'New opp assigned',
             Priority_Score__c = 0.80,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
             Is_Time_Bound__c = false,
+            Source_Path__c = 'Immediate',
             Workflow_Mode__c = 'Pipeline'
         );
         insert interrupt;
@@ -426,7 +422,7 @@ private class NbaActionControllerTest {
         // Expire any trigger-created interrupt records to isolate the evaluation
         List<NBA_Queue__c> interrupts = [
             SELECT Id FROM NBA_Queue__c
-            WHERE Priority_Layer__c = 'Layer 1 - Time Bound'
+            WHERE Source_Path__c = 'Immediate'
               AND Status__c IN ('New', 'Pending', 'Accepted')
         ];
         for (NBA_Queue__c q : interrupts) { q.Status__c = 'Expired'; }
