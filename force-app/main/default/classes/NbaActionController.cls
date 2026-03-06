@@ -234,6 +234,23 @@ public with sharing class NbaActionController {
         return true;
     }
 
+    // ─── Follow-Up ────────────────────────────────────────────────────
+
+    /**
+     * Create a follow-up Task on the Opportunity and pause the cadence.
+     * Called from nbaFollowUpModal LWC after a completed call.
+     *
+     * @param opportunityId  The Opportunity to create the follow-up on
+     * @param method         Follow-up method (Call, Email, SMS, Meeting)
+     * @param followUpDt     When the follow-up should surface
+     * @param notes          Optional AE notes
+     * @return The created Task ID
+     */
+    @AuraEnabled
+    public static Id createFollowUp(Id opportunityId, String method, Datetime followUpDt, String notes) {
+        return NbaFollowUpService.createFollowUp(opportunityId, method, followUpDt, notes);
+    }
+
     // ─── On-Demand Evaluation Pipeline ──────────────────────────────
 
     /**
@@ -485,6 +502,7 @@ public with sharing class NbaActionController {
         @AuraEnabled public List<String> upcomingSteps; // Next 2-3 step previews
         @AuraEnabled public Boolean isCadenceAction;
         @AuraEnabled public String eventId;          // Event ID parsed from UniqueKey for Meeting actions
+        @AuraEnabled public String actionTags;        // JSON from NbaTagService.toJson() for tag panel display
     }
 
     public class ActionResultWrapper {

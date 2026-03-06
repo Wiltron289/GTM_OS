@@ -1,0 +1,77 @@
+<template>
+    <div class="modal-overlay" onclick={handleOverlayClick}>
+        <div class="modal-container">
+            <!-- Header -->
+            <div class="modal-header">
+                <span class="modal-title">Set Follow-Up</span>
+                <button class="modal-close" onclick={handleNoFollowUp}>&times;</button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body">
+                <p class="modal-prompt">Would you like to schedule a follow-up?</p>
+
+                <!-- Method Selector -->
+                <div class="field-group">
+                    <label class="field-label">Method</label>
+                    <div class="method-options">
+                        <template for:each={methodOptions} for:item="opt">
+                            <button
+                                key={opt.value}
+                                class={opt.cssClass}
+                                data-value={opt.value}
+                                onclick={handleMethodSelect}>
+                                <lightning-icon icon-name={opt.icon} size="xx-small"></lightning-icon>
+                                {opt.label}
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Date/Time -->
+                <div class="datetime-row">
+                    <div class="field-group date-field">
+                        <label class="field-label">Date</label>
+                        <input type="date" class="dt-input" value={followUpDate} onchange={handleDateChange} />
+                    </div>
+                    <div class="field-group time-field">
+                        <label class="field-label">Time</label>
+                        <input type="time" class="dt-input" value={followUpTime} onchange={handleTimeChange} />
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div class="field-group">
+                    <label class="field-label">Notes (optional)</label>
+                    <textarea
+                        class="notes-input"
+                        placeholder="Add context for this follow-up..."
+                        value={notes}
+                        onchange={handleNotesChange}
+                        rows="3"></textarea>
+                </div>
+
+                <!-- Error -->
+                <template lwc:if={errorMessage}>
+                    <div class="error-message">{errorMessage}</div>
+                </template>
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+                <button class="modal-btn skip-btn" onclick={handleNoFollowUp}>
+                    No Follow-Up
+                </button>
+                <button class={saveButtonClass} onclick={handleSave} disabled={isSaveDisabled}>
+                    <template lwc:if={isSaving}>
+                        <lightning-spinner alternative-text="Saving" size="small"></lightning-spinner>
+                    </template>
+                    <template lwc:else>
+                        <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
+                        Set Follow-Up
+                    </template>
+                </button>
+            </div>
+        </div>
+    </div>
+</template>
