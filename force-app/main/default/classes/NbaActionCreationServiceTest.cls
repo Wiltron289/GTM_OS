@@ -1,6 +1,6 @@
 /**
  * Test class for NbaActionCreationService.
- * Verifies rule evaluation, suppression logic, scoring, bucket/layer assignment,
+ * Verifies rule evaluation, suppression logic, Expected Incremental ARR scoring,
  * and candidate action creation.
  */
 @isTest
@@ -19,11 +19,14 @@ private class NbaActionCreationServiceTest {
         }
         insert accs;
 
+        // Account scoring with new LTW and IIW fields
         Account_Scoring__c scoring = new Account_Scoring__c(
             Account__c = accs[0].Id,
             Entity_ID__c = 'CRE-TEST-001',
             Prob_Payroll_Conversion__c = 75,
-            Prob_Tier_Upgrade__c = 50
+            Prob_Tier_Upgrade__c = 50,
+            Likelihood_To_Win__c = 0.60,
+            Incremental_If_Won__c = 5000
         );
         insert scoring;
 
@@ -100,9 +103,19 @@ private class NbaActionCreationServiceTest {
         sig.dealStageProbability = 50;
         sig.daysSinceLastInteraction = daysSinceInteraction;
         sig.isClosed = opp.IsClosed;
+        sig.hasAccountScoring = false;
+        return sig;
+    }
+
+    private static NbaSignalService.OpportunitySignal buildSignalWithScoring(
+        Opportunity opp, Decimal daysSinceInteraction,
+        Decimal ltw, Decimal iiw
+    ) {
+        NbaSignalService.OpportunitySignal sig = buildSignal(opp, daysSinceInteraction);
         sig.hasAccountScoring = true;
-        sig.probPayrollConversion = 75;
-        sig.probTierUpgrade = 50;
+        sig.likelihoodToWin = ltw;
+        sig.incrementalIfWon = iiw;
+        sig.probPayrollConversion = ltw != null ? ltw * 100 : null;
         return sig;
     }
 
@@ -116,7 +129,7 @@ private class NbaActionCreationServiceTest {
             AND StageName = 'New' LIMIT 1
         ];
 
-        NbaSignalService.OpportunitySignal sig = buildSignal(opp, 99999);
+        NbaSignalService.OpportunitySignal sig = buildSignalWithScoring(opp, 99999, 0.60, 5000);
         Map<Id, NbaSignalService.OpportunitySignal> signals =
             new Map<Id, NbaSignalService.OpportunitySignal>{ opp.Id => sig };
 
@@ -130,13 +143,11 @@ private class NbaActionCreationServiceTest {
         NBA_Queue__c action = result.actionsToCreate[0];
         System.assertEquals('First Touch', action.Action_Type__c, 'Action type should be First Touch');
         System.assertEquals('Pending', action.Status__c, 'Status should be Pending');
-        System.assertNotEquals(null, action.Impact_Score__c, 'Impact score should be set');
-        System.assertNotEquals(null, action.Urgency_Score__c, 'Urgency score should be set');
-        System.assertNotEquals(null, action.Priority_Score__c, 'Priority score should be set');
-        System.assertNotEquals(null, action.Priority_Bucket__c, 'Bucket should be set');
-        System.assertNotEquals(null, action.Priority_Layer__c, 'Layer should be set');
+        System.assertNotEquals(null, action.Expected_Incremental_ARR__c, 'Expected ARR should be set');
+        System.assertNotEquals(null, action.Stage_Priority__c, 'Stage priority should be set');
+        System.assertEquals(action.Expected_Incremental_ARR__c, action.Priority_Score__c,
+            'Priority score should equal Expected ARR');
         System.assertEquals('Pipeline', action.Workflow_Mode__c, 'Mode should be Pipeline');
-        System.assertEquals('Pipeline Cadence', action.Source_Path__c, 'Source path should be Pipeline Cadence');
     }
 
     @isTest
@@ -162,8 +173,6 @@ private class NbaActionCreationServiceTest {
         NBA_Queue__c action = result.actionsToCreate[0];
         System.assertEquals('Stage Progression', action.Action_Type__c,
             'Action type should be Stage Progression for late-stage inactivity');
-        System.assertEquals('Late-Stage Stalled', action.Priority_Bucket__c,
-            'Bucket should be Late-Stage Stalled');
     }
 
     @isTest
@@ -287,19 +296,75 @@ private class NbaActionCreationServiceTest {
         System.assertEquals(0, result.createdCount, 'Recent touch should suppress creation');
     }
 
-    // ─── Scoring Tests ────────────────────────────────────────────────
+    // ─── Expected Incremental ARR Scoring Tests ───────────────────────
 
     @isTest
-    static void testScoring_ImpactCalculation() {
+    static void testScoring_WithAccountScoringData() {
         Opportunity opp = [
             SELECT Id, AccountId, OwnerId, StageName, Amount, IsClosed
             FROM Opportunity WHERE Account.Name = 'Creation Test Account 1'
             AND StageName = 'New' LIMIT 1
         ];
 
+        // LTW=0.60, IIW=5000, attempt 1 connect rate=0.13
+        NbaSignalService.OpportunitySignal sig = buildSignalWithScoring(opp, 99999, 0.60, 5000);
+
+        Map<Id, NbaSignalService.OpportunitySignal> signals =
+            new Map<Id, NbaSignalService.OpportunitySignal>{ opp.Id => sig };
+
+        Test.startTest();
+        NbaActionCreationService.CreationResult result =
+            NbaActionCreationService.evaluateAndCreate(signals);
+        Test.stopTest();
+
+        NBA_Queue__c action = result.actionsToCreate[0];
+        // Expected ARR = 0.60 × 5000 × 0.13 = 390.00
+        System.assert(action.Expected_Incremental_ARR__c > 350 && action.Expected_Incremental_ARR__c < 450,
+            'Expected ARR should be ~390 (LTW×IIW×CR), got: ' + action.Expected_Incremental_ARR__c);
+    }
+
+    @isTest
+    static void testScoring_FallbackWhenNoAccountScoring() {
+        Opportunity opp = [
+            SELECT Id, AccountId, OwnerId, StageName, Amount, IsClosed
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 2'
+            AND StageName = 'Closing' LIMIT 1
+        ];
+
+        // No account scoring — should fall back to stage probability + Amount
+        NbaSignalService.OpportunitySignal sig = buildSignal(opp, 5);
+        sig.hasAccountScoring = false;
+
+        Map<Id, NbaSignalService.OpportunitySignal> signals =
+            new Map<Id, NbaSignalService.OpportunitySignal>{ opp.Id => sig };
+
+        Test.startTest();
+        NbaActionCreationService.CreationResult result =
+            NbaActionCreationService.evaluateAndCreate(signals);
+        Test.stopTest();
+
+        NBA_Queue__c action = result.actionsToCreate[0];
+        // Fallback: LTW=0.75 (Closing stage), IIW=12000 (Amount), CR=0.13 (attempt 1)
+        // Expected = 0.75 × 12000 × 0.13 = 1170.00
+        System.assert(action.Expected_Incremental_ARR__c > 1000,
+            'Fallback scoring should use stage probability × Amount × connect rate, got: '
+            + action.Expected_Incremental_ARR__c);
+    }
+
+    @isTest
+    static void testScoring_FallbackWithNullLtwUsesProb() {
+        Opportunity opp = [
+            SELECT Id, AccountId, OwnerId, StageName, Amount, IsClosed
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 1'
+            AND StageName = 'New' LIMIT 1
+        ];
+
+        // Account scoring exists but LTW is null — should fall back to probPayrollConversion
         NbaSignalService.OpportunitySignal sig = buildSignal(opp, 99999);
-        sig.mrr = 25000;
+        sig.hasAccountScoring = true;
+        sig.likelihoodToWin = null;
         sig.probPayrollConversion = 80;
+        sig.incrementalIfWon = 3000;
 
         Map<Id, NbaSignalService.OpportunitySignal> signals =
             new Map<Id, NbaSignalService.OpportunitySignal>{ opp.Id => sig };
@@ -310,57 +375,63 @@ private class NbaActionCreationServiceTest {
         Test.stopTest();
 
         NBA_Queue__c action = result.actionsToCreate[0];
-        // Impact = (0.6 * 25000/50000) + (0.4 * 80/100) = (0.6 * 0.5) + (0.4 * 0.8) = 0.3 + 0.32 = 0.62
-        System.assert(action.Impact_Score__c > 0.5 && action.Impact_Score__c < 0.8,
-            'Impact score should be between 0.5 and 0.8, got: ' + action.Impact_Score__c);
-        System.assert(action.Urgency_Score__c > 0,
-            'Urgency score should be positive, got: ' + action.Urgency_Score__c);
-        System.assert(action.Priority_Score__c > 0,
-            'Priority score should be positive, got: ' + action.Priority_Score__c);
-    }
-
-    // ─── Bucket Assignment Tests ──────────────────────────────────────
-
-    @isTest
-    static void testBucketAssignment_GeneralPipeline() {
-        Opportunity opp = [
-            SELECT Id, AccountId, OwnerId, StageName, Amount, IsClosed
-            FROM Opportunity WHERE Account.Name = 'Creation Test Account 3'
-            AND StageName = 'Connect' LIMIT 1
-        ];
-
-        // Connect stage, 2 days inactivity, low impact → General Pipeline
-        NbaSignalService.OpportunitySignal sig = buildSignal(opp, 2);
-        sig.mrr = 1000;
-        sig.probPayrollConversion = 20;
-
-        Map<Id, NbaSignalService.OpportunitySignal> signals =
-            new Map<Id, NbaSignalService.OpportunitySignal>{ opp.Id => sig };
-
-        Test.startTest();
-        NbaActionCreationService.CreationResult result =
-            NbaActionCreationService.evaluateAndCreate(signals);
-        Test.stopTest();
-
-        // With 2 days inactivity and Connect stage, this is a Follow Up
-        NBA_Queue__c action = result.actionsToCreate[0];
-        System.assertEquals('Follow Up', action.Action_Type__c, 'Should be Follow Up');
-        System.assertEquals('General Pipeline', action.Priority_Bucket__c,
-            'Low-impact early-stage should be General Pipeline');
+        // LTW = 80/100 = 0.80, IIW = 3000, CR = 0.13
+        // Expected = 0.80 × 3000 × 0.13 = 312.00
+        System.assert(action.Expected_Incremental_ARR__c > 280 && action.Expected_Incremental_ARR__c < 350,
+            'Should use probPayrollConversion as LTW fallback, got: '
+            + action.Expected_Incremental_ARR__c);
     }
 
     @isTest
-    static void testBucketAssignment_Neglected() {
+    static void testScoring_ConnectRateDecreases() {
         Opportunity opp = [
             SELECT Id, AccountId, OwnerId, StageName, Amount, IsClosed
-            FROM Opportunity WHERE Account.Name = 'Creation Test Account 3'
-            AND StageName = 'Connect' LIMIT 1
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 1'
+            AND StageName = 'New' LIMIT 1
         ];
 
-        // Connect stage, 8 days inactivity, low MRR → Neglected
-        NbaSignalService.OpportunitySignal sig = buildSignal(opp, 8);
-        sig.mrr = 500;
-        sig.probPayrollConversion = 15;
+        // Attempt 1 vs attempt 5 — connect rate should decrease
+        NbaSignalService.OpportunitySignal sig1 = buildSignalWithScoring(opp, 99999, 0.50, 10000);
+        sig1.lastCadenceStepNumber = null; // attempt 1 (default)
+
+        NbaSignalService.OpportunitySignal sig5 = buildSignalWithScoring(opp, 99999, 0.50, 10000);
+        sig5.lastCadenceStepNumber = 4; // attempt 5 (4+1)
+
+        // Calculate directly using the @TestVisible method
+        Test.startTest();
+        Decimal arr1 = NbaActionCreationService.calculateExpectedArr(sig1, 1);
+        Decimal arr5 = NbaActionCreationService.calculateExpectedArr(sig5, 5);
+        Test.stopTest();
+
+        System.assert(arr1 > arr5,
+            'Earlier attempts should have higher Expected ARR. Attempt 1: ' + arr1 + ', Attempt 5: ' + arr5);
+    }
+
+    @isTest
+    static void testScoring_ConnectRateLookup() {
+        // Verify connect rate retrieval for known attempts
+        Test.startTest();
+        Decimal rate1 = NbaActionCreationService.getConnectRate(1);
+        Decimal rate2 = NbaActionCreationService.getConnectRate(2);
+        Decimal rate10 = NbaActionCreationService.getConnectRate(10);
+        Decimal rate99 = NbaActionCreationService.getConnectRate(99); // caps at 10
+        Test.stopTest();
+
+        System.assertEquals(0.13, rate1, 'Attempt 1 rate should be 0.13');
+        System.assertEquals(0.15, rate2, 'Attempt 2 rate should be 0.15');
+        System.assertEquals(0.03, rate10, 'Attempt 10 rate should be 0.03');
+        System.assertEquals(0.03, rate99, 'Attempt 99 should cap at attempt 10 rate');
+    }
+
+    @isTest
+    static void testScoring_StagePriorityPopulated() {
+        Opportunity opp = [
+            SELECT Id, AccountId, OwnerId, StageName, Amount, IsClosed
+            FROM Opportunity WHERE Account.Name = 'Creation Test Account 2'
+            AND StageName = 'Closing' LIMIT 1
+        ];
+
+        NbaSignalService.OpportunitySignal sig = buildSignal(opp, 5);
 
         Map<Id, NbaSignalService.OpportunitySignal> signals =
             new Map<Id, NbaSignalService.OpportunitySignal>{ opp.Id => sig };
@@ -371,9 +442,8 @@ private class NbaActionCreationServiceTest {
         Test.stopTest();
 
         NBA_Queue__c action = result.actionsToCreate[0];
-        System.assertEquals('Re-engage', action.Action_Type__c, 'Should be Re-engage at 8 days');
-        System.assertEquals('Neglected', action.Priority_Bucket__c,
-            '8 days inactivity with low impact should be Neglected');
+        System.assertEquals(1, action.Stage_Priority__c,
+            'Closing stage should have priority 1');
     }
 
     // ─── Null/Empty Input ─────────────────────────────────────────────
@@ -485,13 +555,13 @@ private class NbaActionCreationServiceTest {
 
         System.assertNotEquals(null, action, 'Should create a new-assignment interrupt');
         System.assertEquals('First Touch', action.Action_Type__c, 'Type should be First Touch');
-        System.assertEquals('Layer 1 - Time Bound', action.Priority_Layer__c, 'Layer should be L1');
         System.assertEquals(false, action.Is_Time_Bound__c, 'Should NOT be time-bound');
         System.assertEquals('Immediate', action.Source_Path__c, 'Source should be Immediate');
         System.assertEquals('Pending', action.Status__c, 'Status should be Pending');
         System.assertEquals(null, action.DueAt__c, 'DueAt should be null for non-time-bound');
         System.assert(action.UniqueKey__c.contains('NewAssignment'),
             'UniqueKey should contain NewAssignment');
+        System.assertNotEquals(null, action.Stage_Priority__c, 'Stage priority should be set');
     }
 
     @isTest
@@ -545,12 +615,12 @@ private class NbaActionCreationServiceTest {
 
         System.assertNotEquals(null, action, 'Should create a time-bound action');
         System.assertEquals('Meeting', action.Action_Type__c, 'Type should be Meeting');
-        System.assertEquals('Layer 1 - Time Bound', action.Priority_Layer__c, 'Layer should be Layer 1');
         System.assertEquals(true, action.Is_Time_Bound__c, 'Should be time-bound');
         System.assertEquals('Immediate', action.Source_Path__c, 'Source should be Immediate');
         System.assertEquals('Pending', action.Status__c, 'Status should be Pending');
         System.assertNotEquals(null, action.DueAt__c, 'DueAt should be set');
         System.assert(action.UniqueKey__c.contains('Meeting'), 'UniqueKey should contain Meeting');
+        System.assertNotEquals(null, action.Stage_Priority__c, 'Stage priority should be set');
     }
 
     @isTest
@@ -672,38 +742,5 @@ private class NbaActionCreationServiceTest {
         Test.stopTest();
 
         System.assertEquals(null, result, 'No matching action should return null');
-    }
-
-    // ─── MRR Normalization Tests (Sprint 22) ────────────────────────
-
-    @isTest
-    static void testScoring_HighMrrCappedByFixedCeiling() {
-        // A $200K MRR opp should cap at 1.0 normalized MRR (ceiling = $50K)
-        Opportunity opp = [
-            SELECT Id, AccountId, OwnerId, StageName, Amount, IsClosed
-            FROM Opportunity WHERE Account.Name = 'Creation Test Account 2'
-            AND StageName = 'Closing' LIMIT 1
-        ];
-
-        NbaSignalService.OpportunitySignal sig = buildSignal(opp, 5);
-        sig.mrr = 200000;
-        sig.amount = 200000;
-        sig.probPayrollConversion = 50;
-
-        Map<Id, NbaSignalService.OpportunitySignal> signals =
-            new Map<Id, NbaSignalService.OpportunitySignal>{ opp.Id => sig };
-
-        Test.startTest();
-        NbaActionCreationService.CreationResult result =
-            NbaActionCreationService.evaluateAndCreate(signals);
-        Test.stopTest();
-
-        System.assert(!result.actionsToCreate.isEmpty(), 'Should create an action');
-        NBA_Queue__c action = result.actionsToCreate[0];
-        // MRR normalized = min(200000/50000, 1.0) = 1.0
-        // closeProb = 50/100 = 0.50
-        // impact = (0.6 * 1.0) + (0.4 * 0.50) = 0.60 + 0.20 = 0.80
-        System.assert(action.Impact_Score__c >= 0.70 && action.Impact_Score__c <= 0.90,
-            'High MRR should cap at ceiling, not inflate. Got: ' + action.Impact_Score__c);
     }
 }
