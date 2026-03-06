@@ -358,15 +358,19 @@ Run anonymous Apex script:
 
 ### Session 13: Monitoring, Polish, E2E [LARGE — plan to split 13a/13b] — IN PROGRESS (2026-03-06)
 
-- Commit TBD (13a): NbaTestDataFactory utility class (12 builder methods: Account, Opportunity, Contact, Account_Scoring__c, NBA_Queue__c, Event, Task). Monitoring fields on Opportunity (Last_NBA_Served_Date__c, NBA_Action_Count__c). Custom Report Type "Opportunities with NBA Actions" (Opp ↔ NBA_Queue__c outer join, starvation monitoring). All 219/219 targeted tests passing, 0 regressions.
+- Commit `61ca11e` (13a): NbaTestDataFactory utility class (12 builder methods: Account, Opportunity, Contact, Account_Scoring__c, NBA_Queue__c, Event, Task). Monitoring fields on Opportunity (Last_NBA_Served_Date__c, NBA_Action_Count__c). Custom Report Type "Opportunities with NBA Actions" (Opp ↔ NBA_Queue__c outer join, starvation monitoring). All 219/219 targeted tests passing, 0 regressions.
+- Commit TBD (13b): NbaEngineIntegrationTest — 14 integration tests covering all TESTING-PLAN 4.x scenarios: full pipeline (4.1), stage priority (4.2), ARR ranking (4.3), time-bound override (4.4), timezone gate before/after (4.5), connection cooldown (4.6), follow-up task creation (4.7), complete→audit→cache invalidation (4.8), dismiss with category (4.9), snooze with reason, cadence progression, Talkdesk audit record creation (2 tests). 233/233 targeted tests passing (100%), 0 regressions.
 - **Gotcha**: NBA_AE_Config__c is a CMDT (read-only at runtime) — monitoring fields that need runtime DML cannot live there. Deferred engine-level monitoring to a future custom object.
 - **Gotcha**: Cadence_Stage__c is a Number field (step number), not a Text field (stage name). Factory parameter adjusted from String to Integer.
 - **Gotcha**: Report Type requires `sections` element with explicit field definitions. Relationship name is `NBA_Queue_Items__r` (from NBA_Queue__c.Opportunity__c relationshipName), not `NBA_Queue__r`.
+- **Gotcha**: Opp insert trigger creates First Touch interrupt records, setting `hasActiveAction=true`. Integration tests that need clean evaluation use manually-built signals (same approach as NbaActionCreationServiceTest).
+- **Gotcha**: Talkdesk disposition is a related field — can't be set directly on insert. Integration tests verify trigger handler creates audit records; disposition classification tested separately via unit tests.
+- **Gotcha**: Snooze reason is stored in `Dismissed_Reason__c` (not `Snooze_Reason__c`) by the writeAuditRecord method.
 
 **Entry**: Read PRD Section 19. Read TESTING-PLAN Section 4.
 
 **Work 13a**: Monitoring fields, Custom Report Type, `NbaTestDataFactory` — COMPLETE
-**Work 13b**: 9 integration test scenarios (TESTING-PLAN 4.1-4.9), fix issues
+**Work 13b**: 14 integration test scenarios (TESTING-PLAN 4.x) — COMPLETE
 
 **Test Milestone**: All 9 integration scenarios pass.
 
