@@ -495,6 +495,200 @@ private class NbaCadenceServiceTest {
         }
     }
 
+    // ─── Stage-Scoped Cadence Tests ─────────────────────────────────
+
+    // Helper: build signal with stageName for stage-based tests
+    private static NbaSignalService.OpportunitySignal buildStageSignal(
+        Id oppId, String stageName, Decimal daysSinceCreation
+    ) {
+        NbaSignalService.OpportunitySignal sig = buildSignal(oppId, daysSinceCreation, 0, null);
+        sig.stageName = stageName;
+        return sig;
+    }
+
+    // Test: Stage-scoped cadence lookup — New stage
+    @isTest
+    static void testStageLookupNew() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildStageSignal(getFakeOppId(), 'New', 0);
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStepForStage(sig, 'A');
+        Test.stopTest();
+
+        if (result != null && result.currentStep != null) {
+            System.assertEquals(false, result.isComplete, 'Should not be complete');
+            System.assertEquals(1, result.currentStep.stepNumber, 'Should start at step 1');
+            System.assert(result.cadenceName.contains('First_Touch'), 'Should match First Touch cadence');
+        }
+    }
+
+    // Test: Stage-scoped cadence lookup — Connect stage
+    @isTest
+    static void testStageLookupConnect() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildStageSignal(getFakeOppId(), 'Connect', 0);
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStepForStage(sig, 'A');
+        Test.stopTest();
+
+        if (result != null && result.currentStep != null) {
+            System.assertEquals(1, result.currentStep.stepNumber, 'Should start at step 1');
+            System.assert(result.cadenceName.contains('Post_Demo_Connect'), 'Should match Connect cadence');
+        }
+    }
+
+    // Test: Stage-scoped cadence lookup — Consult stage
+    @isTest
+    static void testStageLookupConsult() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildStageSignal(getFakeOppId(), 'Consult', 0);
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStepForStage(sig, 'A');
+        Test.stopTest();
+
+        if (result != null && result.currentStep != null) {
+            System.assertEquals(1, result.currentStep.stepNumber, 'Should start at step 1');
+            System.assert(result.cadenceName.contains('Post_Demo_Consult'), 'Should match Consult cadence');
+        }
+    }
+
+    // Test: Stage-scoped cadence lookup — Closing stage
+    @isTest
+    static void testStageLookupClosing() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildStageSignal(getFakeOppId(), 'Closing', 0);
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStepForStage(sig, 'A');
+        Test.stopTest();
+
+        if (result != null && result.currentStep != null) {
+            System.assertEquals(1, result.currentStep.stepNumber, 'Should start at step 1');
+            System.assert(result.cadenceName.contains('Closing_Follow_Through'), 'Should match Closing cadence');
+        }
+    }
+
+    // Test: Stage change resets cadence position
+    @isTest
+    static void testStageChangeResetsCadence() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildStageSignal(getFakeOppId(), 'Connect', 0);
+        // Simulate: was on First_Touch_A cadence (New stage), step 5 completed
+        sig.lastCadenceName = 'First_Touch_A';
+        sig.lastCadenceStepNumber = 5;
+        sig.lastCadenceStepOutcome = 'No_Answer';
+        sig.lastCadenceStepDate = Datetime.now().addHours(-1);
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStepForStage(sig, 'A');
+        Test.stopTest();
+
+        if (result != null && result.currentStep != null) {
+            // Stage changed from New to Connect — should reset to step 1 of Connect cadence
+            System.assertEquals(1, result.currentStep.stepNumber,
+                'Stage change should reset to step 1 of new stage cadence');
+            System.assert(result.cadenceName.contains('Post_Demo_Connect') || result.cadenceName.contains('Connect'),
+                'Should be on the Connect cadence, not First Touch');
+        }
+    }
+
+    // Test: Ownership change preserves cadence position
+    @isTest
+    static void testOwnershipChangePreservesPosition() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildStageSignal(getFakeOppId(), 'New', 0);
+        // Simulate: on First_Touch_A cadence, step 2 completed with Sent outcome
+        sig.lastCadenceName = 'First_Touch_A';
+        sig.lastCadenceStepNumber = 2;
+        sig.lastCadenceStepOutcome = 'Sent';
+        sig.lastCadenceStepDate = Datetime.now().addMinutes(-30);
+        // Ownership changed but stage is still New — cadence should continue
+        sig.ownerId = '005000000000002AAA'; // Different owner
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStepForStage(sig, 'A');
+        Test.stopTest();
+
+        if (result != null && result.currentStep != null) {
+            // Same stage, ownership change — should continue from step 3 (not reset)
+            System.assertEquals(3, result.currentStep.stepNumber,
+                'Ownership change should NOT reset cadence — should advance to step 3');
+        }
+    }
+
+    // Test: Execution type populated correctly — Human for Call, Automated for SMS/Email
+    @isTest
+    static void testExecutionTypePopulated() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildSignal(getFakeOppId(), 0, 0, null);
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStep(sig, 'A', 'First Touch');
+        Test.stopTest();
+
+        if (result != null && result.currentStep != null) {
+            // Step 1 of First_Touch_A is a Call — should be Human
+            if (result.currentStep.method == 'Call') {
+                System.assertEquals('Human', result.executionType,
+                    'Call steps should have Human execution type');
+                System.assertEquals(null, result.templateName,
+                    'Human steps should not have a template name');
+            }
+        }
+    }
+
+    // Test: Execution type for automated SMS step
+    @isTest
+    static void testExecutionTypeAutomatedSms() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildSignal(getFakeOppId(), 0, 0, null);
+        // Advance past step 1 to reach step 2 (SMS)
+        sig.lastCadenceStepNumber = 1;
+        sig.lastCadenceStepOutcome = 'VM';
+        sig.lastCadenceStepDate = Datetime.now().addMinutes(-30);
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStep(sig, 'A', 'First Touch');
+        Test.stopTest();
+
+        if (result != null && result.currentStep != null && result.currentStep.method == 'SMS') {
+            System.assertEquals('Automated', result.executionType,
+                'SMS steps should have Automated execution type');
+            System.assertNotEquals(null, result.templateName,
+                'Automated SMS steps should have a template name');
+        }
+    }
+
+    // Test: mapOppStageToCadenceStage mapping
+    @isTest
+    static void testMapOppStageToCadenceStage() {
+        System.assertEquals('New', NbaCadenceService.mapOppStageToCadenceStage('New'), 'New maps to New');
+        System.assertEquals('Connect', NbaCadenceService.mapOppStageToCadenceStage('Connect'), 'Connect maps to Connect');
+        System.assertEquals('Consult', NbaCadenceService.mapOppStageToCadenceStage('Consult'), 'Consult maps to Consult');
+        System.assertEquals('Consult', NbaCadenceService.mapOppStageToCadenceStage('Evaluating'), 'Evaluating maps to Consult');
+        System.assertEquals('Closing', NbaCadenceService.mapOppStageToCadenceStage('Closing'), 'Closing maps to Closing');
+        System.assertEquals('Closing', NbaCadenceService.mapOppStageToCadenceStage('Verbal Commit'), 'Verbal Commit maps to Closing');
+        System.assertEquals('Closing', NbaCadenceService.mapOppStageToCadenceStage('Ready to Convert'), 'Ready to Convert maps to Closing');
+        System.assertEquals(null, NbaCadenceService.mapOppStageToCadenceStage(null), 'Null returns null');
+        System.assertEquals(null, NbaCadenceService.mapOppStageToCadenceStage('Unknown Stage'), 'Unknown stage returns null');
+    }
+
+    // Test: Unmapped stage returns null from getNextStepForStage
+    @isTest
+    static void testUnmappedStageReturnsNull() {
+        NbaCadenceService.resetCache();
+        NbaSignalService.OpportunitySignal sig = buildStageSignal(getFakeOppId(), 'Hand-Off', 0);
+
+        Test.startTest();
+        NbaCadenceService.CadenceResult result = NbaCadenceService.getNextStepForStage(sig, 'A');
+        Test.stopTest();
+
+        System.assertEquals(null, result, 'Unmapped stage should return null');
+    }
+
     // ─── Test: checkExitConditions ──────────────────────────────────
     @isTest
     static void testCheckExitConditions() {

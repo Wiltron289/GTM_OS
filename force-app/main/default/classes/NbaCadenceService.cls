@@ -21,6 +21,8 @@ public with sharing class NbaCadenceService {
 
     // Parsed cadence contexts keyed by 'Scenario|Variant'
     private static Map<String, CadenceContext> cadenceContextMap;
+    // Stage-based cadence contexts keyed by 'Stage|Variant'
+    private static Map<String, CadenceContext> stageCadenceMap;
 
     // Populated during getNextStep(), read by NbaActionController + NbaActionStateService
     public static Map<Id, CadenceResult> lastEvaluatedResults = new Map<Id, CadenceResult>();
@@ -31,6 +33,7 @@ public with sharing class NbaCadenceService {
         public String cadenceName;
         public String scenario;
         public String variant;
+        public String stage;
         public Integer totalSteps;
         public Integer totalDays;
         public String anchorField;
@@ -56,6 +59,8 @@ public with sharing class NbaCadenceService {
         public Integer onNoAnswerTarget;
         public String onMeetingAction;
         public Integer onMeetingTarget;
+        public String executionType;
+        public String templateName;
     }
 
     public class CadencePosition {
@@ -75,6 +80,8 @@ public with sharing class NbaCadenceService {
         public Boolean isSuppressed;
         public String suppressReason;
         public List<String> upcomingSteps;  // Next 2-3 step previews
+        public String executionType;        // Human or Automated
+        public String templateName;         // Template identifier for automated steps
     }
 
     // ─── Primary Entry Point ──────────────────────────────────────────
@@ -102,6 +109,14 @@ public with sharing class NbaCadenceService {
             return null;
         }
 
+        return evaluateCadence(signal, ctx);
+    }
+
+    // ─── Shared Evaluation Logic ────────────────────────────────────────
+
+    private static CadenceResult evaluateCadence(
+        NbaSignalService.OpportunitySignal signal, CadenceContext ctx
+    ) {
         CadenceResult result = new CadenceResult();
         result.cadenceName = ctx.cadenceName;
         result.context = ctx;
@@ -175,6 +190,8 @@ public with sharing class NbaCadenceService {
 
         // Success — set the current step
         result.currentStep = targetStep;
+        result.executionType = targetStep.executionType;
+        result.templateName = targetStep.templateName;
         result.progressFraction = targetStep.stepNumber + '/' + ctx.totalSteps;
         result.progressText = 'Step ' + targetStep.stepNumber + ' of ' + ctx.totalSteps
             + ' \u2014 Day ' + targetStep.dayNumber + ', ' + targetStep.method;
@@ -182,6 +199,85 @@ public with sharing class NbaCadenceService {
 
         lastEvaluatedResults.put(signal.oppId, result);
         return result;
+    }
+
+    // ─── Stage-Based Entry Point ───────────────────────────────────────
+
+    /**
+     * Determine the next cadence step using the Opportunity's current stage.
+     * Finds the cadence whose Stage__c matches the signal's stageName.
+     * If the stage changed since the last cadence audit, resets to Step 1.
+     *
+     * @param signal The OpportunitySignal with enriched fields
+     * @param variant The cadence variant (e.g., 'A')
+     * @return CadenceResult with next step, progress, and context — or null if no stage cadence matches
+     */
+    public static CadenceResult getNextStepForStage(
+        NbaSignalService.OpportunitySignal signal, String variant
+    ) {
+        Map<String, CadenceContext> ctxMap = loadAndParseCadences();
+        if (stageCadenceMap == null || stageCadenceMap.isEmpty()) {
+            return null;
+        }
+
+        // Map signal's stage name to cadence stage
+        String cadenceStage = mapOppStageToCadenceStage(signal.stageName);
+        if (cadenceStage == null) {
+            return null;
+        }
+
+        String stageKey = cadenceStage + '|' + variant;
+        CadenceContext ctx = stageCadenceMap.get(stageKey);
+        if (ctx == null || ctx.steps.isEmpty()) {
+            return null;
+        }
+
+        // Stage change detection: if the last cadence was for a different stage, reset position
+        if (signal.lastCadenceName != null) {
+            CadenceContext lastCtx = null;
+            for (CadenceContext c : cadenceContextMap.values()) {
+                if (c.cadenceName == signal.lastCadenceName) {
+                    lastCtx = c;
+                    break;
+                }
+            }
+            if (lastCtx != null && lastCtx.stage != ctx.stage) {
+                // Stage changed — reset cadence position to start fresh
+                signal.lastCadenceStepNumber = null;
+                signal.lastCadenceStepOutcome = null;
+                signal.lastCadenceStepDate = null;
+                signal.lastCadenceName = null;
+            }
+        }
+
+        // Evaluate directly with the stage-matched cadence context
+        return evaluateCadence(signal, ctx);
+    }
+
+    // ─── Stage Mapping Helper ──────────────────────────────────────────
+
+    /**
+     * Map Opportunity StageName to the cadence stage value (New/Connect/Consult/Closing).
+     * Multiple Opp stages can map to the same cadence stage.
+     */
+    @TestVisible
+    private static String mapOppStageToCadenceStage(String stageName) {
+        if (stageName == null) {
+            return null;
+        }
+        if (stageName == 'New') {
+            return 'New';
+        }
+        if (stageName == 'Connect') {
+            return 'Connect';
+        }
+        if (stageName == 'Consult' || stageName == 'Evaluating') {
+            return 'Consult';
+        }
+        if (stageName == 'Closing' || stageName == 'Verbal Commit' || stageName == 'Ready to Convert') {
+            return 'Closing';
+        }
+        return null;
     }
 
     // ─── Branching Logic ──────────────────────────────────────────────
@@ -345,6 +441,7 @@ public with sharing class NbaCadenceService {
         List<NBA_Cadence_Step__mdt> steps = loadSteps();
 
         cadenceContextMap = new Map<String, CadenceContext>();
+        stageCadenceMap = new Map<String, CadenceContext>();
         Map<String, CadenceContext> byName = new Map<String, CadenceContext>();
 
         for (NBA_Cadence__mdt c : cadences) {
@@ -352,6 +449,7 @@ public with sharing class NbaCadenceService {
             ctx.cadenceName = c.DeveloperName;
             ctx.scenario = c.Scenario__c;
             ctx.variant = c.Variant__c;
+            ctx.stage = c.Stage__c;
             ctx.totalSteps = c.Total_Steps__c != null ? c.Total_Steps__c.intValue() : 0;
             ctx.totalDays = c.Total_Days__c != null ? c.Total_Days__c.intValue() : 0;
             ctx.anchorField = String.isNotBlank(c.Anchor_Field__c)
@@ -363,6 +461,12 @@ public with sharing class NbaCadenceService {
             String key = ctx.scenario + '|' + ctx.variant;
             cadenceContextMap.put(key, ctx);
             byName.put(ctx.cadenceName, ctx);
+
+            // Build stage-keyed map for stage-based lookup
+            if (String.isNotBlank(ctx.stage)) {
+                String stageKey = ctx.stage + '|' + ctx.variant;
+                stageCadenceMap.put(stageKey, ctx);
+            }
         }
 
         for (NBA_Cadence_Step__mdt s : steps) {
@@ -392,6 +496,8 @@ public with sharing class NbaCadenceService {
             stepDef.onMeetingAction = s.On_Meeting_Action__c;
             stepDef.onMeetingTarget = s.On_Meeting_Target__c != null
                 ? s.On_Meeting_Target__c.intValue() : null;
+            stepDef.executionType = s.Execution_Type__c;
+            stepDef.templateName = s.Template_Name__c;
 
             ctx.steps.add(stepDef);
         }
@@ -403,9 +509,9 @@ public with sharing class NbaCadenceService {
     private static List<NBA_Cadence__mdt> loadCadences() {
         if (!cadencesLoaded) {
             cachedCadences = [
-                SELECT DeveloperName, Scenario__c, Variant__c, Anchor_Field__c,
-                       Total_Steps__c, Total_Days__c, Exit_Conditions__c, Day_Map__c,
-                       Is_Active__c
+                SELECT DeveloperName, Scenario__c, Variant__c, Stage__c,
+                       Anchor_Field__c, Total_Steps__c, Total_Days__c,
+                       Exit_Conditions__c, Day_Map__c, Is_Active__c
                 FROM NBA_Cadence__mdt
                 WHERE Is_Active__c = true
             ];
@@ -423,7 +529,7 @@ public with sharing class NbaCadenceService {
                        Spacing_Minutes__c, On_Connect_Action__c, On_Connect_Target__c,
                        On_VM_Action__c, On_VM_Target__c, On_No_Answer_Action__c,
                        On_No_Answer_Target__c, On_Meeting_Action__c, On_Meeting_Target__c,
-                       Is_Active__c
+                       Execution_Type__c, Template_Name__c, Is_Active__c
                 FROM NBA_Cadence_Step__mdt
                 WHERE Is_Active__c = true
                 ORDER BY Step_Number__c ASC
@@ -500,6 +606,7 @@ public with sharing class NbaCadenceService {
         cadencesLoaded = false;
         stepsLoaded = false;
         cadenceContextMap = null;
+        stageCadenceMap = null;
         lastEvaluatedResults = new Map<Id, CadenceResult>();
     }
 }
