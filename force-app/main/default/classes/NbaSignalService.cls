@@ -57,6 +57,8 @@ public with sharing class NbaSignalService {
         // Account scoring
         public Decimal probPayrollConversion;
         public Decimal probTierUpgrade;
+        public Decimal likelihoodToWin;
+        public Decimal incrementalIfWon;
         public Boolean hasAccountScoring;
 
         // Existing actions (dedup)
@@ -211,6 +213,8 @@ public with sharing class NbaSignalService {
                     sig.hasAccountScoring = true;
                     sig.probPayrollConversion = scoring.Prob_Payroll_Conversion__c;
                     sig.probTierUpgrade = scoring.Prob_Tier_Upgrade__c;
+                    sig.likelihoodToWin = scoring.Likelihood_To_Win__c;
+                    sig.incrementalIfWon = scoring.Incremental_If_Won__c;
                 }
             }
 
@@ -387,7 +391,8 @@ public with sharing class NbaSignalService {
             return resultMap;
         }
         List<Account_Scoring__c> scores = [
-            SELECT Id, Account__c, Prob_Payroll_Conversion__c, Prob_Tier_Upgrade__c
+            SELECT Id, Account__c, Prob_Payroll_Conversion__c, Prob_Tier_Upgrade__c,
+                   Likelihood_To_Win__c, Incremental_If_Won__c
             FROM Account_Scoring__c
             WHERE Account__c IN :accountIds
             WITH SECURITY_ENFORCED

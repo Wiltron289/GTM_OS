@@ -74,4 +74,12 @@
         <field>Description__c</field>
         <value xsi:type="xsd:string">Day 3, Step 11: Call only if VM-heavy pattern observed.</value>
     </values>
+    <values>
+        <field>Execution_Type__c</field>
+        <value xsi:type="xsd:string">Human</value>
+    </values>
+    <values>
+        <field>Template_Name__c</field>
+        <value xsi:nil="true"/>
+    </values>
 </CustomMetadata>

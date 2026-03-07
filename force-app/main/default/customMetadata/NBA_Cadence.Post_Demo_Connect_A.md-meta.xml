@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Post-Demo Connect A</label>
+    <protected>false</protected>
+    <values>
+        <field>Scenario__c</field>
+        <value xsi:type="xsd:string">Post-Demo Follow-Up</value>
+    </values>
+    <values>
+        <field>Variant__c</field>
+        <value xsi:type="xsd:string">A</value>
+    </values>
+    <values>
+        <field>Stage__c</field>
+        <value xsi:type="xsd:string">Connect</value>
+    </values>
+    <values>
+        <field>Anchor_Field__c</field>
+        <value xsi:type="xsd:string">daysSinceLastInteraction</value>
+    </values>
+    <values>
+        <field>Total_Steps__c</field>
+        <value xsi:type="xsd:double">7</value>
+    </values>
+    <values>
+        <field>Total_Days__c</field>
+        <value xsi:type="xsd:double">5</value>
+    </values>
+    <values>
+        <field>Exit_Conditions__c</field>
+        <value xsi:type="xsd:string">Connected_Call,Meeting_Scheduled,Opp_Closed</value>
+    </values>
+    <values>
+        <field>Day_Map__c</field>
+        <value xsi:type="xsd:string">{"0":0,"1":1,"2":3,"3":3,"4":5,"5":5}</value>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Connect stage Post-Demo No-Show cadence. 7 steps over 5 days. Triggers when follow-up meeting is missed. Auto-recap email on Day 0, then call/SMS/email sequence.</value>
+    </values>
+</CustomMetadata>

@@ -54,11 +54,7 @@ private class NbaTaskTriggerHandlerTest {
                 Sales_Rep__c = UserInfo.getUserId(),
                 Status__c = 'In Progress',
                 Action_Type__c = actionType,
-                Impact_Score__c = 0.5,
-                Urgency_Score__c = 0.5,
                 Priority_Score__c = 0.5,
-                Priority_Bucket__c = 'General Pipeline',
-                Priority_Layer__c = 'Layer 3 - Impact+Urgency',
                 Is_Time_Bound__c = false,
                 Cadence_Stage__c = 1,
                 Attempt_Count_Today__c = 0,
@@ -123,7 +119,8 @@ private class NbaTaskTriggerHandlerTest {
 
         NBA_Queue__c actionBefore = [
             SELECT Id, Status__c, Attempt_Count_Today__c FROM NBA_Queue__c
-            WHERE Opportunity__c = :opp.Id AND Action_Type__c = 'First Touch' LIMIT 1
+            WHERE Opportunity__c = :opp.Id AND Action_Type__c = 'First Touch'
+              AND Source_Path__c = 'Pipeline Cadence' LIMIT 1
         ];
         System.assertEquals('In Progress', actionBefore.Status__c,
             'Action should be In Progress before test');

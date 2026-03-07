@@ -43,6 +43,11 @@
             onsnooze={handleSnooze}>
         </c-nba-demo-header>
 
+        <!-- Tag Panel (Action Mode — shows prioritization tags) -->
+        <template lwc:if={showTagPanel}>
+            <c-nba-tag-panel action-tags={currentAction.actionTags}></c-nba-tag-panel>
+        </template>
+
         <!-- Insights Panel -->
         <c-nba-demo-insights-panel
             insights-data={insightsData}
@@ -142,6 +147,15 @@
                 onsnooze={handleSnoozeAction}
                 ondismiss={handleDismissAction}>
             </c-nba-action-bar>
+        </template>
+
+        <!-- Follow-Up Modal (after Complete on call steps) -->
+        <template lwc:if={showFollowUpModal}>
+            <c-nba-follow-up-modal
+                opportunity-id={currentAction.opportunityId}
+                onsetfollowup={handleFollowUpSet}
+                onnofollowup={handleFollowUpSkip}>
+            </c-nba-follow-up-modal>
         </template>
 
         <!-- Call Notes Capture Overlay (Post-Call Notes) -->

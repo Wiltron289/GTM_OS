@@ -67,7 +67,7 @@ private class NbaEventTriggerHandlerTest {
         Test.stopTest();
 
         List<NBA_Queue__c> actions = [
-            SELECT Id, Action_Type__c, Priority_Layer__c, Is_Time_Bound__c,
+            SELECT Id, Action_Type__c, Is_Time_Bound__c,
                    DueAt__c, Source_Path__c, Status__c, Action_Instruction__c
             FROM NBA_Queue__c
             WHERE Opportunity__c = :opp.Id AND Action_Type__c = 'Meeting'
@@ -76,8 +76,6 @@ private class NbaEventTriggerHandlerTest {
         System.assert(!actions.isEmpty(),
             'Meeting within 24h should create a time-bound action');
         NBA_Queue__c action = actions[0];
-        System.assertEquals('Layer 1 - Time Bound', action.Priority_Layer__c,
-            'Should be Layer 1');
         System.assertEquals(true, action.Is_Time_Bound__c,
             'Should be time-bound');
         System.assertEquals('Immediate', action.Source_Path__c,

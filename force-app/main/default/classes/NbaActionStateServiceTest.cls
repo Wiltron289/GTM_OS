@@ -48,10 +48,9 @@ private class NbaActionStateServiceTest {
             Status__c = 'In Progress',
             Action_Type__c = 'Meeting',
             Priority_Score__c = 0.90,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
             Is_Time_Bound__c = true,
             DueAt__c = Datetime.now().addHours(2),
+            Source_Path__c = 'Immediate',
             Workflow_Mode__c = 'Pipeline',
             Action_Instruction__c = 'Prepare for meeting'
         );
@@ -252,8 +251,8 @@ private class NbaActionStateServiceTest {
             Sales_Rep__c = UserInfo.getUserId(), Status__c = 'Pending',
             Action_Type__c = 'Meeting', Is_Time_Bound__c = true,
             DueAt__c = Datetime.now().addHours(-2),
-            Priority_Score__c = 0.90, Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today', Workflow_Mode__c = 'Pipeline'
+            Priority_Score__c = 0.90, Source_Path__c = 'Immediate',
+            Workflow_Mode__c = 'Pipeline'
         );
         insert staleAction;
 
@@ -296,7 +295,7 @@ private class NbaActionStateServiceTest {
         // The Opp insert triggers the handler which creates the interrupt record.
         // Query the trigger-created record instead of inserting a duplicate.
         List<NBA_Queue__c> existing = [
-            SELECT Id, Status__c, UniqueKey__c, Is_Time_Bound__c, Priority_Layer__c
+            SELECT Id, Status__c, UniqueKey__c, Is_Time_Bound__c, Source_Path__c
             FROM NBA_Queue__c
             WHERE UniqueKey__c = :('V2|' + opp3.Id + '|First Touch|NewAssignment')
             LIMIT 1
@@ -309,8 +308,8 @@ private class NbaActionStateServiceTest {
                 Opportunity__c = opp3.Id, Account__c = acc3.Id,
                 Sales_Rep__c = UserInfo.getUserId(), Status__c = 'Pending',
                 Action_Type__c = 'First Touch', Is_Time_Bound__c = false,
-                Priority_Score__c = 0.80, Priority_Layer__c = 'Layer 1 - Time Bound',
-                Priority_Bucket__c = 'Cadence Due Today', Workflow_Mode__c = 'Pipeline',
+                Priority_Score__c = 0.80, Source_Path__c = 'Immediate',
+                Workflow_Mode__c = 'Pipeline',
                 UniqueKey__c = 'V2|' + opp3.Id + '|First Touch|NewAssignment'
             );
             insert interruptAction;
@@ -355,8 +354,8 @@ private class NbaActionStateServiceTest {
             Sales_Rep__c = userId, Status__c = 'In Progress',
             Action_Type__c = 'Meeting', Is_Time_Bound__c = true,
             DueAt__c = Datetime.now().addHours(-2),
-            Priority_Score__c = 0.80, Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today', Workflow_Mode__c = 'Pipeline'
+            Priority_Score__c = 0.80, Source_Path__c = 'Immediate',
+            Workflow_Mode__c = 'Pipeline'
         );
         insert stale;
 

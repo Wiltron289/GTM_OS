@@ -31,6 +31,10 @@
         <value xsi:type="xsd:string">{"0":0,"1":1,"2":3,"3":3,"4":5,"5":5}</value>
     </values>
     <values>
+        <field>Stage__c</field>
+        <value xsi:type="xsd:string">New</value>
+    </values>
+    <values>
         <field>Is_Active__c</field>
         <value xsi:type="xsd:boolean">true</value>
     </values>

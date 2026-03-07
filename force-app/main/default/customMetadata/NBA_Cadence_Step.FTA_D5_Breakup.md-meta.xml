@@ -74,4 +74,12 @@
         <field>Description__c</field>
         <value xsi:type="xsd:string">Day 5, Step 12: Breakup SMS. Final touch of cadence.</value>
     </values>
+    <values>
+        <field>Execution_Type__c</field>
+        <value xsi:type="xsd:string">Automated</value>
+    </values>
+    <values>
+        <field>Template_Name__c</field>
+        <value xsi:type="xsd:string">FT_Breakup_SMS</value>
+    </values>
 </CustomMetadata>

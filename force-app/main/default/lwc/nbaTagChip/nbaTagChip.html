@@ -1,0 +1,8 @@
+<template>
+    <div class={chipClass} onclick={handleClick} role="button" tabindex="0">
+        <span class="chip-label">{chipLabel}</span>
+        <template lwc:if={isExpanded}>
+            <span class="chip-expanded">{expandedText}</span>
+        </template>
+    </div>
+</template>

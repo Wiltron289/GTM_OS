@@ -42,8 +42,7 @@ private class NbaActionExpirationSchedulableTest {
             Status__c = 'Pending',
             Action_Type__c = 'Meeting',
             Priority_Score__c = 0.90,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
+            Source_Path__c = 'Immediate',
             Is_Time_Bound__c = true,
             DueAt__c = Datetime.now().addHours(-1),
             Workflow_Mode__c = 'Pipeline'

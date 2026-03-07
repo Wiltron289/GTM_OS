@@ -1,20 +1,28 @@
 /**
  * NbaActionCreationService — Rule evaluation and candidate action creation
- * for the NBA V2 Action Orchestration Engine.
+ * for the GTM OS Action Orchestration Engine.
  *
- * Evaluates OpportunitySignals against suppression, urgency, and impact rules
- * from Custom Metadata Types, then creates candidate NBA_Queue__c records
- * with Status = 'Pending'.
+ * Evaluates OpportunitySignals against suppression rules, determines action type,
+ * then scores using Expected Incremental ARR formula (PRD Section 8.3):
+ *   Expected_Incremental_ARR = Likelihood_To_Win × Incremental_If_Won × Connect_Rate(attempt)
  *
- * Called by NbaActionCreationSchedulable on a 10-minute cadence.
+ * Called by NbaActionController during on-demand evaluation.
  */
 public with sharing class NbaActionCreationService {
 
     // ─── Constants ────────────────────────────────────────────────────
-    private static final Decimal DEFAULT_MRR_CEILING = 50000;
-    private static final Decimal DEFAULT_CLOSE_PROB = 0.30;
-    private static final Decimal MAX_URGENCY_CAP = 2.0;
-    private static final Decimal BASE_URGENCY = 0.5;
+    // Fallback stage-based win probability when no Account_Scoring data
+    private static final Map<String, Decimal> STAGE_PROBABILITY_FALLBACK = new Map<String, Decimal>{
+        'New' => 0.10,
+        'Connect' => 0.25,
+        'Consult' => 0.50,
+        'Evaluating' => 0.50,
+        'Closing' => 0.75,
+        'Verbal Commit' => 0.90,
+        'Ready to Convert' => 0.90
+    };
+    private static final Decimal DEFAULT_STAGE_PROBABILITY = 0.30;
+    private static final Decimal DEFAULT_CONNECT_RATE = 0.05;  // fallback if no CMDT match
 
     // Inactivity thresholds (days)
     private static final Decimal FIRST_TOUCH_INACTIVITY = 99999;
@@ -24,9 +32,8 @@ public with sharing class NbaActionCreationService {
     private static final Integer REENGAGE_INACTIVITY_DAYS = 5;
     private static final Integer CONNECTED_FOLLOWUP_HOURS = 4;
 
-    // Bucket thresholds
-    private static final Decimal HIGH_IMPACT_THRESHOLD = 0.7;
-    private static final Integer NEGLECTED_DAYS = 7;
+    // Connect rate CMDT cache
+    private static Map<Integer, Decimal> connectRateMap;
 
     // ─── Result Wrapper ───────────────────────────────────────────────
     public class CreationResult {
@@ -49,7 +56,7 @@ public with sharing class NbaActionCreationService {
 
     /**
      * Evaluate signals and create candidate NBA_Queue__c actions.
-     * Loads all CMDT rules once (0 SOQL), then evaluates each signal.
+     * Loads all CMDT rules once (0 SOQL after first call), then evaluates each signal.
      * DML is NOT performed here — the caller inserts actionsToCreate.
      * @param signals Map of Opp ID to OpportunitySignal from NbaSignalService
      * @return CreationResult containing actions to insert and diagnostics
@@ -62,23 +69,16 @@ public with sharing class NbaActionCreationService {
             return result;
         }
 
-        // Load all CMDT rules (cached, 0 SOQL)
+        // Load suppression rules (CMDT, 0 SOQL after first call in transaction)
         List<NBA_Suppression_Rule__mdt> suppressionRules = [
             SELECT Rule_Name__c, Condition__c, Suppression_Window_Hours__c,
                    Is_Active__c, Description__c
             FROM NBA_Suppression_Rule__mdt
             WHERE Is_Active__c = true
         ];
-        List<NBA_Urgency_Rule__mdt> urgencyRules = [
-            SELECT Rule_Name__c, Signal_Type__c, Stage_Minimum__c,
-                   Threshold_Days__c, Urgency_Multiplier__c, Is_Active__c
-            FROM NBA_Urgency_Rule__mdt
-            WHERE Is_Active__c = true
-        ];
-        NBA_Impact_Weight__mdt weights = getActiveImpactWeights();
 
-        // Calculate max MRR across all signals for normalization
-        Decimal maxMrr = calculateMaxMrr(signals.values());
+        // Load connect rates (CMDT, cached static)
+        loadConnectRates();
 
         result.oppCount = signals.size();
 
@@ -117,17 +117,12 @@ public with sharing class NbaActionCreationService {
                 }
             }
 
-            // Step 3: Calculate scores
-            Decimal impactScore = calculateImpactScore(signal, maxMrr, weights);
-            Decimal urgencyScore = calculateUrgencyScore(signal, actionType, urgencyRules);
-            Decimal finalScore = (weights.Impact_vs_Urgency_Impact_Weight__c * impactScore)
-                + (weights.Impact_vs_Urgency_Urgency_Weight__c * urgencyScore);
+            // Step 3: Calculate Expected Incremental ARR (PRD 8.3)
+            Integer attemptNumber = getAttemptNumber(signal, cadenceResult);
+            Decimal expectedArr = calculateExpectedArr(signal, attemptNumber);
+            Integer stagePriority = NbaActionSelectionService.resolveStagePriority(signal.stageName);
 
-            // Step 4: Assign bucket and layer
-            String bucket = assignBucket(signal, actionType, impactScore);
-            String layer = assignLayer(signal, actionType);
-
-            // Step 5: Build the action record
+            // Step 4: Build the action record
             String instruction;
             String ruleName;
             Integer cadenceStageVal = 1;
@@ -153,7 +148,7 @@ public with sharing class NbaActionCreationService {
                 ruleName = actionType + '_Auto';
             }
 
-            String reasonText = buildReasonText(signal, actionType, impactScore, urgencyScore);
+            String reasonText = buildReasonText(signal, actionType, expectedArr, stagePriority);
 
             NBA_Queue__c action = new NBA_Queue__c(
                 Opportunity__c = signal.oppId,
@@ -161,12 +156,10 @@ public with sharing class NbaActionCreationService {
                 Sales_Rep__c = signal.ownerId,
                 Status__c = 'Pending',
                 Action_Type__c = actionType,
-                Impact_Score__c = impactScore,
-                Urgency_Score__c = urgencyScore,
-                Priority_Score__c = finalScore,
-                Priority_Bucket__c = bucket,
-                Priority_Layer__c = layer,
-                Is_Time_Bound__c = (layer == 'Layer 1 - Time Bound'),
+                Priority_Score__c = expectedArr,
+                Expected_Incremental_ARR__c = expectedArr,
+                Stage_Priority__c = stagePriority,
+                Is_Time_Bound__c = false,
                 Cadence_Stage__c = cadenceStageVal,
                 Attempt_Count_Today__c = attemptCountVal,
                 Last_Attempt_Method__c = lastMethodVal,
@@ -183,6 +176,15 @@ public with sharing class NbaActionCreationService {
                 Cadence_Step_Number__c = cadenceStepNumVal,
                 Step_Method__c = stepMethodVal
             );
+
+            // Session 8: Wire automated outreach fields when cadence step is Automated
+            if (cadenceResult != null && cadenceResult.executionType == 'Automated') {
+                action.Execution_Type__c = 'Automated';
+                action.Automated_Send_Status__c = 'Pending';
+                action.Template_Name__c = cadenceResult.templateName;
+                // Scheduled_Send_Time__c: immediate if spacing already satisfied, else spacing-based
+                action.Scheduled_Send_Time__c = Datetime.now();
+            }
 
             result.actionsToCreate.add(action);
             result.createdCount++;
@@ -221,12 +223,9 @@ public with sharing class NbaActionCreationService {
             return null;
         }
 
-        // Simplified scoring: query Opp Amount for impact, use high urgency for time-bound
-        Decimal impactScore = 0.5; // default mid-range
-        Decimal urgencyScore = 1.5; // high — time-bound actions are urgent
-        Decimal oppAmount = 0;
+        // Query opp for stage priority
         String stageName = '';
-
+        Integer stagePriority = 99;
         List<Opportunity> opps = [
             SELECT Amount, MRR__c, StageName
             FROM Opportunity
@@ -235,14 +234,9 @@ public with sharing class NbaActionCreationService {
             LIMIT 1
         ];
         if (!opps.isEmpty()) {
-            Opportunity opp = opps[0];
-            oppAmount = opp.MRR__c != null ? opp.MRR__c : (opp.Amount != null ? opp.Amount : 0);
-            stageName = opp.StageName;
-            // Simple impact: normalize against ceiling
-            impactScore = Math.min(oppAmount / DEFAULT_MRR_CEILING, 1.0);
+            stageName = opps[0].StageName;
+            stagePriority = NbaActionSelectionService.resolveStagePriority(stageName);
         }
-
-        Decimal finalScore = (0.5 * impactScore) + (0.5 * urgencyScore);
 
         NBA_Queue__c action = new NBA_Queue__c(
             Opportunity__c = oppId,
@@ -250,11 +244,9 @@ public with sharing class NbaActionCreationService {
             Sales_Rep__c = aeId,
             Status__c = 'Pending',
             Action_Type__c = 'Meeting',
-            Impact_Score__c = impactScore,
-            Urgency_Score__c = urgencyScore,
-            Priority_Score__c = finalScore,
-            Priority_Bucket__c = 'Cadence Due Today',
-            Priority_Layer__c = 'Layer 1 - Time Bound',
+            Priority_Score__c = 0,
+            Expected_Incremental_ARR__c = 0,
+            Stage_Priority__c = stagePriority,
             Is_Time_Bound__c = true,
             DueAt__c = dueAt,
             Cadence_Stage__c = 1,
@@ -360,25 +352,7 @@ public with sharing class NbaActionCreationService {
             return null;
         }
 
-        // Simplified scoring for interrupt: high urgency, mid-range impact
-        Decimal impactScore = 0.5;
-        Decimal urgencyScore = 1.5;
-        Decimal oppAmount = 0;
-
-        List<Opportunity> opps = [
-            SELECT Amount, MRR__c
-            FROM Opportunity
-            WHERE Id = :oppId
-            WITH SECURITY_ENFORCED
-            LIMIT 1
-        ];
-        if (!opps.isEmpty()) {
-            Opportunity opp = opps[0];
-            oppAmount = opp.MRR__c != null ? opp.MRR__c : (opp.Amount != null ? opp.Amount : 0);
-            impactScore = Math.min(oppAmount / DEFAULT_MRR_CEILING, 1.0);
-        }
-
-        Decimal finalScore = (0.5 * impactScore) + (0.5 * urgencyScore);
+        Integer stagePriority = NbaActionSelectionService.resolveStagePriority(stageName);
 
         NBA_Queue__c action = new NBA_Queue__c(
             Opportunity__c = oppId,
@@ -386,11 +360,9 @@ public with sharing class NbaActionCreationService {
             Sales_Rep__c = aeId,
             Status__c = 'Pending',
             Action_Type__c = 'First Touch',
-            Impact_Score__c = impactScore,
-            Urgency_Score__c = urgencyScore,
-            Priority_Score__c = finalScore,
-            Priority_Bucket__c = 'Cadence Due Today',
-            Priority_Layer__c = 'Layer 1 - Time Bound',
+            Priority_Score__c = 0,
+            Expected_Incremental_ARR__c = 0,
+            Stage_Priority__c = stagePriority,
             Is_Time_Bound__c = false,
             Cadence_Stage__c = 1,
             Attempt_Count_Today__c = 0,
@@ -430,12 +402,12 @@ public with sharing class NbaActionCreationService {
         }
 
         Set<String> existingKeys = new Set<String>();
-        for (NBA_Queue__c existing : [
+        for (NBA_Queue__c existingRec : [
             SELECT UniqueKey__c FROM NBA_Queue__c
             WHERE UniqueKey__c IN :allKeys
             WITH SECURITY_ENFORCED
         ]) {
-            existingKeys.add(existing.UniqueKey__c);
+            existingKeys.add(existingRec.UniqueKey__c);
         }
 
         // Build records for non-duplicates
@@ -446,10 +418,7 @@ public with sharing class NbaActionCreationService {
                 continue; // Duplicate — skip
             }
 
-            Decimal oppAmount = opp.Amount != null ? opp.Amount : 0;
-            Decimal impactScore = Math.min(oppAmount / DEFAULT_MRR_CEILING, 1.0);
-            Decimal urgencyScore = 1.5;
-            Decimal finalScore = (0.5 * impactScore) + (0.5 * urgencyScore);
+            Integer stagePriority = NbaActionSelectionService.resolveStagePriority(opp.StageName);
 
             NBA_Queue__c action = new NBA_Queue__c(
                 Opportunity__c = opp.Id,
@@ -457,12 +426,10 @@ public with sharing class NbaActionCreationService {
                 Sales_Rep__c = opp.OwnerId,
                 Status__c = 'Pending',
                 Action_Type__c = 'First Touch',
-                Impact_Score__c = impactScore,
-                Urgency_Score__c = urgencyScore,
-                Priority_Score__c = finalScore,
-                Priority_Bucket__c = 'Cadence Due Today',
-                Priority_Layer__c = 'Layer 1 - Time Bound',
-                Is_Time_Bound__c = false,
+                Priority_Score__c = 0,
+                Expected_Incremental_ARR__c = 0,
+                Stage_Priority__c = stagePriority,
+                    Is_Time_Bound__c = false,
                 Cadence_Stage__c = 1,
                 Attempt_Count_Today__c = 0,
                 Source_Path__c = 'Immediate',
@@ -609,112 +576,91 @@ public with sharing class NbaActionCreationService {
         return null;
     }
 
-    // ─── Scoring ──────────────────────────────────────────────────────
+    // ─── Scoring: Expected Incremental ARR ────────────────────────────
 
+    /**
+     * Calculate Expected Incremental ARR per PRD Section 8.3:
+     *   Expected_Incremental_ARR = Likelihood_To_Win × Incremental_If_Won × Connect_Rate(attempt)
+     *
+     * Fallbacks:
+     *   - LTW: stage-based probability if no Account_Scoring data
+     *   - IIW: Opp.MRR or Opp.Amount if no Account_Scoring data
+     *   - Connect Rate: from NBA_Connect_Rate__mdt, capped at attempt 10
+     */
     @TestVisible
-    private static Decimal calculateImpactScore(
+    private static Decimal calculateExpectedArr(
         NbaSignalService.OpportunitySignal signal,
-        Decimal maxMrr,
-        NBA_Impact_Weight__mdt weights
+        Integer attemptNumber
     ) {
-        // Normalize MRR to 0-1
-        Decimal mrrValue = signal.mrr != null ? signal.mrr
-            : (signal.amount != null ? signal.amount : 0);
-        Decimal normalizedMrr = maxMrr > 0 ? Math.min(mrrValue / maxMrr, 1.0) : 0;
-
-        // Close probability: Account_Scoring if available, else Deal_Stage_Probability
-        Decimal closeProb;
-        if (signal.hasAccountScoring && signal.probPayrollConversion != null) {
-            closeProb = signal.probPayrollConversion / 100;
-        } else if (signal.dealStageProbability != null) {
-            closeProb = signal.dealStageProbability / 100;
+        // Likelihood_To_Win: Account_Scoring > stage fallback
+        Decimal ltw;
+        if (signal.hasAccountScoring && signal.likelihoodToWin != null) {
+            ltw = signal.likelihoodToWin;  // stored as 0-1 decimal
+        } else if (signal.hasAccountScoring && signal.probPayrollConversion != null) {
+            ltw = signal.probPayrollConversion / 100;  // percent to decimal
         } else {
-            closeProb = DEFAULT_CLOSE_PROB;
+            ltw = STAGE_PROBABILITY_FALLBACK.containsKey(signal.stageName)
+                ? STAGE_PROBABILITY_FALLBACK.get(signal.stageName)
+                : DEFAULT_STAGE_PROBABILITY;
         }
-        closeProb = Math.min(closeProb, 1.0);
 
-        return (weights.MRR_Weight__c * normalizedMrr)
-            + (weights.Close_Probability_Weight__c * closeProb);
+        // Incremental_If_Won: Account_Scoring > Opp Amount
+        Decimal iiw;
+        if (signal.hasAccountScoring && signal.incrementalIfWon != null) {
+            iiw = signal.incrementalIfWon;
+        } else {
+            iiw = signal.amount != null ? signal.amount : 0;
+        }
+
+        // Connect Rate: CMDT lookup by attempt number, default for unknown
+        Decimal connectRate = getConnectRate(attemptNumber);
+
+        return ltw * iiw * connectRate;
+    }
+
+    /**
+     * Determine the attempt number for connect rate lookup.
+     * Uses cadence step number if available, otherwise defaults to 1.
+     */
+    private static Integer getAttemptNumber(
+        NbaSignalService.OpportunitySignal signal,
+        NbaCadenceService.CadenceResult cadenceResult
+    ) {
+        if (cadenceResult != null && cadenceResult.currentStep != null) {
+            return cadenceResult.currentStep.stepNumber;
+        }
+        // Use last completed step + 1, or default to 1
+        if (signal.lastCadenceStepNumber != null) {
+            return signal.lastCadenceStepNumber + 1;
+        }
+        return 1;
+    }
+
+    // ─── Connect Rate CMDT ────────────────────────────────────────────
+
+    private static void loadConnectRates() {
+        if (connectRateMap != null) {
+            return;
+        }
+        connectRateMap = new Map<Integer, Decimal>();
+        for (NBA_Connect_Rate__mdt cr : [
+            SELECT Attempt_Number__c, Connect_Rate__c
+            FROM NBA_Connect_Rate__mdt
+        ]) {
+            connectRateMap.put(Integer.valueOf(cr.Attempt_Number__c), cr.Connect_Rate__c);
+        }
     }
 
     @TestVisible
-    private static Decimal calculateUrgencyScore(
-        NbaSignalService.OpportunitySignal signal,
-        String actionType,
-        List<NBA_Urgency_Rule__mdt> urgencyRules
-    ) {
-        Decimal urgency = BASE_URGENCY;
-
-        for (NBA_Urgency_Rule__mdt rule : urgencyRules) {
-            // SLA urgency for First Touch
-            if (rule.Signal_Type__c == 'SLA' && actionType == 'First Touch') {
-                urgency *= rule.Urgency_Multiplier__c;
-                continue;
-            }
-
-            // Inactivity-based urgency
-            if (rule.Signal_Type__c == 'Inactivity'
-                && signal.daysSinceLastInteraction != null
-                && signal.daysSinceLastInteraction >= rule.Threshold_Days__c) {
-                Integer stageMin = parseStageMinimum(rule.Stage_Minimum__c);
-                if (signal.stageNumber >= stageMin) {
-                    urgency *= rule.Urgency_Multiplier__c;
-                }
-                continue;
-            }
-
-            // Stage pressure
-            if (rule.Signal_Type__c == 'Stage Pressure') {
-                Integer stageMin = parseStageMinimum(rule.Stage_Minimum__c);
-                if (signal.stageNumber >= stageMin) {
-                    urgency *= rule.Urgency_Multiplier__c;
-                }
-            }
+    private static Decimal getConnectRate(Integer attemptNumber) {
+        if (connectRateMap == null) {
+            loadConnectRates();
         }
-
-        return Math.min(urgency, MAX_URGENCY_CAP);
-    }
-
-    // ─── Bucket & Layer Assignment ────────────────────────────────────
-
-    @TestVisible
-    private static String assignBucket(
-        NbaSignalService.OpportunitySignal signal,
-        String actionType,
-        Decimal impactScore
-    ) {
-        if (actionType == 'First Touch'
-            && signal.hoursSinceAssignment != null
-            && signal.hoursSinceAssignment <= FIRST_TOUCH_HOURS_THRESHOLD) {
-            return 'Cadence Due Today';
-        }
-        if (signal.stageNumber >= LATE_STAGE_MIN
-            && signal.daysSinceLastInteraction != null
-            && signal.daysSinceLastInteraction >= LATE_STAGE_INACTIVITY_DAYS) {
-            return 'Late-Stage Stalled';
-        }
-        if (impactScore >= HIGH_IMPACT_THRESHOLD) {
-            return 'High Impact Focus';
-        }
-        if (signal.daysSinceLastInteraction != null
-            && signal.daysSinceLastInteraction >= NEGLECTED_DAYS) {
-            return 'Neglected';
-        }
-        return 'General Pipeline';
-    }
-
-    @TestVisible
-    private static String assignLayer(
-        NbaSignalService.OpportunitySignal signal,
-        String actionType
-    ) {
-        if (actionType == 'First Touch'
-            && signal.hoursSinceAssignment != null
-            && signal.hoursSinceAssignment <= FIRST_TOUCH_HOURS_THRESHOLD) {
-            return 'Layer 1 - Time Bound';
-        }
-        // Blitz mode check (Phase 5 — currently defaults to Pipeline)
-        return 'Layer 3 - Impact+Urgency';
+        // Cap at attempt 10 (highest CMDT record)
+        Integer lookup = Math.min(attemptNumber != null ? attemptNumber : 1, 10);
+        return connectRateMap.containsKey(lookup)
+            ? connectRateMap.get(lookup)
+            : DEFAULT_CONNECT_RATE;
     }
 
     // ─── Instruction & Reason Builders ────────────────────────────────
@@ -758,17 +704,19 @@ public with sharing class NbaActionCreationService {
     private static String buildReasonText(
         NbaSignalService.OpportunitySignal signal,
         String actionType,
-        Decimal impactScore,
-        Decimal urgencyScore
+        Decimal expectedArr,
+        Integer stagePriority
     ) {
         String reason = actionType + ' action. ';
-        reason += 'Impact: ' + impactScore.setScale(2) + ', ';
-        reason += 'Urgency: ' + urgencyScore.setScale(2) + '. ';
+        reason += 'Expected ARR: $' + expectedArr.setScale(2) + '. ';
+        reason += 'Stage Priority: ' + stagePriority + '. ';
 
         if (signal.hasAccountScoring) {
-            reason += 'ML scoring available (Prob: '
-                + (signal.probPayrollConversion != null ? signal.probPayrollConversion + '%' : 'N/A')
-                + '). ';
+            reason += 'ML scoring available';
+            if (signal.likelihoodToWin != null) {
+                reason += ' (LTW: ' + (signal.likelihoodToWin * 100).setScale(1) + '%)';
+            }
+            reason += '. ';
         }
 
         if (signal.daysSinceLastInteraction != null
@@ -783,31 +731,6 @@ public with sharing class NbaActionCreationService {
 
     private static String buildUniqueKey(Id oppId, String actionType) {
         return 'V2|' + oppId + '|' + actionType;
-    }
-
-    /**
-     * Parse stage minimum from CMDT value like "Stage 4+" → 4.
-     * Returns 0 if null or unparseable (matches any stage).
-     */
-    private static Integer parseStageMinimum(String stageMin) {
-        if (String.isBlank(stageMin)) {
-            return 0;
-        }
-        // Extract digits from strings like "Stage 4+", "Stage 3+"
-        String digits = stageMin.replaceAll('[^0-9]', '');
-        if (String.isNotBlank(digits)) {
-            return Integer.valueOf(digits);
-        }
-        return 0;
-    }
-
-    /**
-     * Return a fixed MRR ceiling for consistent normalization across evaluations.
-     * Opps with MRR > ceiling cap at 1.0 normalized score. Prevents a single
-     * high-MRR outlier from suppressing all other opps' impact scores.
-     */
-    private static Decimal calculateMaxMrr(List<NbaSignalService.OpportunitySignal> signals) {
-        return DEFAULT_MRR_CEILING;
     }
 
     /**
@@ -830,25 +753,5 @@ public with sharing class NbaActionCreationService {
             return 'Try SMS — call was not connected';
         }
         return null;
-    }
-
-    private static NBA_Impact_Weight__mdt getActiveImpactWeights() {
-        List<NBA_Impact_Weight__mdt> configs = [
-            SELECT Config_Name__c, MRR_Weight__c, Close_Probability_Weight__c,
-                   Impact_vs_Urgency_Impact_Weight__c, Impact_vs_Urgency_Urgency_Weight__c
-            FROM NBA_Impact_Weight__mdt
-            WHERE Is_Active__c = true
-            LIMIT 1
-        ];
-        if (!configs.isEmpty()) {
-            return configs[0];
-        }
-        // Fallback defaults if no CMDT record exists
-        NBA_Impact_Weight__mdt fallback = new NBA_Impact_Weight__mdt();
-        fallback.MRR_Weight__c = 0.60;
-        fallback.Close_Probability_Weight__c = 0.40;
-        fallback.Impact_vs_Urgency_Impact_Weight__c = 0.50;
-        fallback.Impact_vs_Urgency_Urgency_Weight__c = 0.50;
-        return fallback;
     }
 }

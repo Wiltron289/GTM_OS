@@ -1,0 +1,9 @@
+<template>
+    <template lwc:if={hasTags}>
+        <div class="tag-panel">
+            <template for:each={parsedTags} for:item="tag">
+                <c-nba-tag-chip key={tag.key} tag={tag}></c-nba-tag-chip>
+            </template>
+        </div>
+    </template>
+</template>

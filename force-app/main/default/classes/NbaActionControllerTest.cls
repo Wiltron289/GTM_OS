@@ -53,6 +53,9 @@ private class NbaActionControllerTest {
     // ─── Helpers ────────────────────────────────────────────────────
 
     private static Opportunity getTestOpp() {
+        // Ensure timezone gate doesn't block actions during tests (5 PM UTC = past 8 AM in all US TZs)
+        NbaActionSelectionService.mockNow = Datetime.newInstanceGmt(
+            Date.today(), Time.newInstance(17, 0, 0, 0));
         return [SELECT Id, AccountId FROM Opportunity WHERE Account.Name = 'Controller Test Account' LIMIT 1];
     }
 
@@ -69,10 +72,9 @@ private class NbaActionControllerTest {
             Action_Instruction__c = 'Prepare for meeting',
             ReasonText__c = 'Time-bound meeting action',
             Priority_Score__c = 0.90,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
             Is_Time_Bound__c = true,
             DueAt__c = Datetime.now().addHours(1),
+            Source_Path__c = 'Immediate',
             Workflow_Mode__c = 'Pipeline'
         );
         insert tb;
@@ -108,7 +110,6 @@ private class NbaActionControllerTest {
         cached.opportunityId = opp.Id;
         cached.actionType = 'Re-engage';
         cached.actionInstruction = 'Re-engage cold deal';
-        cached.priorityLayer = 'Layer 3 - Impact+Urgency';
         cached.isTimeBound = false;
         cached.status = 'Evaluated';
         NbaCacheService.cacheAction(userId, cached);
@@ -171,10 +172,9 @@ private class NbaActionControllerTest {
             Action_Instruction__c = 'Prepare for meeting',
             ReasonText__c = 'Time-bound meeting',
             Priority_Score__c = 0.90,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
             Is_Time_Bound__c = true,
             DueAt__c = Datetime.now().addMinutes(3),
+            Source_Path__c = 'Immediate',
             Workflow_Mode__c = 'Pipeline'
         );
         insert meeting;
@@ -217,7 +217,7 @@ private class NbaActionControllerTest {
         List<NBA_Queue__c> triggerInterrupts = [
             SELECT Id FROM NBA_Queue__c
             WHERE Opportunity__c = :opp.Id
-              AND Priority_Layer__c = 'Layer 1 - Time Bound'
+              AND Source_Path__c = 'Immediate'
               AND Is_Time_Bound__c = false
               AND Status__c IN ('New', 'Pending', 'Accepted')
               AND Action_Type__c != 'Call Completed'
@@ -244,7 +244,7 @@ private class NbaActionControllerTest {
         // Clean up any interrupt records created by @TestSetup trigger
         List<NBA_Queue__c> existing = [
             SELECT Id FROM NBA_Queue__c
-            WHERE Priority_Layer__c = 'Layer 1 - Time Bound'
+            WHERE Source_Path__c = 'Immediate'
               AND Status__c IN ('New', 'Pending', 'Accepted')
         ];
         if (!existing.isEmpty()) {
@@ -276,9 +276,8 @@ private class NbaActionControllerTest {
             Action_Type__c = 'First Touch',
             Action_Instruction__c = 'New opp assigned',
             Priority_Score__c = 0.80,
-            Priority_Layer__c = 'Layer 1 - Time Bound',
-            Priority_Bucket__c = 'Cadence Due Today',
             Is_Time_Bound__c = false,
+            Source_Path__c = 'Immediate',
             Workflow_Mode__c = 'Pipeline'
         );
         insert interrupt;
@@ -426,7 +425,7 @@ private class NbaActionControllerTest {
         // Expire any trigger-created interrupt records to isolate the evaluation
         List<NBA_Queue__c> interrupts = [
             SELECT Id FROM NBA_Queue__c
-            WHERE Priority_Layer__c = 'Layer 1 - Time Bound'
+            WHERE Source_Path__c = 'Immediate'
               AND Status__c IN ('New', 'Pending', 'Accepted')
         ];
         for (NBA_Queue__c q : interrupts) { q.Status__c = 'Expired'; }
@@ -482,5 +481,63 @@ private class NbaActionControllerTest {
             WHERE LinkedEntityId = :opp.Id
         ];
         System.assert(links.isEmpty(), 'Should NOT create ContentDocumentLink for blank notes');
+    }
+
+    // ─── createFollowUp Tests ─────────────────────────────────────
+
+    @isTest
+    static void testCreateFollowUp_CreatesTask() {
+        Opportunity opp = getTestOpp();
+        Datetime followUpDt = Datetime.now().addDays(2);
+
+        Test.startTest();
+        Id taskId = NbaActionController.createFollowUp(
+            opp.Id, 'Call', followUpDt, 'Discuss pricing with DM'
+        );
+        Test.stopTest();
+
+        System.assertNotEquals(null, taskId, 'Should return the created Task ID');
+
+        Task created = [SELECT Subject, WhatId, Status, ActivityDate, ReminderDateTime
+                        FROM Task WHERE Id = :taskId];
+        System.assertEquals(opp.Id, created.WhatId, 'Task should be linked to the Opportunity');
+        System.assert(created.Subject.containsIgnoreCase('Follow-Up'),
+            'Subject should contain Follow-Up');
+    }
+
+    @isTest
+    static void testCreateFollowUp_PausesCadence() {
+        Opportunity opp = getTestOpp();
+        Account acc = [SELECT Id FROM Account WHERE Name = 'Controller Test Account' LIMIT 1];
+
+        // Create an active cadence action to verify pause behavior
+        NBA_Queue__c cadenceAction = new NBA_Queue__c(
+            Opportunity__c = opp.Id,
+            Account__c = acc.Id,
+            Sales_Rep__c = UserInfo.getUserId(),
+            Status__c = 'In Progress',
+            Action_Type__c = 'First Touch',
+            Priority_Score__c = 0.5,
+            Is_Time_Bound__c = false,
+            Source_Path__c = 'Pipeline Cadence',
+            Workflow_Mode__c = 'Pipeline',
+            UniqueKey__c = 'V2|' + opp.Id + '|First Touch|CadencePauseTest'
+        );
+        insert cadenceAction;
+
+        Datetime followUpDt = Datetime.now().addDays(3);
+
+        Test.startTest();
+        Id taskId = NbaActionController.createFollowUp(
+            opp.Id, 'Email', followUpDt, 'Send proposal'
+        );
+        Test.stopTest();
+
+        System.assertNotEquals(null, taskId, 'Should return the created Task ID');
+
+        // Verify cadence was paused (Snoozed_Until__c set)
+        NBA_Queue__c updated = [SELECT Snoozed_Until__c FROM NBA_Queue__c WHERE Id = :cadenceAction.Id];
+        System.assertNotEquals(null, updated.Snoozed_Until__c,
+            'Cadence action should be paused with Snoozed_Until__c set');
     }
 }

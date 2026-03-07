@@ -74,4 +74,12 @@
         <field>Description__c</field>
         <value xsi:type="xsd:string">Day 1, Step 6: Morning call with 60-min spacing.</value>
     </values>
+    <values>
+        <field>Execution_Type__c</field>
+        <value xsi:type="xsd:string">Human</value>
+    </values>
+    <values>
+        <field>Template_Name__c</field>
+        <value xsi:nil="true"/>
+    </values>
 </CustomMetadata>
