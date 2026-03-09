@@ -204,6 +204,167 @@ public with sharing class NbaActionController {
         return buildResultFromEvaluation(userId);
     }
 
+    // ─── Post-Call Context ──────────────────────────────────────────
+
+    /**
+     * Returns full post-call context for the LWC after a Platform Event fires.
+     * Queries Opportunity for 9 qualification fields + StageName (1 SOQL),
+     * then queries the source record for call notes (1 SOQL).
+     * @param opportunityId The Opportunity whose call just completed
+     * @param sourceType 'Talkdesk' or 'AI_Call_Note'
+     * @param sourceRecordId The Talkdesk Activity or AI_Call_Note__c ID
+     * @param previousStage The StageName the workspace had cached before the call
+     * @return PostCallContext with qualification fields, stage change, call notes
+     */
+    @AuraEnabled
+    public static PostCallContext getPostCallContext(
+        Id opportunityId, String sourceType, Id sourceRecordId, String previousStage
+    ) {
+        if (opportunityId == null) {
+            return null;
+        }
+
+        // 1. Query Opportunity for qualification fields + current stage (1 SOQL)
+        List<Opportunity> opps = [
+            SELECT StageName, Customer_Story__c, Decision_Maker_Identified__c,
+                   Inception_or_Switcher__c, Business_Challenge__c,
+                   Best_Product_Fit_Identified__c, Features_and_Benefits_Discussed__c,
+                   Budget_Confirmed__c, Timeline_Confirmed__c, Verbal_Commit__c
+            FROM Opportunity
+            WHERE Id = :opportunityId
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+        if (opps.isEmpty()) {
+            return null;
+        }
+        Opportunity opp = opps[0];
+
+        PostCallContext ctx = new PostCallContext();
+        ctx.opportunityId = opportunityId;
+        ctx.previousStage = previousStage;
+        ctx.currentStage = opp.StageName;
+        ctx.stageChanged = (previousStage != null && previousStage != opp.StageName);
+        ctx.sourceType = sourceType;
+
+        // 2. Build qualification fields list
+        ctx.qualificationFields = buildQualificationFields(opp);
+
+        // 3. Query source record for call notes (1 SOQL)
+        if (sourceRecordId != null && String.isNotBlank(sourceType)) {
+            populateSourceFields(ctx, sourceType, sourceRecordId);
+        }
+
+        return ctx;
+    }
+
+    /**
+     * Build the list of 9 qualification fields with stage gate mappings.
+     */
+    private static List<QualificationField> buildQualificationFields(Opportunity opp) {
+        List<QualificationField> fields = new List<QualificationField>();
+
+        // NEW → CONNECTED gate fields
+        fields.add(buildTextField(
+            'Customer_Story__c', 'Customer Story', (String) opp.Customer_Story__c,
+            'NEW_TO_CONNECTED'));
+        fields.add(buildBooleanField(
+            'Decision_Maker_Identified__c', 'Decision Maker Identified',
+            opp.Decision_Maker_Identified__c, 'NEW_TO_CONNECTED'));
+        fields.add(buildTextField(
+            'Inception_or_Switcher__c', 'Inception or Switcher',
+            (String) opp.Inception_or_Switcher__c, 'NEW_TO_CONNECTED'));
+
+        // CONNECTED → CONSULT gate fields
+        fields.add(buildTextField(
+            'Business_Challenge__c', 'Business Challenge',
+            (String) opp.Business_Challenge__c, 'CONNECTED_TO_CONSULT'));
+        fields.add(buildBooleanField(
+            'Best_Product_Fit_Identified__c', 'Best Product Fit Identified',
+            opp.Best_Product_Fit_Identified__c, 'CONNECTED_TO_CONSULT'));
+
+        // CONSULT → CLOSING gate fields
+        fields.add(buildTextField(
+            'Features_and_Benefits_Discussed__c', 'Features and Benefits Discussed',
+            (String) opp.Features_and_Benefits_Discussed__c, 'CONSULT_TO_CLOSING'));
+        fields.add(buildBooleanField(
+            'Budget_Confirmed__c', 'Budget Confirmed',
+            opp.Budget_Confirmed__c, 'CONSULT_TO_CLOSING'));
+        fields.add(buildBooleanField(
+            'Timeline_Confirmed__c', 'Timeline Confirmed',
+            opp.Timeline_Confirmed__c, 'CONSULT_TO_CLOSING'));
+        fields.add(buildBooleanField(
+            'Verbal_Commit__c', 'Verbal Commit',
+            opp.Verbal_Commit__c, 'CONSULT_TO_CLOSING'));
+
+        return fields;
+    }
+
+    private static QualificationField buildTextField(
+        String fieldName, String label, String value, String stageGate
+    ) {
+        QualificationField qf = new QualificationField();
+        qf.fieldName = fieldName;
+        qf.label = label;
+        qf.fieldType = 'text';
+        qf.value = value;
+        qf.isNewlyPopulated = String.isNotBlank(value);
+        qf.stageGate = stageGate;
+        return qf;
+    }
+
+    private static QualificationField buildBooleanField(
+        String fieldName, String label, Boolean value, String stageGate
+    ) {
+        QualificationField qf = new QualificationField();
+        qf.fieldName = fieldName;
+        qf.label = label;
+        qf.fieldType = 'boolean';
+        qf.value = value;
+        qf.isNewlyPopulated = (value == true);
+        qf.stageGate = stageGate;
+        return qf;
+    }
+
+    /**
+     * Query the source record (Talkdesk Activity or AI_Call_Note__c) and populate
+     * callNotes on the PostCallContext.
+     * AI_Call_Note → Customer_Story__c, Talkdesk → talkdesk__Notes__c.
+     */
+    private static void populateSourceFields(
+        PostCallContext ctx, String sourceType, Id sourceRecordId
+    ) {
+        try {
+            if (sourceType == 'AI_Call_Note') {
+                List<AI_Call_Note__c> notes = [
+                    SELECT Customer_Story__c
+                    FROM AI_Call_Note__c
+                    WHERE Id = :sourceRecordId
+                    WITH SECURITY_ENFORCED
+                    LIMIT 1
+                ];
+                if (!notes.isEmpty()) {
+                    ctx.callNotes = notes[0].Customer_Story__c;
+                }
+            } else if (sourceType == 'Talkdesk') {
+                List<talkdesk__Talkdesk_Activity__c> activities = [
+                    SELECT talkdesk__Notes__c
+                    FROM talkdesk__Talkdesk_Activity__c
+                    WHERE Id = :sourceRecordId
+                    WITH SECURITY_ENFORCED
+                    LIMIT 1
+                ];
+                if (!activities.isEmpty()) {
+                    ctx.callNotes = activities[0].talkdesk__Notes__c;
+                }
+            }
+        } catch (Exception e) {
+            // Graceful degradation if source object is inaccessible
+            System.debug(LoggingLevel.WARN,
+                'Post-call source query failed for ' + sourceType + ': ' + e.getMessage());
+        }
+    }
+
     // ─── Call Notes: Save ────────────────────────────────────────────
 
     /**
@@ -233,6 +394,96 @@ public with sharing class NbaActionController {
 
         return true;
     }
+
+    // ─── Post-Call: Save Edits ────────────────────────────────────────
+
+    /**
+     * Save edited qualification fields and call notes from the Post-Call Panel.
+     * Guardrails mirror the qualification sync rules:
+     *   - Text/Picklist fields: write only if current Opp value is blank
+     *   - Checkbox fields: ratchet only (false→true, never true→false)
+     * Notes saved as ContentNote linked to the Opportunity (reuses saveCallNotes pattern).
+     * @param opportunityId The Opportunity to update
+     * @param notes Edited call notes (may be blank — skips ContentNote if so)
+     * @param fieldEdits Map of field API name → new value from the AE's edits
+     * @return true on success
+     */
+    @AuraEnabled
+    public static Boolean savePostCallEdits(
+        Id opportunityId, String notes, Map<String, Object> fieldEdits
+    ) {
+        if (opportunityId == null) {
+            return false;
+        }
+
+        // 1. Query current Opp values for guardrail checks (1 SOQL)
+        List<Opportunity> opps = [
+            SELECT Customer_Story__c, Decision_Maker_Identified__c,
+                   Inception_or_Switcher__c, Business_Challenge__c,
+                   Best_Product_Fit_Identified__c, Features_and_Benefits_Discussed__c,
+                   Budget_Confirmed__c, Timeline_Confirmed__c, Verbal_Commit__c
+            FROM Opportunity
+            WHERE Id = :opportunityId
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+        if (opps.isEmpty()) {
+            return false;
+        }
+        Opportunity opp = opps[0];
+
+        // 2. Apply field edits with guardrails
+        Boolean hasFieldChanges = false;
+        if (fieldEdits != null && !fieldEdits.isEmpty()) {
+            for (String fieldName : fieldEdits.keySet()) {
+                Object newVal = fieldEdits.get(fieldName);
+                Object currentVal = opp.get(fieldName);
+
+                if (BOOLEAN_QUAL_FIELDS.contains(fieldName)) {
+                    // Checkbox ratchet: only false→true
+                    Boolean currentBool = (currentVal == true);
+                    Boolean newBool = (newVal == true || newVal == 'true');
+                    if (!currentBool && newBool) {
+                        opp.put(fieldName, true);
+                        hasFieldChanges = true;
+                    }
+                } else {
+                    // Text/Picklist: write only if current value is blank
+                    String currentStr = (currentVal == null) ? '' : String.valueOf(currentVal);
+                    String newStr = (newVal == null) ? '' : String.valueOf(newVal);
+                    if (String.isBlank(currentStr) && String.isNotBlank(newStr)) {
+                        opp.put(fieldName, newStr);
+                        hasFieldChanges = true;
+                    }
+                }
+            }
+            if (hasFieldChanges) {
+                update opp; // 1 DML
+            }
+        }
+
+        // 3. Save notes as ContentNote (reuse saveCallNotes pattern)
+        if (String.isNotBlank(notes)) {
+            ContentNote cn = new ContentNote();
+            cn.Title = 'Post-Call Notes';
+            cn.Content = Blob.valueOf(notes);
+            insert cn;
+
+            ContentDocumentLink cdl = new ContentDocumentLink();
+            cdl.ContentDocumentId = cn.Id;
+            cdl.LinkedEntityId = opportunityId;
+            cdl.ShareType = 'V';
+            insert cdl; // 1-2 DML
+        }
+
+        return true;
+    }
+
+    // Boolean qualification fields (for checkbox ratchet guardrail)
+    private static final Set<String> BOOLEAN_QUAL_FIELDS = new Set<String>{
+        'Decision_Maker_Identified__c', 'Best_Product_Fit_Identified__c',
+        'Budget_Confirmed__c', 'Timeline_Confirmed__c', 'Verbal_Commit__c'
+    };
 
     // ─── Follow-Up ────────────────────────────────────────────────────
 
@@ -518,5 +769,24 @@ public with sharing class NbaActionController {
     public class ActionResultWrapper {
         @AuraEnabled public ActionWrapper nextAction;
         @AuraEnabled public Boolean hasNext;
+    }
+
+    public class PostCallContext {
+        @AuraEnabled public String opportunityId;
+        @AuraEnabled public String previousStage;
+        @AuraEnabled public String currentStage;
+        @AuraEnabled public Boolean stageChanged;
+        @AuraEnabled public List<QualificationField> qualificationFields;
+        @AuraEnabled public String callNotes;
+        @AuraEnabled public String sourceType;
+    }
+
+    public class QualificationField {
+        @AuraEnabled public String fieldName;
+        @AuraEnabled public String label;
+        @AuraEnabled public String fieldType;
+        @AuraEnabled public Object value;
+        @AuraEnabled public Boolean isNewlyPopulated;
+        @AuraEnabled public String stageGate;
     }
 }

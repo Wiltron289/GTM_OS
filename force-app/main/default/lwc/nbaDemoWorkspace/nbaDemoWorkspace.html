@@ -158,13 +158,14 @@
             </c-nba-follow-up-modal>
         </template>
 
-        <!-- Call Notes Capture Overlay (Post-Call Notes) -->
-        <template lwc:if={showCallNoteCapture}>
-            <c-nba-call-note-capture
+        <!-- Post-Call Intelligence Panel -->
+        <template lwc:if={showPostCallPanel}>
+            <c-nba-post-call-panel
+                post-call-context={_postCallContext}
                 call-note={_pendingCallNote}
-                onsavecallnotes={handleSaveCallNotes}
-                onskipcallnotes={handleSkipCallNotes}>
-            </c-nba-call-note-capture>
+                onconfirm={handlePostCallConfirm}
+                onskip={handlePostCallSkip}>
+            </c-nba-post-call-panel>
         </template>
 
         <!-- Email Modal (conditional) -->

@@ -483,6 +483,256 @@ private class NbaActionControllerTest {
         System.assert(links.isEmpty(), 'Should NOT create ContentDocumentLink for blank notes');
     }
 
+    // ─── getPostCallContext Tests ─────────────────────────────────
+
+    @isTest
+    static void testGetPostCallContext_AICallNoteSource() {
+        Opportunity opp = getTestOpp();
+
+        // Populate some qualification fields on the Opp
+        opp.Customer_Story__c = 'Switching from ADP';
+        opp.Decision_Maker_Identified__c = true;
+        opp.Business_Challenge__c = 'Payroll too expensive';
+        update opp;
+
+        // Create AI_Call_Note__c source record with Customer_Story for callNotes
+        AI_Call_Note__c note = new AI_Call_Note__c(
+            Opportunity__c = opp.Id,
+            Customer_Story__c = 'Mid-market restaurant group switching from ADP'
+        );
+        insert note;
+
+        Test.startTest();
+        NbaActionController.PostCallContext ctx =
+            NbaActionController.getPostCallContext(opp.Id, 'AI_Call_Note', note.Id, 'Consult');
+        Test.stopTest();
+
+        System.assertNotEquals(null, ctx, 'Should return PostCallContext');
+        System.assertEquals('AI_Call_Note', ctx.sourceType, 'sourceType should be AI_Call_Note');
+        System.assertEquals('Consult', ctx.currentStage, 'Current stage should be Consult');
+        System.assertEquals(false, ctx.stageChanged, 'Stage should not have changed');
+
+        // Verify callNotes populated from AI_Call_Note__c.Customer_Story__c
+        System.assertEquals('Mid-market restaurant group switching from ADP',
+            ctx.callNotes, 'callNotes should come from AI_Call_Note Customer_Story__c');
+
+        // Verify qualification fields
+        System.assertEquals(9, ctx.qualificationFields.size(),
+            'Should return all 9 qualification fields');
+
+        // Check Customer_Story__c is populated on Opp
+        NbaActionController.QualificationField custStory = ctx.qualificationFields[0];
+        System.assertEquals('Customer_Story__c', custStory.fieldName, 'First field should be Customer_Story');
+        System.assertEquals(true, custStory.isNewlyPopulated, 'Customer_Story should be newly populated');
+        System.assertEquals('NEW_TO_CONNECTED', custStory.stageGate, 'Should map to NEW_TO_CONNECTED');
+
+        // Check Decision_Maker_Identified__c
+        NbaActionController.QualificationField dm = ctx.qualificationFields[1];
+        System.assertEquals(true, dm.isNewlyPopulated, 'Decision_Maker should be newly populated');
+        System.assertEquals('boolean', dm.fieldType, 'Decision_Maker should be boolean type');
+    }
+
+    @isTest
+    static void testGetPostCallContext_TalkdeskSource() {
+        Opportunity opp = getTestOpp();
+
+        // Reset recursion guard so trigger handler doesn't block
+        NbaTriggerContext.resetAll();
+
+        // Create Talkdesk Activity source record
+        talkdesk__Talkdesk_Activity__c ta = new talkdesk__Talkdesk_Activity__c(
+            talkdesk__Talkdesk_Id__c = 'PCC-TD-' + Datetime.now().getTime(),
+            talkdesk__Opportunity__c = opp.Id,
+            talkdesk__Type__c = 'Outbound',
+            talkdesk__Notes__c = 'Discussed pricing with decision maker. Will follow up Thursday.'
+        );
+        insert ta;
+
+        Test.startTest();
+        NbaActionController.PostCallContext ctx =
+            NbaActionController.getPostCallContext(opp.Id, 'Talkdesk', ta.Id, 'Consult');
+        Test.stopTest();
+
+        System.assertNotEquals(null, ctx, 'Should return PostCallContext');
+        System.assertEquals('Talkdesk', ctx.sourceType, 'sourceType should be Talkdesk');
+        System.assertEquals('Discussed pricing with decision maker. Will follow up Thursday.',
+            ctx.callNotes, 'callNotes should come from Talkdesk notes');
+
+        // Qualification fields should still be returned
+        System.assertEquals(9, ctx.qualificationFields.size(),
+            'Should return all 9 qualification fields');
+    }
+
+    @isTest
+    static void testGetPostCallContext_StageChanged() {
+        Opportunity opp = getTestOpp();
+
+        // Update opp to Connected stage (simulating stage progression after call)
+        opp.StageName = 'Connected';
+        opp.Customer_Story__c = 'Test story';
+        opp.Decision_Maker_Identified__c = true;
+        opp.Inception_or_Switcher__c = 'Inception';
+        update opp;
+
+        Test.startTest();
+        NbaActionController.PostCallContext ctx =
+            NbaActionController.getPostCallContext(opp.Id, 'Talkdesk', null, 'New');
+        Test.stopTest();
+
+        System.assertNotEquals(null, ctx, 'Should return PostCallContext');
+        System.assertEquals('New', ctx.previousStage, 'previousStage should be New');
+        System.assertEquals('Connected', ctx.currentStage, 'currentStage should be Connected');
+        System.assertEquals(true, ctx.stageChanged, 'stageChanged should be true');
+    }
+
+    @isTest
+    static void testGetPostCallContext_NoStageChange() {
+        Opportunity opp = getTestOpp();
+
+        Test.startTest();
+        NbaActionController.PostCallContext ctx =
+            NbaActionController.getPostCallContext(opp.Id, 'Talkdesk', null, 'Consult');
+        Test.stopTest();
+
+        System.assertNotEquals(null, ctx, 'Should return PostCallContext');
+        System.assertEquals('Consult', ctx.previousStage, 'previousStage should be Consult');
+        System.assertEquals('Consult', ctx.currentStage, 'currentStage should be Consult');
+        System.assertEquals(false, ctx.stageChanged, 'stageChanged should be false');
+    }
+
+    @isTest
+    static void testGetPostCallContext_NoQualFieldsPopulated() {
+        Opportunity opp = getTestOpp();
+
+        // Ensure no qualification fields are set (fresh test opp has none)
+        opp.Customer_Story__c = null;
+        opp.Decision_Maker_Identified__c = false;
+        opp.Inception_or_Switcher__c = null;
+        opp.Business_Challenge__c = null;
+        opp.Best_Product_Fit_Identified__c = false;
+        opp.Features_and_Benefits_Discussed__c = null;
+        opp.Budget_Confirmed__c = false;
+        opp.Timeline_Confirmed__c = false;
+        opp.Verbal_Commit__c = false;
+        update opp;
+
+        Test.startTest();
+        NbaActionController.PostCallContext ctx =
+            NbaActionController.getPostCallContext(opp.Id, 'AI_Call_Note', null, 'Consult');
+        Test.stopTest();
+
+        System.assertNotEquals(null, ctx, 'Should return PostCallContext');
+        System.assertEquals(9, ctx.qualificationFields.size(),
+            'Should return all 9 qualification fields');
+
+        // All fields should have isNewlyPopulated = false
+        for (NbaActionController.QualificationField qf : ctx.qualificationFields) {
+            System.assertEquals(false, qf.isNewlyPopulated,
+                qf.fieldName + ' should NOT be newly populated');
+        }
+    }
+
+    // ─── savePostCallEdits Tests ──────────────────────────────────
+
+    @isTest
+    static void testSavePostCallEdits_SavesNotesAsContentNote() {
+        Opportunity opp = getTestOpp();
+
+        Test.startTest();
+        Boolean result = NbaActionController.savePostCallEdits(
+            opp.Id, 'Post-call notes from AE review', new Map<String, Object>()
+        );
+        Test.stopTest();
+
+        System.assertEquals(true, result, 'Should return true on success');
+
+        // Verify ContentNote was created and linked
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocumentId FROM ContentDocumentLink
+            WHERE LinkedEntityId = :opp.Id
+        ];
+        System.assert(!links.isEmpty(), 'Should create ContentDocumentLink on the Opportunity');
+    }
+
+    @isTest
+    static void testSavePostCallEdits_WritesTextFieldWhenBlank() {
+        Opportunity opp = getTestOpp();
+        // Ensure Customer_Story is blank
+        opp.Customer_Story__c = null;
+        update opp;
+
+        Map<String, Object> edits = new Map<String, Object>{
+            'Customer_Story__c' => 'Switching from ADP to Homebase'
+        };
+
+        Test.startTest();
+        Boolean result = NbaActionController.savePostCallEdits(opp.Id, '', edits);
+        Test.stopTest();
+
+        System.assertEquals(true, result, 'Should return true');
+
+        Opportunity updated = [SELECT Customer_Story__c FROM Opportunity WHERE Id = :opp.Id];
+        System.assertEquals('Switching from ADP to Homebase', updated.Customer_Story__c,
+            'Should write text field when current value is blank');
+    }
+
+    @isTest
+    static void testSavePostCallEdits_DoesNotOverwriteExistingTextField() {
+        Opportunity opp = getTestOpp();
+        opp.Customer_Story__c = 'Existing story from previous call';
+        update opp;
+
+        Map<String, Object> edits = new Map<String, Object>{
+            'Customer_Story__c' => 'New story that should NOT overwrite'
+        };
+
+        Test.startTest();
+        NbaActionController.savePostCallEdits(opp.Id, '', edits);
+        Test.stopTest();
+
+        Opportunity updated = [SELECT Customer_Story__c FROM Opportunity WHERE Id = :opp.Id];
+        System.assertEquals('Existing story from previous call', updated.Customer_Story__c,
+            'Should NOT overwrite existing text field value');
+    }
+
+    @isTest
+    static void testSavePostCallEdits_CheckboxRatchetFalseToTrue() {
+        Opportunity opp = getTestOpp();
+        opp.Decision_Maker_Identified__c = false;
+        update opp;
+
+        Map<String, Object> edits = new Map<String, Object>{
+            'Decision_Maker_Identified__c' => true
+        };
+
+        Test.startTest();
+        NbaActionController.savePostCallEdits(opp.Id, '', edits);
+        Test.stopTest();
+
+        Opportunity updated = [SELECT Decision_Maker_Identified__c FROM Opportunity WHERE Id = :opp.Id];
+        System.assertEquals(true, updated.Decision_Maker_Identified__c,
+            'Checkbox ratchet should allow false → true');
+    }
+
+    @isTest
+    static void testSavePostCallEdits_CheckboxRatchetBlocksTrueToFalse() {
+        Opportunity opp = getTestOpp();
+        opp.Decision_Maker_Identified__c = true;
+        update opp;
+
+        Map<String, Object> edits = new Map<String, Object>{
+            'Decision_Maker_Identified__c' => false
+        };
+
+        Test.startTest();
+        NbaActionController.savePostCallEdits(opp.Id, '', edits);
+        Test.stopTest();
+
+        Opportunity updated = [SELECT Decision_Maker_Identified__c FROM Opportunity WHERE Id = :opp.Id];
+        System.assertEquals(true, updated.Decision_Maker_Identified__c,
+            'Checkbox ratchet should block true → false (value stays true)');
+    }
+
     // ─── createFollowUp Tests ─────────────────────────────────────
 
     @isTest

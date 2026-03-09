@@ -1,0 +1,154 @@
+<template>
+    <div class="overlay-backdrop" onclick={handleBackdropClick}>
+        <div class="overlay-card" onclick={handleCardClick}>
+            <!-- Header bar -->
+            <div class="card-header">
+                <div class="header-left">
+                    <lightning-icon
+                        icon-name={sourceIcon}
+                        size="small"
+                        class="source-icon">
+                    </lightning-icon>
+                    <span class="source-badge">{sourceLabel}</span>
+                    <span class="header-title">Call Analysis Complete</span>
+                </div>
+                <button class="close-btn" onclick={handleSkip} title="Close">
+                    <lightning-icon icon-name="utility:close" size="x-small" variant="inverse"></lightning-icon>
+                </button>
+            </div>
+
+            <!-- Stage progression banner (conditional) -->
+            <template lwc:if={showStageBanner}>
+                <div class="stage-banner">
+                    <lightning-icon icon-name="utility:trending" size="x-small" class="stage-icon"></lightning-icon>
+                    <span class="stage-label">Stage Progression</span>
+                    <div class="stage-progression">
+                        <span class="stage-old">{previousStage}</span>
+                        <lightning-icon icon-name="utility:forward" size="xx-small" class="stage-arrow"></lightning-icon>
+                        <span class="stage-new">{currentStage}</span>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Qualification fields grid -->
+            <div class="fields-section">
+                <h3 class="section-title">Qualification Fields</h3>
+
+                <!-- Empty state: all fields empty -->
+                <template lwc:if={allFieldsEmpty}>
+                    <div class="fields-empty-state">
+                        <lightning-icon icon-name="utility:info" size="x-small" class="empty-icon"></lightning-icon>
+                        <span class="empty-text">No qualification data extracted from this call</span>
+                    </div>
+                </template>
+
+                <!-- Fields grid (only when at least one field has a value) -->
+                <template lwc:if={showFieldsGrid}>
+                <template for:each={fieldGroups} for:item="group">
+                    <div key={group.gate} class="field-group">
+                        <div class="gate-label">{group.gateLabel}</div>
+                        <div class="fields-grid">
+                            <template for:each={group.fields} for:item="field">
+                                <div key={field.fieldName} class={field.cardClass} style={field.staggerStyle}>
+                                    <div class="field-header">
+                                        <span class="field-label">{field.label}</span>
+                                        <template lwc:if={field.isNewlyPopulated}>
+                                            <lightning-icon
+                                                icon-name="utility:check"
+                                                size="xx-small"
+                                                class="new-badge"
+                                                title="Newly populated">
+                                            </lightning-icon>
+                                        </template>
+                                    </div>
+
+                                    <!-- DISPLAY MODE -->
+                                    <template lwc:if={isDisplayMode}>
+                                        <div class="field-value">
+                                            <template lwc:if={field.isBoolean}>
+                                                <lightning-icon
+                                                    icon-name={field.booleanIcon}
+                                                    size="xx-small"
+                                                    class={field.booleanClass}>
+                                                </lightning-icon>
+                                                <span class={field.booleanTextClass}>{field.booleanLabel}</span>
+                                            </template>
+                                            <template lwc:elseif={field.hasValue}>
+                                                <span class="value-text" title={field.fullValue}>{field.displayValue}</span>
+                                            </template>
+                                            <template lwc:else>
+                                                <span class="value-empty">Not yet captured</span>
+                                            </template>
+                                        </div>
+                                    </template>
+
+                                    <!-- EDIT MODE -->
+                                    <template lwc:if={isEditMode}>
+                                        <div class="field-edit">
+                                            <!-- Text fields: textarea -->
+                                            <template lwc:if={field.isText}>
+                                                <textarea
+                                                    class="edit-textarea"
+                                                    data-field={field.fieldName}
+                                                    value={field.editTextValue}
+                                                    onchange={handleTextFieldChange}
+                                                    rows="2">
+                                                </textarea>
+                                            </template>
+
+                                            <!-- Boolean fields: toggle switch -->
+                                            <template lwc:if={field.isBoolean}>
+                                                <label class="toggle-container">
+                                                    <input
+                                                        type="checkbox"
+                                                        class="toggle-input"
+                                                        data-field={field.fieldName}
+                                                        checked={field.editBoolChecked}
+                                                        onchange={handleBooleanToggle}
+                                                    />
+                                                    <span class="toggle-slider"></span>
+                                                    <span class="toggle-label">{field.booleanLabel}</span>
+                                                </label>
+                                            </template>
+
+                                            <!-- Picklist fields: combobox -->
+                                            <template lwc:if={field.isPicklist}>
+                                                <lightning-combobox
+                                                    data-field={field.fieldName}
+                                                    value={field.editPicklistValue}
+                                                    options={inceptionSwitcherOptions}
+                                                    variant="label-hidden"
+                                                    onchange={handlePicklistChange}>
+                                                </lightning-combobox>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                </template>
+            </div>
+
+            <!-- Call notes textarea -->
+            <div class="notes-section">
+                <h3 class="section-title">Call Notes</h3>
+                <textarea
+                    class="notes-textarea"
+                    value={notesValue}
+                    onchange={handleNotesChange}
+                    placeholder="No call notes available"
+                    rows="4">
+                </textarea>
+            </div>
+
+            <!-- Button row -->
+            <div class="button-row">
+                <button class="btn btn-tertiary" onclick={handleSkip}>Skip</button>
+                <button class="btn btn-secondary" onclick={handleEditFields}>{editButtonLabel}</button>
+                <button class="btn btn-primary" onclick={handleConfirm}>Confirm &amp; Continue</button>
+            </div>
+        </div>
+    </div>
+</template>

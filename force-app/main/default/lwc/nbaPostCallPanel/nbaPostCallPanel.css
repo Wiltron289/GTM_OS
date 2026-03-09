@@ -1,0 +1,548 @@
+/* ── nbaPostCallPanel — Post-Call Intelligence Overlay ── */
+
+:host {
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+/* ── Overlay backdrop ── */
+.overlay-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.5);
+    z-index: 299;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* ── Card ── */
+.overlay-card {
+    background: var(--nba-bg-card, #ffffff);
+    border-radius: var(--nba-radius-lg, 12px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    width: 560px;
+    max-width: 95vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    z-index: 300;
+    animation: slideUp 0.3s ease-out;
+}
+
+/* ── Header bar ── */
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--nba-border-light, #f1f5f9);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.source-icon {
+    --sds-c-icon-color-foreground-default: var(--nba-emerald-600, #059669);
+    --sds-c-icon-color-foreground: var(--nba-emerald-600, #059669);
+    --slds-c-icon-color-foreground-default: var(--nba-emerald-600, #059669);
+}
+
+.source-badge {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--nba-emerald-700, #047857);
+    background: var(--nba-emerald-50, #ecfdf5);
+    padding: 2px 8px;
+    border-radius: var(--nba-radius-sm, 6px);
+}
+
+.header-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--nba-text-900, #0f172a);
+}
+
+.close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: var(--nba-radius-sm, 6px);
+    background: var(--nba-text-400, #94a3b8);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.close-btn:hover {
+    background: var(--nba-text-500, #64748b);
+}
+
+/* ── Stage progression banner ── */
+.stage-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: var(--nba-emerald-50, #ecfdf5);
+    border-bottom: 1px solid var(--nba-emerald-200, #a7f3d0);
+    animation: slideDown 0.4s ease-out;
+}
+
+.stage-icon {
+    --sds-c-icon-color-foreground-default: var(--nba-emerald-600, #059669);
+    --sds-c-icon-color-foreground: var(--nba-emerald-600, #059669);
+    --slds-c-icon-color-foreground-default: var(--nba-emerald-600, #059669);
+}
+
+.stage-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--nba-emerald-700, #047857);
+}
+
+.stage-progression {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.stage-old {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--nba-text-500, #64748b);
+    text-decoration: line-through;
+    animation: stageFadeIn 0.3s ease-out 0.1s both;
+}
+
+.stage-arrow {
+    --sds-c-icon-color-foreground-default: var(--nba-emerald-600, #059669);
+    --sds-c-icon-color-foreground: var(--nba-emerald-600, #059669);
+    --slds-c-icon-color-foreground-default: var(--nba-emerald-600, #059669);
+}
+
+.stage-new {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--nba-emerald-700, #047857);
+    background: var(--nba-emerald-100, #d1fae5);
+    padding: 2px 10px;
+    border-radius: var(--nba-radius-sm, 6px);
+    animation: stageFadeIn 0.4s ease-out 0.3s both;
+}
+
+/* ── Qualification fields section ── */
+.fields-section {
+    padding: 16px 20px 8px;
+}
+
+.section-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--nba-text-500, #64748b);
+    margin: 0 0 12px;
+}
+
+.field-group {
+    margin-bottom: 16px;
+}
+
+.gate-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--nba-text-400, #94a3b8);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--nba-border-light, #f1f5f9);
+}
+
+.fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+/* ── Empty state ── */
+.fields-empty-state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: var(--nba-bg-hover, #f8fafc);
+    border: 1px dashed var(--nba-border, #e2e8f0);
+    border-radius: var(--nba-radius-sm, 6px);
+}
+
+.empty-icon {
+    --sds-c-icon-color-foreground-default: var(--nba-text-400, #94a3b8);
+    --sds-c-icon-color-foreground: var(--nba-text-400, #94a3b8);
+    --slds-c-icon-color-foreground-default: var(--nba-text-400, #94a3b8);
+    flex-shrink: 0;
+}
+
+.empty-text {
+    font-size: 13px;
+    color: var(--nba-text-500, #64748b);
+    font-style: italic;
+}
+
+/* ── Field card ── */
+.field-card {
+    padding: 10px 12px;
+    border: 1px solid var(--nba-border-light, #f1f5f9);
+    border-radius: var(--nba-radius-sm, 6px);
+    background: var(--nba-bg-card, #ffffff);
+    transition: border-color 0.2s, background 0.2s;
+    animation: fieldFadeIn 0.3s ease-out both;
+}
+
+.field-card-new {
+    border-color: var(--nba-emerald-300, #6ee7b7);
+    background: var(--nba-emerald-50, #ecfdf5);
+    animation: fieldFadeInHighlight 0.4s ease-out both;
+}
+
+.field-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.field-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--nba-text-500, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.new-badge {
+    --sds-c-icon-color-foreground-default: var(--nba-emerald-600, #059669);
+    --sds-c-icon-color-foreground: var(--nba-emerald-600, #059669);
+    --slds-c-icon-color-foreground-default: var(--nba-emerald-600, #059669);
+}
+
+.field-value {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.value-text {
+    font-size: 13px;
+    color: var(--nba-text-700, #334155);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.value-empty {
+    font-size: 12px;
+    color: var(--nba-text-400, #94a3b8);
+    font-style: italic;
+}
+
+/* Boolean field display */
+.bool-icon {
+    flex-shrink: 0;
+}
+
+.bool-true {
+    --sds-c-icon-color-foreground-default: var(--nba-emerald-600, #059669);
+    --sds-c-icon-color-foreground: var(--nba-emerald-600, #059669);
+    --slds-c-icon-color-foreground-default: var(--nba-emerald-600, #059669);
+}
+
+.bool-false {
+    --sds-c-icon-color-foreground-default: var(--nba-text-400, #94a3b8);
+    --sds-c-icon-color-foreground: var(--nba-text-400, #94a3b8);
+    --slds-c-icon-color-foreground-default: var(--nba-text-400, #94a3b8);
+}
+
+.bool-text {
+    font-size: 13px;
+}
+
+.bool-text-true {
+    color: var(--nba-emerald-700, #047857);
+    font-weight: 600;
+}
+
+.bool-text-false {
+    color: var(--nba-text-400, #94a3b8);
+}
+
+/* ── Call notes textarea ── */
+.notes-section {
+    padding: 8px 20px 16px;
+}
+
+.notes-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px 12px;
+    border: 1px solid var(--nba-border, #e2e8f0);
+    border-radius: var(--nba-radius-sm, 6px);
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+    font-size: 13px;
+    color: var(--nba-text-900, #0f172a);
+    line-height: 1.5;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+
+.notes-textarea:focus {
+    outline: none;
+    border-color: var(--nba-blue-500, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.notes-textarea::placeholder {
+    color: var(--nba-text-400, #94a3b8);
+}
+
+/* ── Button row ── */
+.button-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--nba-border-light, #f1f5f9);
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: var(--nba-radius, 8px);
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    border: none;
+}
+
+.btn-primary {
+    background: var(--nba-blue-600, #2563eb);
+    color: #ffffff;
+}
+
+.btn-primary:hover {
+    background: var(--nba-blue-700, #1d4ed8);
+}
+
+.btn-secondary {
+    background: var(--nba-bg-hover, #f1f5f9);
+    color: var(--nba-text-700, #334155);
+}
+
+.btn-secondary:hover {
+    background: var(--nba-border, #e2e8f0);
+    color: var(--nba-text-900, #0f172a);
+}
+
+.btn-tertiary {
+    background: transparent;
+    color: var(--nba-text-500, #64748b);
+}
+
+.btn-tertiary:hover {
+    background: var(--nba-bg-hover, #f1f5f9);
+    color: var(--nba-text-700, #334155);
+}
+
+/* ── Edit mode: textarea ── */
+.field-edit {
+    margin-top: 4px;
+    animation: editExpand 0.2s ease-out;
+}
+
+.edit-textarea {
+    width: 100%;
+    min-height: 48px;
+    padding: 6px 8px;
+    border: 1px solid var(--nba-border, #e2e8f0);
+    border-radius: var(--nba-radius-sm, 6px);
+    font-family: var(--nba-font-family, ui-sans-serif, system-ui, sans-serif);
+    font-size: 12px;
+    color: var(--nba-text-900, #0f172a);
+    line-height: 1.4;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.edit-textarea:focus {
+    outline: none;
+    border-color: var(--nba-blue-500, #3b82f6);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* ── Edit mode: toggle switch ── */
+.toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    background: var(--nba-text-300, #cbd5e1);
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #ffffff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.toggle-input:checked + .toggle-slider {
+    background: var(--nba-emerald-500, #10b981);
+}
+
+.toggle-input:checked + .toggle-slider::after {
+    transform: translateX(16px);
+}
+
+.toggle-label {
+    font-size: 13px;
+    color: var(--nba-text-700, #334155);
+    font-weight: 500;
+}
+
+/* ── Animations ── */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fieldFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fieldFadeInHighlight {
+    0% {
+        opacity: 0;
+        transform: translateY(6px);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+    60% {
+        opacity: 1;
+        transform: translateY(0);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+        box-shadow: none;
+    }
+}
+
+@keyframes stageFadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes editExpand {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 200px;
+    }
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+    .fields-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stage-progression {
+        margin-left: 0;
+    }
+
+    .stage-banner {
+        flex-wrap: wrap;
+    }
+
+    .button-row {
+        flex-direction: column;
+    }
+
+    .button-row .btn {
+        width: 100%;
+        text-align: center;
+    }
+}

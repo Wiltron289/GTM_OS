@@ -54,16 +54,18 @@ When developing features or debugging, update the appropriate doc file:
 
 ## Current Project State
 
-**Last Updated**: 2026-03-06
+**Last Updated**: 2026-03-09
 
 | Item | Value |
 |------|-------|
-| **Active Branch** | `refactor/prd-v2` |
+| **Active Branch** | `feature/post-call-intelligence` (branched off `testing/sprint-22-20260303`) |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
-| **Apex Tests** | 261 targeted tests passing (100%) across 21 test classes. All GTM OS classes ≥75% coverage. |
-| **Current Phase** | **PRD v2.2 Refactor — Session 14 COMPLETE — ALL PHASES COMPLETE** |
-| **Phase Plan** | `docs/REFACTOR-SESSION-PLAN.md` (14 sessions, Phases A-D). ALL COMPLETE. PR created for merge. |
+| **Apex Tests** | 271 targeted tests passing (100%) across 22 test classes. All GTM OS classes ≥75% coverage. |
+| **Current Phase** | **Post-Call Intelligence Panel — COMPLETE (6 sessions)** |
+| **Phase Plan** | `docs/POST-CALL-INTELLIGENCE-PLAN.md` (6 sessions). |
+| **Previous Phase** | PRD v2.2 Refactor — ALL 14 SESSIONS COMPLETE. `docs/REFACTOR-SESSION-PLAN.md`. |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
+| **Related Repo** | `C:\Users\Yeyian PC\SalesforceAICallNotes` — AI call notes field extraction (reference only) |
 
 ### What Exists
 
@@ -81,7 +83,8 @@ When developing features or debugging, update the appropriate doc file:
 - **Feature 12**: Two-Stream Architecture — Sprint 21 (COMPLETE) -- Split action delivery into two independent streams: Stream 1 (Scored Queue) = getActiveAction() on-demand evaluation only (removed L1 DB check); Stream 2 (Real-Time Interrupts) = checkInterrupts() 15s poll for meetings within 5 min + new-assignment L1 records. LWC: indigo interrupt banner with "Jump to it"/"Later", _pausedAction state for resume after interrupt. NbaActionCreationService.createNewAssignmentActions() bulk method for trigger-based interrupt creation. NbaActionStateService expireStaleActions() extended for non-time-bound L1 expiry. nbaEventDetails LWC for Meeting action context (LDS getRecord, 0 SOQL). Amber banner suppressed for Meeting actions. All deployed to UAT.
 - **Feature 13**: GTM OS Rebrand — Sprint 22 -- Renamed all user-facing "NBA v2" labels to "GTM OS" across 23 files (FlexiPages, LWC, custom objects, CMDTs, permission sets, schedulable job names). API names unchanged (NBA_Queue__c etc. are immutable). All deployed to UAT.
 - **Feature 14**: Engine Hardening — Sprint 22 -- 4 fixes from code audit: (1) ORDER BY Amount DESC NULLS LAST on 200-opp query prevents non-deterministic truncation, (2) removed dead cooldown code from NbaActionSelectionService (saves 1 SOQL), (3) fixed MRR normalization to use fixed $50K ceiling instead of batch-relative max, (4) try/catch on Talkdesk/Mogli SOQL for graceful degradation. +3 new tests.
-- **Feature 15**: Post-Call Notes Capture — Sprint 22 (COMPLETE) -- Talkdesk Activity trigger detects completed calls, publishes Call_Completed_Event__e Platform Event. LWC subscribes via empApi, presents nbaCallNoteCapture overlay with pre-populated notes, disposition, talk time. AE saves edited notes as ContentNote linked to Opp. NbaTalkdeskActivityTrigger + handler (2 SOQL). 6 handler tests + 2 controller tests. All deployed to UAT.
+- **Feature 15**: Post-Call Notes Capture — Sprint 22 (COMPLETE) -- Talkdesk Activity trigger detects completed calls, publishes Call_Completed_Event__e Platform Event. LWC subscribes via empApi, presents nbaCallNoteCapture overlay with pre-populated notes, disposition, talk time. AE saves edited notes as ContentNote linked to Opp. NbaTalkdeskActivityTrigger + handler (2 SOQL). 6 handler tests + 2 controller tests. All deployed to UAT. **Deprecated in Post-Call Intelligence feature** — replaced by nbaPostCallPanel.
+- **Feature 16**: Post-Call Intelligence Panel (6 sessions) -- Detects Talkdesk Activity + AI_Call_Note__c insertion via enriched `Call_Completed_Event__e` Platform Event (Source_Type__c discriminator). LWC subscribes via empApi, calls `getPostCallContext()` for full qualification + stage context, renders `nbaPostCallPanel` overlay with stage progression banner, 9 qualification field cards (grouped by stage gate), inline editing, and editable call notes. `savePostCallEdits()` persists field edits (write-if-blank text, ratchet-only booleans) + ContentNote. Event queue handles multiple events while panel is open. Works in both App Page and Record Page modes. Replaces deprecated `nbaCallNoteCapture` LWC. AICallNoteGtmTrigger + handler publishes events for AI_Call_Note__c records. All deployed to UAT.
 
 ### Sprint 21 — Two-Stream Architecture (COMPLETE)
 
@@ -550,6 +553,9 @@ Keep this reference for future phases — describes how the engine reads CRM dat
 - **Talkdesk trigger naming**: Production has managed `talkdesk.TalkdeskActivityTrigger`. Custom triggers on `talkdesk__Talkdesk_Activity__c` must use a distinct name (e.g., `NbaTalkdeskActivityTrigger`).
 - **`talkdesk__Talkdesk_Id__c`**: Required unique External ID on Talkdesk Activity. Test data must include unique values.
 - **empApi subscription**: Use `-1` replay ID for new events only. Always `unsubscribe` in `disconnectedCallback` to prevent memory leaks.
+- **Event queue for Platform Events**: When a post-call panel is already open and another Platform Event arrives, queue it in `_pendingEventQueue` and process FIFO after confirm/skip. Skip stale events where Opp no longer matches.
+- **Record Page mode Platform Events**: empApi subscription must be in `connectedCallback()` outside the `if (!this.recordId)` block so events work in both App Page and Record Page modes.
+- **postCallContext setter reset pattern**: Converting `@api` property to getter/setter in child LWC allows resetting edit state when parent passes a new context object.
 
 ## Detailed Patterns, Agents & Commands
 
