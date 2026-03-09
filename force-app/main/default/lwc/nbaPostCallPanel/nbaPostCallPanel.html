@@ -1,153 +1,160 @@
 <template>
     <div class="overlay-backdrop" onclick={handleBackdropClick}>
         <div class="overlay-card" onclick={handleCardClick}>
-            <!-- Header bar -->
+            <!-- Header -->
             <div class="card-header">
                 <div class="header-left">
-                    <lightning-icon
-                        icon-name={sourceIcon}
-                        size="small"
-                        class="source-icon">
-                    </lightning-icon>
-                    <span class="source-badge">{sourceLabel}</span>
-                    <span class="header-title">Call Analysis Complete</span>
+                    <span class="header-phone-badge">
+                        <lightning-icon icon-name="utility:call" size="xx-small" variant="inverse"></lightning-icon>
+                    </span>
+                    <span class="header-title">Post-Call Review</span>
                 </div>
                 <button class="close-btn" onclick={handleSkip} title="Close">
-                    <lightning-icon icon-name="utility:close" size="x-small" variant="inverse"></lightning-icon>
+                    <lightning-icon icon-name="utility:close" size="xx-small"></lightning-icon>
                 </button>
             </div>
 
-            <!-- Stage progression banner (conditional) -->
-            <template lwc:if={showStageBanner}>
-                <div class="stage-banner">
-                    <lightning-icon icon-name="utility:trending" size="x-small" class="stage-icon"></lightning-icon>
-                    <span class="stage-label">Stage Progression</span>
-                    <div class="stage-progression">
-                        <span class="stage-old">{previousStage}</span>
-                        <lightning-icon icon-name="utility:forward" size="xx-small" class="stage-arrow"></lightning-icon>
-                        <span class="stage-new">{currentStage}</span>
+            <div class="card-body">
+                <!-- Hero -->
+                <div class="hero-section">
+                    <div class="hero-icon-wrap">
+                        <lightning-icon icon-name="utility:magicwand" size="small" variant="inverse"></lightning-icon>
                     </div>
+                    <h2 class="hero-title">Call Analysis Complete</h2>
+                    <p class="hero-subtitle">{heroSubtitle}</p>
                 </div>
-            </template>
 
-            <!-- Qualification fields grid -->
-            <div class="fields-section">
-                <h3 class="section-title">Qualification Fields</h3>
-
-                <!-- Empty state: all fields empty -->
-                <template lwc:if={allFieldsEmpty}>
-                    <div class="fields-empty-state">
-                        <lightning-icon icon-name="utility:info" size="x-small" class="empty-icon"></lightning-icon>
-                        <span class="empty-text">No qualification data extracted from this call</span>
+                <!-- Call Notes card -->
+                <div class="notes-card">
+                    <div class="notes-card-header">
+                        <lightning-icon icon-name="utility:description" size="xx-small" class="notes-icon"></lightning-icon>
+                        <span class="notes-card-title">Call Notes</span>
                     </div>
-                </template>
+                    <template lwc:if={isEditMode}>
+                        <textarea
+                            class="notes-textarea"
+                            value={notesValue}
+                            onchange={handleNotesChange}
+                            placeholder="No call notes available"
+                            rows="4"></textarea>
+                    </template>
+                    <template lwc:else>
+                        <p class={notesTextClass}>{notesDisplayValue}</p>
+                    </template>
+                </div>
 
-                <!-- Fields grid (only when at least one field has a value) -->
-                <template lwc:if={showFieldsGrid}>
-                <template for:each={fieldGroups} for:item="group">
-                    <div key={group.gate} class="field-group">
-                        <div class="gate-label">{group.gateLabel}</div>
-                        <div class="fields-grid">
-                            <template for:each={group.fields} for:item="field">
-                                <div key={field.fieldName} class={field.cardClass} style={field.staggerStyle}>
-                                    <div class="field-header">
-                                        <span class="field-label">{field.label}</span>
-                                        <template lwc:if={field.isNewlyPopulated}>
-                                            <lightning-icon
-                                                icon-name="utility:check"
-                                                size="xx-small"
-                                                class="new-badge"
-                                                title="Newly populated">
-                                            </lightning-icon>
-                                        </template>
-                                    </div>
+                <!-- Recommended Update card -->
+                <template lwc:if={showRecommendedUpdate}>
+                    <div class="update-card">
+                        <div class="update-card-header">
+                            <span class="update-label">Recommended Update</span>
+                            <template lwc:if={showStageTransition}>
+                                <span class="confidence-badge">High Confidence</span>
+                            </template>
+                        </div>
 
-                                    <!-- DISPLAY MODE -->
-                                    <template lwc:if={isDisplayMode}>
-                                        <div class="field-value">
-                                            <template lwc:if={field.isBoolean}>
-                                                <lightning-icon
-                                                    icon-name={field.booleanIcon}
-                                                    size="xx-small"
-                                                    class={field.booleanClass}>
-                                                </lightning-icon>
-                                                <span class={field.booleanTextClass}>{field.booleanLabel}</span>
-                                            </template>
-                                            <template lwc:elseif={field.hasValue}>
-                                                <span class="value-text" title={field.fullValue}>{field.displayValue}</span>
-                                            </template>
-                                            <template lwc:else>
-                                                <span class="value-empty">Not yet captured</span>
-                                            </template>
+                        <!-- Stage transition row -->
+                        <template lwc:if={showStageTransition}>
+                            <div class="stage-row">
+                                <div class="stage-block">
+                                    <span class="stage-caption">Current Stage</span>
+                                    <span class="stage-name-current">{displayCurrentStage}</span>
+                                </div>
+                                <div class="stage-arrow-wrap">
+                                    <lightning-icon icon-name="utility:forward" size="xx-small" class="stage-arrow-icon"></lightning-icon>
+                                </div>
+                                <div class="stage-block stage-block-right">
+                                    <span class="stage-caption">New Stage</span>
+                                    <span class="stage-name-new">{displayNewStage}</span>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Detected Criteria -->
+                        <template lwc:if={hasDetectedFields}>
+                            <div class="criteria-box">
+                                <h4 class="criteria-title">Detected Criteria:</h4>
+
+                                <!-- Text and picklist fields (one per row) -->
+                                <template for:each={detectedTextFields} for:item="field">
+                                    <div key={field.fieldName} class="criteria-text-field" style={field.staggerStyle}>
+                                        <div class="criteria-field-label-row">
+                                            <span class="criteria-field-label">{field.label}</span>
+                                            <lightning-icon icon-name="utility:info" size="xx-small" class="info-icon" title={field.gateLabel}></lightning-icon>
                                         </div>
-                                    </template>
-
-                                    <!-- EDIT MODE -->
-                                    <template lwc:if={isEditMode}>
-                                        <div class="field-edit">
-                                            <!-- Text fields: textarea -->
-                                            <template lwc:if={field.isText}>
-                                                <textarea
-                                                    class="edit-textarea"
-                                                    data-field={field.fieldName}
-                                                    value={field.editTextValue}
-                                                    onchange={handleTextFieldChange}
-                                                    rows="2">
-                                                </textarea>
-                                            </template>
-
-                                            <!-- Boolean fields: toggle switch -->
-                                            <template lwc:if={field.isBoolean}>
-                                                <label class="toggle-container">
-                                                    <input
-                                                        type="checkbox"
-                                                        class="toggle-input"
-                                                        data-field={field.fieldName}
-                                                        checked={field.editBoolChecked}
-                                                        onchange={handleBooleanToggle}
-                                                    />
-                                                    <span class="toggle-slider"></span>
-                                                    <span class="toggle-label">{field.booleanLabel}</span>
-                                                </label>
-                                            </template>
-
-                                            <!-- Picklist fields: combobox -->
+                                        <template lwc:if={isEditMode}>
                                             <template lwc:if={field.isPicklist}>
                                                 <lightning-combobox
                                                     data-field={field.fieldName}
                                                     value={field.editPicklistValue}
                                                     options={inceptionSwitcherOptions}
                                                     variant="label-hidden"
-                                                    onchange={handlePicklistChange}>
-                                                </lightning-combobox>
+                                                    onchange={handlePicklistChange}></lightning-combobox>
                                             </template>
-                                        </div>
-                                    </template>
-                                </div>
-                            </template>
-                        </div>
+                                            <template lwc:else>
+                                                <textarea
+                                                    class="edit-textarea"
+                                                    data-field={field.fieldName}
+                                                    value={field.editTextValue}
+                                                    onchange={handleTextFieldChange}
+                                                    rows="2"></textarea>
+                                            </template>
+                                        </template>
+                                        <template lwc:else>
+                                            <div class="criteria-text-value">{field.displayValue}</div>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <!-- Boolean fields (2-column grid) -->
+                                <template lwc:if={hasBooleanDetectedFields}>
+                                    <div class="criteria-bool-grid">
+                                        <template for:each={detectedBooleanFields} for:item="field">
+                                            <div key={field.fieldName} class="criteria-bool-field" style={field.staggerStyle}>
+                                                <template lwc:if={isEditMode}>
+                                                    <label class="toggle-container">
+                                                        <input
+                                                            type="checkbox"
+                                                            class="toggle-input"
+                                                            data-field={field.fieldName}
+                                                            checked={field.editBoolChecked}
+                                                            onchange={handleBooleanToggle} />
+                                                        <span class="toggle-slider"></span>
+                                                        <span class="toggle-label">{field.label}</span>
+                                                    </label>
+                                                </template>
+                                                <template lwc:else>
+                                                    <span class="criteria-bool-label">{field.label}</span>
+                                                    <div class="criteria-bool-value">
+                                                        <lightning-icon icon-name="utility:check" size="xx-small" class="bool-check-icon"></lightning-icon>
+                                                        <span class="bool-yes-text">{field.booleanLabel}</span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                 </template>
-                </template>
-            </div>
 
-            <!-- Call notes textarea -->
-            <div class="notes-section">
-                <h3 class="section-title">Call Notes</h3>
-                <textarea
-                    class="notes-textarea"
-                    value={notesValue}
-                    onchange={handleNotesChange}
-                    placeholder="No call notes available"
-                    rows="4">
-                </textarea>
+                <!-- Empty state: no qualification data -->
+                <template lwc:if={showEmptyState}>
+                    <div class="empty-state-card">
+                        <lightning-icon icon-name="utility:info" size="x-small" class="empty-icon"></lightning-icon>
+                        <span class="empty-text">No qualification data extracted from this call</span>
+                    </div>
+                </template>
             </div>
 
             <!-- Button row -->
             <div class="button-row">
-                <button class="btn btn-tertiary" onclick={handleSkip}>Skip</button>
-                <button class="btn btn-secondary" onclick={handleEditFields}>{editButtonLabel}</button>
-                <button class="btn btn-primary" onclick={handleConfirm}>Confirm &amp; Continue</button>
+                <button class="btn btn-secondary" onclick={handleEditFields}>
+                    <lightning-icon icon-name={editButtonIcon} size="xx-small" class="btn-edit-icon"></lightning-icon>
+                    <span>{editButtonLabel}</span>
+                </button>
+                <button class="btn btn-primary" onclick={handleConfirm}>{confirmButtonLabel}</button>
             </div>
         </div>
     </div>
