@@ -230,7 +230,7 @@
 
 ---
 
-### Session 4: Save, Edit & Confirm Flow
+### Session 4: Save, Edit & Confirm Flow — COMPLETE
 
 **Goal**: Wire up the save/edit/confirm actions so the AE can review, edit qualification fields, save notes, and continue.
 
@@ -276,6 +276,15 @@
 **Entry criteria**: Session 3 complete (panel displays correctly)
 **Exit criteria**: Full edit→save→continue flow works, all tests pass, existing tests still pass
 **Files modified**: ~4 files (NbaActionController.cls, NbaActionControllerTest.cls, nbaPostCallPanel.js/html)
+**Commits**: `aa4de59` (save, edit & confirm flow)
+
+**Implementation notes**:
+- `savePostCallEdits()` applies guardrails: text/picklist write-if-blank, boolean ratchet (false→true only)
+- Edit mode handled entirely in `nbaPostCallPanel` child (no parent handler needed)
+- Text fields → textarea, Booleans → custom toggle switch, Picklist → lightning-combobox
+- `_fieldEdits` map tracks only changed fields; Cancel clears and exits edit mode
+- Workspace `handlePostCallConfirm` passes `fieldEdits` to new Apex method, then refreshes page data
+- 5 new tests (29 total in NbaActionControllerTest), all passing. Controller at 89% coverage.
 
 ---
 
