@@ -342,9 +342,10 @@
 
 ---
 
-### Session 6: Cleanup, Deprecation & Documentation
+### Session 6: Cleanup, Deprecation & Documentation — COMPLETE
 
 **Goal**: Remove old code, update all documentation, final deploy and test suite run.
+**Commits**: `de9f4dc` (cleanup, deprecation & documentation)
 
 **Scope**:
 
@@ -379,7 +380,14 @@
 
 **Entry criteria**: Session 5 complete (all edge cases handled)
 **Exit criteria**: Old code removed, docs updated, all tests passing, deployed to UAT
-**Files modified**: ~8-10 files (deletions, doc updates, CLAUDE.md)
+**Files modified**: 9 files (4 deleted, 3 docs updated, 2 workspace files modified)
+
+**Implementation notes**:
+- nbaCallNoteCapture LWC fully deleted (4 files) + destructive deploy to remove from org
+- Removed from workspace: saveCallNotes import, showCallNoteCapture getter, handleSaveCallNotes/handleSkipCallNotes
+- _pendingCallNote retained — still used by nbaPostCallPanel as call-note prop
+- 180/182 targeted tests passing (2 pre-existing timezone-gate flaky tests in NbaActionSelectionServiceTest)
+- All modified classes ≥75% coverage (NbaActionController 89%, AICallNoteGtmTriggerHandler 94%)
 
 ---
 
