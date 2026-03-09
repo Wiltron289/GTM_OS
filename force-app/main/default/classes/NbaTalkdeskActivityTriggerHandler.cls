@@ -103,7 +103,9 @@ public with sharing class NbaTalkdeskActivityTriggerHandler {
                 Talk_Time_Sec__c = talkTime,
                 Disposition__c = disposition,
                 Account_Name__c = opp.Account?.Name,
-                Opp_Name__c = opp.Name
+                Opp_Name__c = opp.Name,
+                Source_Type__c = 'Talkdesk',
+                Source_Record_Id__c = String.valueOf(ta.Id)
             );
             events.add(evt);
             affectedAeIds.add(opp.OwnerId);

@@ -15,6 +15,7 @@ public with sharing class NbaTriggerContext {
     private static Boolean eventHandlerRan = false;
     private static Boolean taskHandlerRan = false;
     private static Boolean talkdeskActivityHandlerRan = false;
+    private static Boolean aiCallNoteHandlerRan = false;
 
     public static Boolean hasOppHandlerRun() { return oppHandlerRan; }
     public static void setOppHandlerRun() { oppHandlerRan = true; }
@@ -28,6 +29,9 @@ public with sharing class NbaTriggerContext {
     public static Boolean hasTalkdeskActivityHandlerRun() { return talkdeskActivityHandlerRan; }
     public static void setTalkdeskActivityHandlerRun() { talkdeskActivityHandlerRan = true; }
 
+    public static Boolean hasAiCallNoteHandlerRun() { return aiCallNoteHandlerRan; }
+    public static void setAiCallNoteHandlerRun() { aiCallNoteHandlerRan = true; }
+
     // Allow test classes to reset recursion guards between scenarios
     @TestVisible
     private static void resetAll() {
@@ -35,6 +39,7 @@ public with sharing class NbaTriggerContext {
         eventHandlerRan = false;
         taskHandlerRan = false;
         talkdeskActivityHandlerRan = false;
+        aiCallNoteHandlerRan = false;
     }
 
     // ─── Shared Constants ────────────────────────────────────────────
