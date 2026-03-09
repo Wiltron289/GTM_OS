@@ -483,6 +483,171 @@ private class NbaActionControllerTest {
         System.assert(links.isEmpty(), 'Should NOT create ContentDocumentLink for blank notes');
     }
 
+    // ─── getPostCallContext Tests ─────────────────────────────────
+
+    @isTest
+    static void testGetPostCallContext_AICallNoteSource() {
+        Opportunity opp = getTestOpp();
+
+        // Populate some qualification fields on the Opp
+        opp.Customer_Story__c = 'Switching from ADP';
+        opp.Decision_Maker_Identified__c = true;
+        opp.Business_Challenge__c = 'Payroll too expensive';
+        update opp;
+
+        // Create AI_Call_Note__c source record
+        AI_Call_Note__c note = new AI_Call_Note__c(
+            Opportunity__c = opp.Id,
+            Customer_Profile__c = 'Mid-market restaurant group',
+            Topics_Discussed__c = 'Payroll pricing, implementation timeline',
+            Main_Challenges__c = 'Current provider too expensive',
+            Deal_Momentum__c = 'Positive',
+            Overall_Tone__c = 'Engaged'
+        );
+        insert note;
+
+        Test.startTest();
+        NbaActionController.PostCallContext ctx =
+            NbaActionController.getPostCallContext(opp.Id, 'AI_Call_Note', note.Id, 'Consult');
+        Test.stopTest();
+
+        System.assertNotEquals(null, ctx, 'Should return PostCallContext');
+        System.assertEquals('AI_Call_Note', ctx.sourceType, 'sourceType should be AI_Call_Note');
+        System.assertEquals('Consult', ctx.currentStage, 'Current stage should be Consult');
+        System.assertEquals(false, ctx.stageChanged, 'Stage should not have changed');
+
+        // Verify AI analysis fields populated
+        System.assertEquals('Mid-market restaurant group', ctx.customerProfile,
+            'customerProfile should be populated from AI_Call_Note__c');
+        System.assertEquals('Payroll pricing, implementation timeline', ctx.topicsDiscussed,
+            'topicsDiscussed should be populated');
+        System.assertEquals('Current provider too expensive', ctx.mainChallenges,
+            'mainChallenges should be populated');
+        System.assertEquals('Positive', ctx.dealMomentum, 'dealMomentum should be populated');
+        System.assertEquals('Engaged', ctx.overallTone, 'overallTone should be populated');
+
+        // Verify qualification fields
+        System.assertEquals(9, ctx.qualificationFields.size(),
+            'Should return all 9 qualification fields');
+
+        // Check Customer_Story__c is populated
+        NbaActionController.QualificationField custStory = ctx.qualificationFields[0];
+        System.assertEquals('Customer_Story__c', custStory.fieldName, 'First field should be Customer_Story');
+        System.assertEquals(true, custStory.isNewlyPopulated, 'Customer_Story should be newly populated');
+        System.assertEquals('NEW_TO_CONNECTED', custStory.stageGate, 'Should map to NEW_TO_CONNECTED');
+
+        // Check Decision_Maker_Identified__c
+        NbaActionController.QualificationField dm = ctx.qualificationFields[1];
+        System.assertEquals(true, dm.isNewlyPopulated, 'Decision_Maker should be newly populated');
+        System.assertEquals('boolean', dm.fieldType, 'Decision_Maker should be boolean type');
+    }
+
+    @isTest
+    static void testGetPostCallContext_TalkdeskSource() {
+        Opportunity opp = getTestOpp();
+
+        // Reset recursion guard so trigger handler doesn't block
+        NbaTriggerContext.resetAll();
+
+        // Create Talkdesk Activity source record
+        talkdesk__Talkdesk_Activity__c ta = new talkdesk__Talkdesk_Activity__c(
+            talkdesk__Talkdesk_Id__c = 'PCC-TD-' + Datetime.now().getTime(),
+            talkdesk__Opportunity__c = opp.Id,
+            talkdesk__Type__c = 'Outbound',
+            talkdesk__Notes__c = 'Discussed pricing with decision maker. Will follow up Thursday.'
+        );
+        insert ta;
+
+        Test.startTest();
+        NbaActionController.PostCallContext ctx =
+            NbaActionController.getPostCallContext(opp.Id, 'Talkdesk', ta.Id, 'Consult');
+        Test.stopTest();
+
+        System.assertNotEquals(null, ctx, 'Should return PostCallContext');
+        System.assertEquals('Talkdesk', ctx.sourceType, 'sourceType should be Talkdesk');
+        System.assertEquals('Discussed pricing with decision maker. Will follow up Thursday.',
+            ctx.callNotes, 'callNotes should come from Talkdesk notes');
+
+        // AI fields should be null for Talkdesk source
+        System.assertEquals(null, ctx.customerProfile,
+            'customerProfile should be null for Talkdesk source');
+        System.assertEquals(null, ctx.dealMomentum,
+            'dealMomentum should be null for Talkdesk source');
+
+        // Qualification fields should still be returned
+        System.assertEquals(9, ctx.qualificationFields.size(),
+            'Should return all 9 qualification fields');
+    }
+
+    @isTest
+    static void testGetPostCallContext_StageChanged() {
+        Opportunity opp = getTestOpp();
+
+        // Update opp to Connected stage (simulating stage progression after call)
+        opp.StageName = 'Connected';
+        opp.Customer_Story__c = 'Test story';
+        opp.Decision_Maker_Identified__c = true;
+        opp.Inception_or_Switcher__c = 'Inception';
+        update opp;
+
+        Test.startTest();
+        NbaActionController.PostCallContext ctx =
+            NbaActionController.getPostCallContext(opp.Id, 'Talkdesk', null, 'New');
+        Test.stopTest();
+
+        System.assertNotEquals(null, ctx, 'Should return PostCallContext');
+        System.assertEquals('New', ctx.previousStage, 'previousStage should be New');
+        System.assertEquals('Connected', ctx.currentStage, 'currentStage should be Connected');
+        System.assertEquals(true, ctx.stageChanged, 'stageChanged should be true');
+    }
+
+    @isTest
+    static void testGetPostCallContext_NoStageChange() {
+        Opportunity opp = getTestOpp();
+
+        Test.startTest();
+        NbaActionController.PostCallContext ctx =
+            NbaActionController.getPostCallContext(opp.Id, 'Talkdesk', null, 'Consult');
+        Test.stopTest();
+
+        System.assertNotEquals(null, ctx, 'Should return PostCallContext');
+        System.assertEquals('Consult', ctx.previousStage, 'previousStage should be Consult');
+        System.assertEquals('Consult', ctx.currentStage, 'currentStage should be Consult');
+        System.assertEquals(false, ctx.stageChanged, 'stageChanged should be false');
+    }
+
+    @isTest
+    static void testGetPostCallContext_NoQualFieldsPopulated() {
+        Opportunity opp = getTestOpp();
+
+        // Ensure no qualification fields are set (fresh test opp has none)
+        opp.Customer_Story__c = null;
+        opp.Decision_Maker_Identified__c = false;
+        opp.Inception_or_Switcher__c = null;
+        opp.Business_Challenge__c = null;
+        opp.Best_Product_Fit_Identified__c = false;
+        opp.Features_and_Benefits_Discussed__c = null;
+        opp.Budget_Confirmed__c = false;
+        opp.Timeline_Confirmed__c = false;
+        opp.Verbal_Commit__c = false;
+        update opp;
+
+        Test.startTest();
+        NbaActionController.PostCallContext ctx =
+            NbaActionController.getPostCallContext(opp.Id, 'AI_Call_Note', null, 'Consult');
+        Test.stopTest();
+
+        System.assertNotEquals(null, ctx, 'Should return PostCallContext');
+        System.assertEquals(9, ctx.qualificationFields.size(),
+            'Should return all 9 qualification fields');
+
+        // All fields should have isNewlyPopulated = false
+        for (NbaActionController.QualificationField qf : ctx.qualificationFields) {
+            System.assertEquals(false, qf.isNewlyPopulated,
+                qf.fieldName + ' should NOT be newly populated');
+        }
+    }
+
     // ─── createFollowUp Tests ─────────────────────────────────────
 
     @isTest
