@@ -45,6 +45,26 @@ export default class NbaPostCallPanel extends LightningElement {
     _userEditedNotes = null;
     _isEditMode = false;
     _fieldEdits = {};
+    _needsTextareaSync = false;
+
+    renderedCallback() {
+        if (this._needsTextareaSync && this._isEditMode) {
+            this._needsTextareaSync = false;
+            // Native <textarea value={}> doesn't reliably set displayed text
+            // when first created inside conditional templates — push values manually
+            const notesEl = this.template.querySelector('.notes-textarea');
+            if (notesEl && !notesEl.value) {
+                notesEl.value = this.notesValue;
+            }
+            this.template.querySelectorAll('.edit-textarea').forEach((ta) => {
+                const fieldName = ta.dataset.field;
+                const val = this._fieldEdits[fieldName];
+                if (val != null && !ta.value) {
+                    ta.value = String(val);
+                }
+            });
+        }
+    }
 
     // ── Hero subtitle ─────────────────────────────
     get heroSubtitle() {
@@ -102,14 +122,15 @@ export default class NbaPostCallPanel extends LightningElement {
         return stage;
     }
 
-    // ── Detected fields (populated qualification fields) ──
+    // ── Detected fields ──
+    // Display mode: only populated fields. Edit mode: all fields so user can fill missing ones.
     get _allDetectedFields() {
         const fields = this.postCallContext?.qualificationFields;
         if (!fields) return [];
         let index = 0;
         return fields
             .map((f) => this._buildFieldViewModel(f))
-            .filter((f) => f.hasValue)
+            .filter((f) => this._isEditMode || f.hasValue)
             .map((f) => ({
                 ...f,
                 staggerStyle: `animation-delay: ${index++ * 50}ms`
@@ -133,11 +154,11 @@ export default class NbaPostCallPanel extends LightningElement {
     }
 
     get showRecommendedUpdate() {
-        return this.hasDetectedFields || this.showStageTransition;
+        return this.hasDetectedFields || this.showStageTransition || this._isEditMode;
     }
 
     get showEmptyState() {
-        return !this.showRecommendedUpdate;
+        return !this.showRecommendedUpdate && !this._isEditMode;
     }
 
     // ── Edit mode ─────────────────────────────────
@@ -258,13 +279,17 @@ export default class NbaPostCallPanel extends LightningElement {
             if (fields) {
                 const edits = {};
                 fields.forEach((f) => {
-                    if (f.value != null && f.value !== '' && f.value !== false) {
-                        edits[f.fieldName] = f.value;
+                    // Include all fields — populated get their value, empty get '' or false
+                    if (f.fieldType === 'boolean') {
+                        edits[f.fieldName] = f.value === true || f.value === 'true';
+                    } else {
+                        edits[f.fieldName] = f.value != null ? String(f.value) : '';
                     }
                 });
                 this._fieldEdits = edits;
             }
             this._isEditMode = true;
+            this._needsTextareaSync = true;
         }
     }
 
