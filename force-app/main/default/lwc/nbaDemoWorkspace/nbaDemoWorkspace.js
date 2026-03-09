@@ -10,6 +10,7 @@ import completeAction from '@salesforce/apex/NbaActionController.completeAction'
 import snoozeAction from '@salesforce/apex/NbaActionController.snoozeAction';
 import dismissAction from '@salesforce/apex/NbaActionController.dismissAction';
 import saveCallNotes from '@salesforce/apex/NbaActionController.saveCallNotes';
+import savePostCallEdits from '@salesforce/apex/NbaActionController.savePostCallEdits';
 import getPostCallContext from '@salesforce/apex/NbaActionController.getPostCallContext';
 
 export default class NbaDemoWorkspace extends LightningElement {
@@ -400,14 +401,21 @@ export default class NbaDemoWorkspace extends LightningElement {
     // Post-Call Panel handlers
     // ────────────────────────────────────────────
     async handlePostCallConfirm(event) {
-        const { notes } = event.detail;
+        const { notes, fieldEdits } = event.detail;
+        const oppId = this._postCallContext?.opportunityId || this.currentAction?.opportunityId;
         this.isTransitioning = true;
         try {
-            // Save notes using existing saveCallNotes method
-            await saveCallNotes({
-                opportunityId: this._postCallContext?.opportunityId || this.currentAction?.opportunityId,
-                notes: notes || ''
+            await savePostCallEdits({
+                opportunityId: oppId,
+                notes: notes || '',
+                fieldEdits: fieldEdits || {}
             });
+
+            // Refresh page data to reflect updated qualification fields
+            if (oppId) {
+                const data = await getPageData({ oppId });
+                this._applyPageData(data);
+            }
         } catch (err) {
             this.error = err;
         } finally {
@@ -416,10 +424,6 @@ export default class NbaDemoWorkspace extends LightningElement {
             this._previousStage = null;
             this.isTransitioning = false;
         }
-    }
-
-    handlePostCallEditFields() {
-        // Session 4 will wire inline editing — for now just dispatch for future use
     }
 
     handlePostCallSkip() {

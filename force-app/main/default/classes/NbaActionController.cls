@@ -395,6 +395,96 @@ public with sharing class NbaActionController {
         return true;
     }
 
+    // ─── Post-Call: Save Edits ────────────────────────────────────────
+
+    /**
+     * Save edited qualification fields and call notes from the Post-Call Panel.
+     * Guardrails mirror the qualification sync rules:
+     *   - Text/Picklist fields: write only if current Opp value is blank
+     *   - Checkbox fields: ratchet only (false→true, never true→false)
+     * Notes saved as ContentNote linked to the Opportunity (reuses saveCallNotes pattern).
+     * @param opportunityId The Opportunity to update
+     * @param notes Edited call notes (may be blank — skips ContentNote if so)
+     * @param fieldEdits Map of field API name → new value from the AE's edits
+     * @return true on success
+     */
+    @AuraEnabled
+    public static Boolean savePostCallEdits(
+        Id opportunityId, String notes, Map<String, Object> fieldEdits
+    ) {
+        if (opportunityId == null) {
+            return false;
+        }
+
+        // 1. Query current Opp values for guardrail checks (1 SOQL)
+        List<Opportunity> opps = [
+            SELECT Customer_Story__c, Decision_Maker_Identified__c,
+                   Inception_or_Switcher__c, Business_Challenge__c,
+                   Best_Product_Fit_Identified__c, Features_and_Benefits_Discussed__c,
+                   Budget_Confirmed__c, Timeline_Confirmed__c, Verbal_Commit__c
+            FROM Opportunity
+            WHERE Id = :opportunityId
+            WITH SECURITY_ENFORCED
+            LIMIT 1
+        ];
+        if (opps.isEmpty()) {
+            return false;
+        }
+        Opportunity opp = opps[0];
+
+        // 2. Apply field edits with guardrails
+        Boolean hasFieldChanges = false;
+        if (fieldEdits != null && !fieldEdits.isEmpty()) {
+            for (String fieldName : fieldEdits.keySet()) {
+                Object newVal = fieldEdits.get(fieldName);
+                Object currentVal = opp.get(fieldName);
+
+                if (BOOLEAN_QUAL_FIELDS.contains(fieldName)) {
+                    // Checkbox ratchet: only false→true
+                    Boolean currentBool = (currentVal == true);
+                    Boolean newBool = (newVal == true || newVal == 'true');
+                    if (!currentBool && newBool) {
+                        opp.put(fieldName, true);
+                        hasFieldChanges = true;
+                    }
+                } else {
+                    // Text/Picklist: write only if current value is blank
+                    String currentStr = (currentVal == null) ? '' : String.valueOf(currentVal);
+                    String newStr = (newVal == null) ? '' : String.valueOf(newVal);
+                    if (String.isBlank(currentStr) && String.isNotBlank(newStr)) {
+                        opp.put(fieldName, newStr);
+                        hasFieldChanges = true;
+                    }
+                }
+            }
+            if (hasFieldChanges) {
+                update opp; // 1 DML
+            }
+        }
+
+        // 3. Save notes as ContentNote (reuse saveCallNotes pattern)
+        if (String.isNotBlank(notes)) {
+            ContentNote cn = new ContentNote();
+            cn.Title = 'Post-Call Notes';
+            cn.Content = Blob.valueOf(notes);
+            insert cn;
+
+            ContentDocumentLink cdl = new ContentDocumentLink();
+            cdl.ContentDocumentId = cn.Id;
+            cdl.LinkedEntityId = opportunityId;
+            cdl.ShareType = 'V';
+            insert cdl; // 1-2 DML
+        }
+
+        return true;
+    }
+
+    // Boolean qualification fields (for checkbox ratchet guardrail)
+    private static final Set<String> BOOLEAN_QUAL_FIELDS = new Set<String>{
+        'Decision_Maker_Identified__c', 'Best_Product_Fit_Identified__c',
+        'Budget_Confirmed__c', 'Timeline_Confirmed__c', 'Verbal_Commit__c'
+    };
+
     // ─── Follow-Up ────────────────────────────────────────────────────
 
     /**

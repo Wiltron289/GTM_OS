@@ -10,11 +10,20 @@ const GATE_LABELS = {
 
 const GATE_ORDER = ['NEW_TO_CONNECTED', 'CONNECTED_TO_CONSULT', 'CONSULT_TO_CLOSING'];
 
+const INCEPTION_SWITCHER_OPTIONS = [
+    { label: '-- None --', value: '' },
+    { label: 'Inception', value: 'Inception' },
+    { label: 'Switcher', value: 'Switcher' }
+];
+
 export default class NbaPostCallPanel extends LightningElement {
     @api postCallContext;
     @api callNote; // Original Platform Event payload (fallback)
 
     _userEditedNotes = null;
+    _isEditMode = false;
+    _fieldEdits = {}; // { fieldName: newValue }
+    _originalFieldValues = {}; // snapshot on entering edit mode
 
     // ── Source badge ──────────────────────────────
     get sourceIcon() {
@@ -42,6 +51,23 @@ export default class NbaPostCallPanel extends LightningElement {
 
     get currentStage() {
         return this.postCallContext?.currentStage || '';
+    }
+
+    // ── Edit mode state ──────────────────────────
+    get isEditMode() {
+        return this._isEditMode;
+    }
+
+    get isDisplayMode() {
+        return !this._isEditMode;
+    }
+
+    get editButtonLabel() {
+        return this._isEditMode ? 'Cancel Edit' : 'Edit Fields';
+    }
+
+    get inceptionSwitcherOptions() {
+        return INCEPTION_SWITCHER_OPTIONS;
     }
 
     // ── Qualification fields grouped by stage gate ──
@@ -89,18 +115,28 @@ export default class NbaPostCallPanel extends LightningElement {
 
     _buildFieldViewModel(field) {
         const isBoolean = field.fieldType === 'boolean';
-        const hasValue = field.value != null && field.value !== '' && field.value !== false;
-        const fullValue = isBoolean ? '' : String(field.value || '');
+        const isPicklist = field.fieldName === 'Inception_or_Switcher__c';
+        const isText = !isBoolean && !isPicklist;
+
+        // Use edited value if available, otherwise original
+        const editedVal = this._fieldEdits[field.fieldName];
+        const rawValue = editedVal !== undefined ? editedVal : field.value;
+
+        const hasValue = rawValue != null && rawValue !== '' && rawValue !== false;
+        const fullValue = isBoolean ? '' : String(rawValue || '');
         const displayValue = fullValue.length > VALUE_TRUNCATE_LENGTH
             ? fullValue.substring(0, VALUE_TRUNCATE_LENGTH) + '...'
             : fullValue;
 
-        const boolVal = field.value === true || field.value === 'true';
+        const boolVal = rawValue === true || rawValue === 'true';
 
         return {
             fieldName: field.fieldName,
             label: field.label,
+            fieldType: field.fieldType,
             isBoolean,
+            isPicklist,
+            isText,
             hasValue,
             fullValue,
             displayValue,
@@ -109,7 +145,11 @@ export default class NbaPostCallPanel extends LightningElement {
             booleanIcon: boolVal ? 'utility:check' : 'utility:close',
             booleanClass: boolVal ? 'bool-icon bool-true' : 'bool-icon bool-false',
             booleanTextClass: boolVal ? 'bool-text bool-text-true' : 'bool-text bool-text-false',
-            booleanLabel: boolVal ? 'Yes' : 'No'
+            booleanLabel: boolVal ? 'Yes' : 'No',
+            // Edit mode values
+            editTextValue: fullValue,
+            editBoolChecked: boolVal,
+            editPicklistValue: fullValue || ''
         };
     }
 
@@ -125,16 +165,40 @@ export default class NbaPostCallPanel extends LightningElement {
         this._userEditedNotes = event.target.value;
     }
 
+    // ── Edit mode: field change handlers ─────────
+    handleTextFieldChange(event) {
+        const fieldName = event.target.dataset.field;
+        this._fieldEdits = { ...this._fieldEdits, [fieldName]: event.target.value };
+    }
+
+    handleBooleanToggle(event) {
+        const fieldName = event.target.dataset.field;
+        this._fieldEdits = { ...this._fieldEdits, [fieldName]: event.target.checked };
+    }
+
+    handlePicklistChange(event) {
+        const fieldName = event.target.dataset.field;
+        this._fieldEdits = { ...this._fieldEdits, [fieldName]: event.detail.value };
+    }
+
     // ── Button handlers ──────────────────────────
     handleConfirm() {
         const notes = this.notesValue;
+        const fieldEdits = { ...this._fieldEdits };
         this.dispatchEvent(new CustomEvent('confirm', {
-            detail: { notes }
+            detail: { notes, fieldEdits }
         }));
     }
 
     handleEditFields() {
-        this.dispatchEvent(new CustomEvent('editfields'));
+        if (this._isEditMode) {
+            // Cancel edit — revert to original values
+            this._fieldEdits = {};
+            this._isEditMode = false;
+        } else {
+            // Enter edit mode — snapshot current values for cancel
+            this._isEditMode = true;
+        }
     }
 
     handleSkip() {

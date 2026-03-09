@@ -632,6 +632,107 @@ private class NbaActionControllerTest {
         }
     }
 
+    // ─── savePostCallEdits Tests ──────────────────────────────────
+
+    @isTest
+    static void testSavePostCallEdits_SavesNotesAsContentNote() {
+        Opportunity opp = getTestOpp();
+
+        Test.startTest();
+        Boolean result = NbaActionController.savePostCallEdits(
+            opp.Id, 'Post-call notes from AE review', new Map<String, Object>()
+        );
+        Test.stopTest();
+
+        System.assertEquals(true, result, 'Should return true on success');
+
+        // Verify ContentNote was created and linked
+        List<ContentDocumentLink> links = [
+            SELECT ContentDocumentId FROM ContentDocumentLink
+            WHERE LinkedEntityId = :opp.Id
+        ];
+        System.assert(!links.isEmpty(), 'Should create ContentDocumentLink on the Opportunity');
+    }
+
+    @isTest
+    static void testSavePostCallEdits_WritesTextFieldWhenBlank() {
+        Opportunity opp = getTestOpp();
+        // Ensure Customer_Story is blank
+        opp.Customer_Story__c = null;
+        update opp;
+
+        Map<String, Object> edits = new Map<String, Object>{
+            'Customer_Story__c' => 'Switching from ADP to Homebase'
+        };
+
+        Test.startTest();
+        Boolean result = NbaActionController.savePostCallEdits(opp.Id, '', edits);
+        Test.stopTest();
+
+        System.assertEquals(true, result, 'Should return true');
+
+        Opportunity updated = [SELECT Customer_Story__c FROM Opportunity WHERE Id = :opp.Id];
+        System.assertEquals('Switching from ADP to Homebase', updated.Customer_Story__c,
+            'Should write text field when current value is blank');
+    }
+
+    @isTest
+    static void testSavePostCallEdits_DoesNotOverwriteExistingTextField() {
+        Opportunity opp = getTestOpp();
+        opp.Customer_Story__c = 'Existing story from previous call';
+        update opp;
+
+        Map<String, Object> edits = new Map<String, Object>{
+            'Customer_Story__c' => 'New story that should NOT overwrite'
+        };
+
+        Test.startTest();
+        NbaActionController.savePostCallEdits(opp.Id, '', edits);
+        Test.stopTest();
+
+        Opportunity updated = [SELECT Customer_Story__c FROM Opportunity WHERE Id = :opp.Id];
+        System.assertEquals('Existing story from previous call', updated.Customer_Story__c,
+            'Should NOT overwrite existing text field value');
+    }
+
+    @isTest
+    static void testSavePostCallEdits_CheckboxRatchetFalseToTrue() {
+        Opportunity opp = getTestOpp();
+        opp.Decision_Maker_Identified__c = false;
+        update opp;
+
+        Map<String, Object> edits = new Map<String, Object>{
+            'Decision_Maker_Identified__c' => true
+        };
+
+        Test.startTest();
+        NbaActionController.savePostCallEdits(opp.Id, '', edits);
+        Test.stopTest();
+
+        Opportunity updated = [SELECT Decision_Maker_Identified__c FROM Opportunity WHERE Id = :opp.Id];
+        System.assertEquals(true, updated.Decision_Maker_Identified__c,
+            'Checkbox ratchet should allow false → true');
+    }
+
+    @isTest
+    static void testSavePostCallEdits_CheckboxRatchetBlocksTrueToFalse() {
+        Opportunity opp = getTestOpp();
+        opp.Decision_Maker_Identified__c = true;
+        update opp;
+
+        Map<String, Object> edits = new Map<String, Object>{
+            'Decision_Maker_Identified__c' => false
+        };
+
+        Test.startTest();
+        NbaActionController.savePostCallEdits(opp.Id, '', edits);
+        Test.stopTest();
+
+        Opportunity updated = [SELECT Decision_Maker_Identified__c FROM Opportunity WHERE Id = :opp.Id];
+        System.assertEquals(true, updated.Decision_Maker_Identified__c,
+            'Checkbox ratchet should block true → false (value stays true)');
+    }
+
     // ─── createFollowUp Tests ─────────────────────────────────────
 
     @isTest

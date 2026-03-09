@@ -50,22 +50,68 @@
                                             </lightning-icon>
                                         </template>
                                     </div>
-                                    <div class="field-value">
-                                        <template lwc:if={field.isBoolean}>
-                                            <lightning-icon
-                                                icon-name={field.booleanIcon}
-                                                size="xx-small"
-                                                class={field.booleanClass}>
-                                            </lightning-icon>
-                                            <span class={field.booleanTextClass}>{field.booleanLabel}</span>
-                                        </template>
-                                        <template lwc:elseif={field.hasValue}>
-                                            <span class="value-text" title={field.fullValue}>{field.displayValue}</span>
-                                        </template>
-                                        <template lwc:else>
-                                            <span class="value-empty">Not yet captured</span>
-                                        </template>
-                                    </div>
+
+                                    <!-- DISPLAY MODE -->
+                                    <template lwc:if={isDisplayMode}>
+                                        <div class="field-value">
+                                            <template lwc:if={field.isBoolean}>
+                                                <lightning-icon
+                                                    icon-name={field.booleanIcon}
+                                                    size="xx-small"
+                                                    class={field.booleanClass}>
+                                                </lightning-icon>
+                                                <span class={field.booleanTextClass}>{field.booleanLabel}</span>
+                                            </template>
+                                            <template lwc:elseif={field.hasValue}>
+                                                <span class="value-text" title={field.fullValue}>{field.displayValue}</span>
+                                            </template>
+                                            <template lwc:else>
+                                                <span class="value-empty">Not yet captured</span>
+                                            </template>
+                                        </div>
+                                    </template>
+
+                                    <!-- EDIT MODE -->
+                                    <template lwc:if={isEditMode}>
+                                        <div class="field-edit">
+                                            <!-- Text fields: textarea -->
+                                            <template lwc:if={field.isText}>
+                                                <textarea
+                                                    class="edit-textarea"
+                                                    data-field={field.fieldName}
+                                                    value={field.editTextValue}
+                                                    onchange={handleTextFieldChange}
+                                                    rows="2">
+                                                </textarea>
+                                            </template>
+
+                                            <!-- Boolean fields: toggle switch -->
+                                            <template lwc:if={field.isBoolean}>
+                                                <label class="toggle-container">
+                                                    <input
+                                                        type="checkbox"
+                                                        class="toggle-input"
+                                                        data-field={field.fieldName}
+                                                        checked={field.editBoolChecked}
+                                                        onchange={handleBooleanToggle}
+                                                    />
+                                                    <span class="toggle-slider"></span>
+                                                    <span class="toggle-label">{field.booleanLabel}</span>
+                                                </label>
+                                            </template>
+
+                                            <!-- Picklist fields: combobox -->
+                                            <template lwc:if={field.isPicklist}>
+                                                <lightning-combobox
+                                                    data-field={field.fieldName}
+                                                    value={field.editPicklistValue}
+                                                    options={inceptionSwitcherOptions}
+                                                    variant="label-hidden"
+                                                    onchange={handlePicklistChange}>
+                                                </lightning-combobox>
+                                            </template>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                         </div>
@@ -88,7 +134,7 @@
             <!-- Button row -->
             <div class="button-row">
                 <button class="btn btn-tertiary" onclick={handleSkip}>Skip</button>
-                <button class="btn btn-secondary" onclick={handleEditFields}>Edit Fields</button>
+                <button class="btn btn-secondary" onclick={handleEditFields}>{editButtonLabel}</button>
                 <button class="btn btn-primary" onclick={handleConfirm}>Confirm &amp; Continue</button>
             </div>
         </div>
