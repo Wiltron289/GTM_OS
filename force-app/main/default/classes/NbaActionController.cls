@@ -209,12 +209,12 @@ public with sharing class NbaActionController {
     /**
      * Returns full post-call context for the LWC after a Platform Event fires.
      * Queries Opportunity for 9 qualification fields + StageName (1 SOQL),
-     * then queries the source record for AI analysis fields (1 SOQL).
+     * then queries the source record for call notes (1 SOQL).
      * @param opportunityId The Opportunity whose call just completed
      * @param sourceType 'Talkdesk' or 'AI_Call_Note'
      * @param sourceRecordId The Talkdesk Activity or AI_Call_Note__c ID
      * @param previousStage The StageName the workspace had cached before the call
-     * @return PostCallContext with qualification fields, stage change, AI analysis
+     * @return PostCallContext with qualification fields, stage change, call notes
      */
     @AuraEnabled
     public static PostCallContext getPostCallContext(
@@ -250,7 +250,7 @@ public with sharing class NbaActionController {
         // 2. Build qualification fields list
         ctx.qualificationFields = buildQualificationFields(opp);
 
-        // 3. Query source record for AI analysis fields (1 SOQL)
+        // 3. Query source record for call notes (1 SOQL)
         if (sourceRecordId != null && String.isNotBlank(sourceType)) {
             populateSourceFields(ctx, sourceType, sourceRecordId);
         }
@@ -328,7 +328,8 @@ public with sharing class NbaActionController {
 
     /**
      * Query the source record (Talkdesk Activity or AI_Call_Note__c) and populate
-     * AI analysis fields on the PostCallContext.
+     * callNotes on the PostCallContext.
+     * AI_Call_Note → Customer_Story__c, Talkdesk → talkdesk__Notes__c.
      */
     private static void populateSourceFields(
         PostCallContext ctx, String sourceType, Id sourceRecordId
@@ -336,21 +337,14 @@ public with sharing class NbaActionController {
         try {
             if (sourceType == 'AI_Call_Note') {
                 List<AI_Call_Note__c> notes = [
-                    SELECT Customer_Profile__c, Topics_Discussed__c,
-                           Main_Challenges__c, Deal_Momentum__c, Overall_Tone__c
+                    SELECT Customer_Story__c
                     FROM AI_Call_Note__c
                     WHERE Id = :sourceRecordId
                     WITH SECURITY_ENFORCED
                     LIMIT 1
                 ];
                 if (!notes.isEmpty()) {
-                    AI_Call_Note__c note = notes[0];
-                    ctx.customerProfile = note.Customer_Profile__c;
-                    ctx.topicsDiscussed = note.Topics_Discussed__c;
-                    ctx.mainChallenges = note.Main_Challenges__c;
-                    ctx.dealMomentum = note.Deal_Momentum__c;
-                    ctx.overallTone = note.Overall_Tone__c;
-                    ctx.callNotes = note.Topics_Discussed__c;
+                    ctx.callNotes = notes[0].Customer_Story__c;
                 }
             } else if (sourceType == 'Talkdesk') {
                 List<talkdesk__Talkdesk_Activity__c> activities = [
@@ -694,11 +688,6 @@ public with sharing class NbaActionController {
         @AuraEnabled public Boolean stageChanged;
         @AuraEnabled public List<QualificationField> qualificationFields;
         @AuraEnabled public String callNotes;
-        @AuraEnabled public String customerProfile;
-        @AuraEnabled public String topicsDiscussed;
-        @AuraEnabled public String mainChallenges;
-        @AuraEnabled public String dealMomentum;
-        @AuraEnabled public String overallTone;
         @AuraEnabled public String sourceType;
     }
 

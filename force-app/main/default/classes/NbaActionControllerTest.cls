@@ -495,14 +495,10 @@ private class NbaActionControllerTest {
         opp.Business_Challenge__c = 'Payroll too expensive';
         update opp;
 
-        // Create AI_Call_Note__c source record
+        // Create AI_Call_Note__c source record with Customer_Story for callNotes
         AI_Call_Note__c note = new AI_Call_Note__c(
             Opportunity__c = opp.Id,
-            Customer_Profile__c = 'Mid-market restaurant group',
-            Topics_Discussed__c = 'Payroll pricing, implementation timeline',
-            Main_Challenges__c = 'Current provider too expensive',
-            Deal_Momentum__c = 'Positive',
-            Overall_Tone__c = 'Engaged'
+            Customer_Story__c = 'Mid-market restaurant group switching from ADP'
         );
         insert note;
 
@@ -516,21 +512,15 @@ private class NbaActionControllerTest {
         System.assertEquals('Consult', ctx.currentStage, 'Current stage should be Consult');
         System.assertEquals(false, ctx.stageChanged, 'Stage should not have changed');
 
-        // Verify AI analysis fields populated
-        System.assertEquals('Mid-market restaurant group', ctx.customerProfile,
-            'customerProfile should be populated from AI_Call_Note__c');
-        System.assertEquals('Payroll pricing, implementation timeline', ctx.topicsDiscussed,
-            'topicsDiscussed should be populated');
-        System.assertEquals('Current provider too expensive', ctx.mainChallenges,
-            'mainChallenges should be populated');
-        System.assertEquals('Positive', ctx.dealMomentum, 'dealMomentum should be populated');
-        System.assertEquals('Engaged', ctx.overallTone, 'overallTone should be populated');
+        // Verify callNotes populated from AI_Call_Note__c.Customer_Story__c
+        System.assertEquals('Mid-market restaurant group switching from ADP',
+            ctx.callNotes, 'callNotes should come from AI_Call_Note Customer_Story__c');
 
         // Verify qualification fields
         System.assertEquals(9, ctx.qualificationFields.size(),
             'Should return all 9 qualification fields');
 
-        // Check Customer_Story__c is populated
+        // Check Customer_Story__c is populated on Opp
         NbaActionController.QualificationField custStory = ctx.qualificationFields[0];
         System.assertEquals('Customer_Story__c', custStory.fieldName, 'First field should be Customer_Story');
         System.assertEquals(true, custStory.isNewlyPopulated, 'Customer_Story should be newly populated');
@@ -567,12 +557,6 @@ private class NbaActionControllerTest {
         System.assertEquals('Talkdesk', ctx.sourceType, 'sourceType should be Talkdesk');
         System.assertEquals('Discussed pricing with decision maker. Will follow up Thursday.',
             ctx.callNotes, 'callNotes should come from Talkdesk notes');
-
-        // AI fields should be null for Talkdesk source
-        System.assertEquals(null, ctx.customerProfile,
-            'customerProfile should be null for Talkdesk source');
-        System.assertEquals(null, ctx.dealMomentum,
-            'dealMomentum should be null for Talkdesk source');
 
         // Qualification fields should still be returned
         System.assertEquals(9, ctx.qualificationFields.size(),
