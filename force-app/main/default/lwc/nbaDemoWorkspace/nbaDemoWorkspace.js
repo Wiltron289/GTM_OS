@@ -9,7 +9,6 @@ import acceptInterrupt from '@salesforce/apex/NbaActionController.acceptInterrup
 import completeAction from '@salesforce/apex/NbaActionController.completeAction';
 import snoozeAction from '@salesforce/apex/NbaActionController.snoozeAction';
 import dismissAction from '@salesforce/apex/NbaActionController.dismissAction';
-import saveCallNotes from '@salesforce/apex/NbaActionController.saveCallNotes';
 import savePostCallEdits from '@salesforce/apex/NbaActionController.savePostCallEdits';
 import getPostCallContext from '@salesforce/apex/NbaActionController.getPostCallContext';
 
@@ -203,10 +202,8 @@ export default class NbaDemoWorkspace extends LightningElement {
             if (ctx) {
                 this._postCallContext = ctx;
             }
-            // If getPostCallContext returns null, _pendingCallNote remains as fallback
         } catch (err) {
             console.error('[nbaDemoWorkspace] getPostCallContext error:', err);
-            // Fall back to _pendingCallNote (old call note capture)
         }
     }
 
@@ -349,11 +346,6 @@ export default class NbaDemoWorkspace extends LightningElement {
         return this._postCallContext != null;
     }
 
-    get showCallNoteCapture() {
-        // Only show old call note capture as fallback when post-call context failed
-        return this._pendingCallNote != null && this._postCallContext == null;
-    }
-
     get showTagPanel() {
         return this.isActionMode && this.currentAction?.actionTags;
     }
@@ -484,31 +476,6 @@ export default class NbaDemoWorkspace extends LightningElement {
             // Skip stale events, try next
             await this._processEventQueue();
         }
-    }
-
-    // ────────────────────────────────────────────
-    // Call Notes capture handlers (fallback)
-    // ────────────────────────────────────────────
-    async handleSaveCallNotes(event) {
-        const { notes } = event.detail;
-        this.isTransitioning = true;
-        this._pendingCallNote = null;
-        try {
-            await saveCallNotes({
-                opportunityId: this.currentAction?.opportunityId || this.recordId,
-                notes
-            });
-        } catch (err) {
-            this.error = err;
-        } finally {
-            this.isTransitioning = false;
-            this._processEventQueue();
-        }
-    }
-
-    handleSkipCallNotes() {
-        this._pendingCallNote = null;
-        this._processEventQueue();
     }
 
     // ────────────────────────────────────────────

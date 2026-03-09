@@ -76,7 +76,9 @@ nbaDemoWorkspace (parent - manages layout, data, tabs)
 │   └── nbaDemoConversationView (chat-style SMS thread)
 ├── nbaDemoEmailModal (custom email composer)
 ├── nbaDemoSmsModal (SMS composer via Mogli SMS)
-└── nbaDemoSnoozeDropdown (visual only)
+├── nbaDemoSnoozeDropdown (visual only)
+├── nbaFollowUpModal (follow-up scheduling modal)
+├── nbaPostCallPanel (post-call intelligence overlay — qualification fields + stage progression)
 ```
 
 ### Data Flow Pattern
@@ -252,14 +254,14 @@ Talkdesk Activity inserted
     → EventBus.publish(Call_Completed_Event__e) — PublishAfterCommit
   → LWC nbaDemoWorkspace subscribes via empApi
     → Filter: Sales_Rep_Id__c === currentUserId
-    → Store in _pendingCallNote state
-    → Show nbaCallNoteCapture overlay
-  → AE edits notes + saves
-    → NbaActionController.saveCallNotes(oppId, notes)
-    → Creates ContentNote + ContentDocumentLink to Opportunity
+    → Calls getPostCallContext() for full qualification + stage context
+    → Show nbaPostCallPanel overlay (qualification fields + stage progression)
+  → AE reviews fields, edits, confirms
+    → NbaActionController.savePostCallEdits(oppId, notes, fieldEdits)
+    → Updates Opp fields + creates ContentNote linked to Opportunity
 ```
 
-**Event Fields (8)**:
+**Event Fields (10)**:
 - `Sales_Rep_Id__c` (Text) — User ID for LWC filtering
 - `Opportunity_Id__c` (Text) — Opp for ContentNote linking
 - `Activity_Id__c` (Text) — Talkdesk Activity ID
@@ -268,6 +270,8 @@ Talkdesk Activity inserted
 - `Account_Name__c` (Text) — Display in overlay
 - `Opp_Name__c` (Text) — Display in overlay
 - `Talk_Time_Sec__c` (Number) — Duration for display
+- `Source_Type__c` (Text) — `'Talkdesk'` or `'AI_Call_Note'` discriminator
+- `Source_Record_Id__c` (Text) — Activity ID or AI_Call_Note__c ID
 
 **Key Decisions**:
 - Platform Event over NBA_Queue__c: avoids polluting GTM Queue reporting with non-scored actions
@@ -275,14 +279,49 @@ Talkdesk Activity inserted
 - PublishAfterCommit: ensures Talkdesk Activity is committed before event fires
 - ContentNote over Task: structured note storage, better for reporting/search
 
-### nbaCallNoteCapture LWC
+### Post-Call Intelligence Panel (Feature 16)
 
-Overlay component for post-call notes editing:
-- Pre-populated with Talkdesk call notes, disposition badge, talk time display
-- Editable textarea for AE to add/modify notes
-- Save creates ContentNote via `NbaActionController.saveCallNotes()`
-- Cancel dismisses overlay without saving
-- Dispatches `save` / `cancel` events to parent workspace
+Replaces the simple `nbaCallNoteCapture` overlay with a rich post-call panel showing AI-extracted qualification fields and stage progression.
+
+**Detection Flow**:
+```
+Call_Completed_Event__e arrives (Source_Type: Talkdesk or AI_Call_Note)
+  → nbaDemoWorkspace empApi subscription filters by userId + oppId
+  → If panel already open → queue in _pendingEventQueue (FIFO)
+  → Calls getPostCallContext(oppId, sourceType, sourceRecordId, previousStage)
+    → Returns PostCallContext: currentStage, previousStage, stageChanged,
+      qualificationFields[9] (label, value, isNewlyPopulated, stageGate),
+      callNotes, sourceType
+  → Renders nbaPostCallPanel overlay
+    → Stage progression banner (animated OLD → NEW if stageChanged)
+    → 9 qualification field cards grouped by stage gate
+    → Inline edit mode (text→textarea, boolean→toggle, picklist→combobox)
+    → Editable call notes textarea
+  → "Confirm & Continue" → savePostCallEdits(oppId, notes, fieldEdits)
+    → Guardrails: text write-if-blank, boolean ratchet (false→true only)
+    → Saves notes as ContentNote linked to Opp
+    → Refreshes page data → processes next queued event
+  → "Skip" → clears panel → processes next queued event
+```
+
+**Platform Event Enrichment Fields** (added to Call_Completed_Event__e):
+- `Source_Type__c` (Text) — `'Talkdesk'` or `'AI_Call_Note'` discriminator
+- `Source_Record_Id__c` (Text) — Activity ID or AI_Call_Note__c ID
+
+**AI_Call_Note__c Detection**:
+- `AICallNoteGtmTrigger` (after insert on AI_Call_Note__c)
+- `AICallNoteGtmTriggerHandler` — filters for records with Opportunity__c, publishes Call_Completed_Event__e with Source_Type='AI_Call_Note'
+
+**Data Contracts**:
+
+`getPostCallContext(Id opportunityId, String sourceType, Id sourceRecordId, String previousStage)` → `PostCallContext`
+- Queries Opp for 9 qualification fields + StageName (1 SOQL)
+- Queries source record for callNotes (1 SOQL)
+- Returns structured context with qualification field metadata
+
+`savePostCallEdits(Id opportunityId, String notes, Map<String,Object> fieldEdits)` → `Boolean`
+- Updates Opp fields with guardrails (write-if-blank text, ratchet booleans)
+- Creates ContentNote linked to Opp
 
 ## Pending Actions
 

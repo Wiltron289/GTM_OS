@@ -822,3 +822,67 @@ Replaced NBA_Queue__c interrupt-based Call Completed flow with transient `Call_C
 ### Test Results
 
 55/57 targeted tests passing (2 pre-existing failures unchanged). All deployed to UAT.
+
+---
+
+## Post-Call Intelligence Panel (6 Sessions)
+
+**Branch**: `feature/post-call-intelligence` (off `testing/sprint-22-20260303`)
+
+### Session 1: Platform Event Enrichment + AI_Call_Note__c Detection (commit `6a43a30`)
+
+| Component | Change |
+|-----------|--------|
+| `Call_Completed_Event__e` | Added `Source_Type__c` (Text) and `Source_Record_Id__c` (Text) fields |
+| `NbaTalkdeskActivityTriggerHandler.cls` | Populates Source_Type__c='Talkdesk' and Source_Record_Id__c on published events |
+| `AICallNoteGtmTrigger.trigger` (NEW) | After insert trigger on AI_Call_Note__c |
+| `AICallNoteGtmTriggerHandler.cls` (NEW) | Filters for Opp-linked records, publishes Call_Completed_Event__e with Source_Type='AI_Call_Note' |
+| `AICallNoteGtmTriggerHandlerTest.cls` (NEW) | 5 test methods: insert with/without Opp, bulk, source field verification |
+
+### Session 2: Post-Call Context Apex Method (commits `17f84bd`, `4b49090`)
+
+| Component | Change |
+|-----------|--------|
+| `NbaActionController.cls` | Added `getPostCallContext()`, `PostCallContext` inner class, `QualificationField` inner class |
+| `NbaActionControllerTest.cls` | 5 new test methods: AI source, Talkdesk source, stage change, no stage change, no quals populated |
+
+### Session 3: Post-Call Panel LWC — Layout & Display (commit `e75c779`)
+
+| Component | Change |
+|-----------|--------|
+| `nbaPostCallPanel` LWC (NEW) | 4 files: HTML (overlay layout, stage banner, qualification cards, notes), JS (field grouping, boolean rendering, truncation), CSS (overlay, animations), meta.xml |
+| `nbaDemoWorkspace.html` | Added `<c-nba-post-call-panel>` template block |
+| `nbaDemoWorkspace.js` | Added `getPostCallContext` import, `_postCallContext`/`_previousStage` state, async `_handleCallCompletedEvent`, `showPostCallPanel` getter, fallback to nbaCallNoteCapture |
+
+### Session 4: Save, Edit & Confirm Flow (commit `aa4de59`)
+
+| Component | Change |
+|-----------|--------|
+| `NbaActionController.cls` | Added `savePostCallEdits()` — updates Opp fields with guardrails + ContentNote |
+| `NbaActionControllerTest.cls` | 5 new test methods: save notes, write-if-blank, no-overwrite, boolean ratchet |
+| `nbaPostCallPanel.js` | Edit mode: text→textarea, boolean→toggle, picklist→combobox. _fieldEdits tracking. |
+| `nbaPostCallPanel.html` | Edit/display toggle per field, confirm/skip button handlers |
+| `nbaDemoWorkspace.js` | `handlePostCallConfirm` calls `savePostCallEdits`, refreshes page data |
+
+### Session 5: Polish, Edge Cases & Event Queue (commit `07e90d8`)
+
+| Component | Change |
+|-----------|--------|
+| `nbaDemoWorkspace.js` | `_pendingEventQueue` array, `_showPostCallForEvent()` extraction, `_dismissPostCallPanel()` helper, `_processEventQueue()` FIFO with stale-event skip. empApi subscription moved to `connectedCallback()` for dual-mode. Removed `isActionMode` guard from `showPostCallPanel`/`showCallNoteCapture`. |
+| `nbaPostCallPanel.js` | `postCallContext` converted to getter/setter for edit state reset |
+| `nbaPostCallPanel.css` | `fieldFadeIn`, `fieldFadeInHighlight`, `stageFadeIn`, `editExpand` keyframe animations |
+
+### Session 6: Cleanup, Deprecation & Documentation
+
+| Component | Change |
+|-----------|--------|
+| `nbaCallNoteCapture` LWC | DELETED — all 4 files removed (replaced by nbaPostCallPanel) |
+| `nbaDemoWorkspace.html` | Removed `<c-nba-call-note-capture>` template block |
+| `nbaDemoWorkspace.js` | Removed `saveCallNotes` import, `showCallNoteCapture` getter, `handleSaveCallNotes()`, `handleSkipCallNotes()` |
+| `CLAUDE.md` | Added Feature 16, updated test counts, updated phase status, added new gotchas |
+| `docs/architecture.md` | Added nbaPostCallPanel to component tree, documented Platform Event enrichment and data contracts |
+| `docs/sprint-history.md` | Logged all 6 sessions with file lists and commit hashes |
+
+### Test Results
+
+271 targeted tests passing across 22 test classes. All GTM OS classes ≥75% coverage. Deployed to UAT.
