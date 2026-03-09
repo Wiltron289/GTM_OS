@@ -47,6 +47,7 @@ export default class NbaDemoWorkspace extends LightningElement {
     _pendingCallNote = null;    // Platform Event payload for Call Completed overlay
     _postCallContext = null;    // PostCallContext from Apex (replaces simple call note capture)
     _previousStage = null;      // Cached stage before Platform Event arrived
+    _pendingEventQueue = [];    // Queued Platform Events received while panel is open
 
     // ── Follow-up modal state ────────────────────────────────
     _showFollowUpModal = false;
@@ -76,13 +77,13 @@ export default class NbaDemoWorkspace extends LightningElement {
     // Lifecycle: detect App Page vs Record Page
     // ────────────────────────────────────────────
     connectedCallback() {
+        // Subscribe to Call Completed Platform Events in both modes
+        this._subscribeToCallCompletedEvents();
+
         if (!this.recordId) {
             // App Page mode — no recordId injected
             this.isActionMode = true;
             this._loadActiveAction();
-
-            // Subscribe to Call Completed Platform Events
-            this._subscribeToCallCompletedEvents();
 
             // 15s poll: lightweight interrupt check (Stream 2 — meetings + new assignments)
             // eslint-disable-next-line @lwc/lwc/no-async-operation
@@ -117,6 +118,11 @@ export default class NbaDemoWorkspace extends LightningElement {
                 this._callCompletedSubscription = null;
             });
         }
+        // Clear post-call state to prevent memory leaks
+        this._postCallContext = null;
+        this._pendingCallNote = null;
+        this._pendingEventQueue = [];
+        this._previousStage = null;
     }
 
     // ────────────────────────────────────────────
@@ -149,17 +155,16 @@ export default class NbaDemoWorkspace extends LightningElement {
         }
 
         // Filter: only events matching the currently displayed Opportunity
-        if (payload.Opportunity_Id__c !== this.currentAction?.opportunityId) {
+        // In Action mode: match against currentAction.opportunityId
+        // In Record Page mode: match against recordId
+        const targetOppId = this.isActionMode
+            ? this.currentAction?.opportunityId
+            : this.recordId;
+        if (!targetOppId || payload.Opportunity_Id__c !== targetOppId) {
             return;
         }
 
-        // Don't overwrite an existing pending panel
-        if (this._postCallContext || this._pendingCallNote) {
-            return;
-        }
-
-        // Save the raw call note as fallback
-        this._pendingCallNote = {
+        const eventPayload = {
             opportunityId: payload.Opportunity_Id__c,
             activityId: payload.Activity_Id__c,
             callNotes: payload.Call_Notes__c,
@@ -171,15 +176,28 @@ export default class NbaDemoWorkspace extends LightningElement {
             sourceRecordId: payload.Source_Record_Id__c || payload.Activity_Id__c
         };
 
+        // If panel is already open, queue the event instead of ignoring it
+        if (this._postCallContext || this._pendingCallNote) {
+            this._pendingEventQueue = [...this._pendingEventQueue, eventPayload];
+            return;
+        }
+
+        await this._showPostCallForEvent(eventPayload);
+    }
+
+    async _showPostCallForEvent(eventPayload) {
+        // Save the raw call note as fallback
+        this._pendingCallNote = eventPayload;
+
         // Capture current stage BEFORE the sync/flow ran (cached from getPageData)
         this._previousStage = this.engagementData?.stageName || '';
 
         // Call Apex for full post-call context
         try {
             const ctx = await getPostCallContext({
-                opportunityId: payload.Opportunity_Id__c,
-                sourceType: this._pendingCallNote.sourceType,
-                sourceRecordId: this._pendingCallNote.sourceRecordId,
+                opportunityId: eventPayload.opportunityId,
+                sourceType: eventPayload.sourceType,
+                sourceRecordId: eventPayload.sourceRecordId,
                 previousStage: this._previousStage
             });
             if (ctx) {
@@ -268,6 +286,8 @@ export default class NbaDemoWorkspace extends LightningElement {
                     || action.actionType !== prevActionType;
 
                 if (changed) {
+                    // Dismiss post-call panel if action changed while open
+                    this._dismissPostCallPanel();
                     this.currentAction = action;
                     this.showEmptyState = false;
                     if (action.opportunityId !== prevOppId) {
@@ -277,6 +297,7 @@ export default class NbaDemoWorkspace extends LightningElement {
                 }
             } else if (this.currentAction) {
                 // Actions cleared — show empty state
+                this._dismissPostCallPanel();
                 this.currentAction = null;
                 this.showEmptyState = true;
             }
@@ -325,12 +346,12 @@ export default class NbaDemoWorkspace extends LightningElement {
     }
 
     get showPostCallPanel() {
-        return this.isActionMode && this._postCallContext != null;
+        return this._postCallContext != null;
     }
 
     get showCallNoteCapture() {
         // Only show old call note capture as fallback when post-call context failed
-        return this.isActionMode && this._pendingCallNote != null && this._postCallContext == null;
+        return this._pendingCallNote != null && this._postCallContext == null;
     }
 
     get showTagPanel() {
@@ -402,7 +423,7 @@ export default class NbaDemoWorkspace extends LightningElement {
     // ────────────────────────────────────────────
     async handlePostCallConfirm(event) {
         const { notes, fieldEdits } = event.detail;
-        const oppId = this._postCallContext?.opportunityId || this.currentAction?.opportunityId;
+        const oppId = this._postCallContext?.opportunityId || this.currentAction?.opportunityId || this.recordId;
         this.isTransitioning = true;
         try {
             await savePostCallEdits({
@@ -423,6 +444,8 @@ export default class NbaDemoWorkspace extends LightningElement {
             this._pendingCallNote = null;
             this._previousStage = null;
             this.isTransitioning = false;
+            // Process next queued event if any
+            this._processEventQueue();
         }
     }
 
@@ -430,6 +453,37 @@ export default class NbaDemoWorkspace extends LightningElement {
         this._postCallContext = null;
         this._pendingCallNote = null;
         this._previousStage = null;
+        // Process next queued event if any
+        this._processEventQueue();
+    }
+
+    _dismissPostCallPanel() {
+        if (this._postCallContext || this._pendingCallNote) {
+            this._postCallContext = null;
+            this._pendingCallNote = null;
+            this._previousStage = null;
+            this._pendingEventQueue = [];
+        }
+    }
+
+    async _processEventQueue() {
+        if (this._pendingEventQueue.length === 0) {
+            return;
+        }
+        // Take the next event from the queue
+        const nextEvent = this._pendingEventQueue[0];
+        this._pendingEventQueue = this._pendingEventQueue.slice(1);
+
+        // Verify it still matches the current Opp
+        const targetOppId = this.isActionMode
+            ? this.currentAction?.opportunityId
+            : this.recordId;
+        if (nextEvent.opportunityId === targetOppId) {
+            await this._showPostCallForEvent(nextEvent);
+        } else {
+            // Skip stale events, try next
+            await this._processEventQueue();
+        }
     }
 
     // ────────────────────────────────────────────
@@ -441,18 +495,20 @@ export default class NbaDemoWorkspace extends LightningElement {
         this._pendingCallNote = null;
         try {
             await saveCallNotes({
-                opportunityId: this.currentAction?.opportunityId,
+                opportunityId: this.currentAction?.opportunityId || this.recordId,
                 notes
             });
         } catch (err) {
             this.error = err;
         } finally {
             this.isTransitioning = false;
+            this._processEventQueue();
         }
     }
 
     handleSkipCallNotes() {
         this._pendingCallNote = null;
+        this._processEventQueue();
     }
 
     // ────────────────────────────────────────────
@@ -513,6 +569,9 @@ export default class NbaDemoWorkspace extends LightningElement {
     }
 
     async _handleActionResult(result) {
+        // Dismiss post-call panel when action changes
+        this._dismissPostCallPanel();
+
         // If we just completed an interrupt and have a paused action, resume it
         if (this._pausedAction) {
             const paused = this._pausedAction;

@@ -33,12 +33,23 @@
             <!-- Qualification fields grid -->
             <div class="fields-section">
                 <h3 class="section-title">Qualification Fields</h3>
+
+                <!-- Empty state: all fields empty -->
+                <template lwc:if={allFieldsEmpty}>
+                    <div class="fields-empty-state">
+                        <lightning-icon icon-name="utility:info" size="x-small" class="empty-icon"></lightning-icon>
+                        <span class="empty-text">No qualification data extracted from this call</span>
+                    </div>
+                </template>
+
+                <!-- Fields grid (only when at least one field has a value) -->
+                <template lwc:if={showFieldsGrid}>
                 <template for:each={fieldGroups} for:item="group">
                     <div key={group.gate} class="field-group">
                         <div class="gate-label">{group.gateLabel}</div>
                         <div class="fields-grid">
                             <template for:each={group.fields} for:item="field">
-                                <div key={field.fieldName} class={field.cardClass}>
+                                <div key={field.fieldName} class={field.cardClass} style={field.staggerStyle}>
                                     <div class="field-header">
                                         <span class="field-label">{field.label}</span>
                                         <template lwc:if={field.isNewlyPopulated}>
@@ -116,6 +127,7 @@
                             </template>
                         </div>
                     </div>
+                </template>
                 </template>
             </div>
 

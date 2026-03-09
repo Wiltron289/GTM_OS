@@ -124,6 +124,7 @@
     font-weight: 500;
     color: var(--nba-text-500, #64748b);
     text-decoration: line-through;
+    animation: stageFadeIn 0.3s ease-out 0.1s both;
 }
 
 .stage-arrow {
@@ -139,6 +140,7 @@
     background: var(--nba-emerald-100, #d1fae5);
     padding: 2px 10px;
     border-radius: var(--nba-radius-sm, 6px);
+    animation: stageFadeIn 0.4s ease-out 0.3s both;
 }
 
 /* ── Qualification fields section ── */
@@ -176,6 +178,30 @@
     gap: 8px;
 }
 
+/* ── Empty state ── */
+.fields-empty-state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: var(--nba-bg-hover, #f8fafc);
+    border: 1px dashed var(--nba-border, #e2e8f0);
+    border-radius: var(--nba-radius-sm, 6px);
+}
+
+.empty-icon {
+    --sds-c-icon-color-foreground-default: var(--nba-text-400, #94a3b8);
+    --sds-c-icon-color-foreground: var(--nba-text-400, #94a3b8);
+    --slds-c-icon-color-foreground-default: var(--nba-text-400, #94a3b8);
+    flex-shrink: 0;
+}
+
+.empty-text {
+    font-size: 13px;
+    color: var(--nba-text-500, #64748b);
+    font-style: italic;
+}
+
 /* ── Field card ── */
 .field-card {
     padding: 10px 12px;
@@ -183,11 +209,13 @@
     border-radius: var(--nba-radius-sm, 6px);
     background: var(--nba-bg-card, #ffffff);
     transition: border-color 0.2s, background 0.2s;
+    animation: fieldFadeIn 0.3s ease-out both;
 }
 
 .field-card-new {
     border-color: var(--nba-emerald-300, #6ee7b7);
     background: var(--nba-emerald-50, #ecfdf5);
+    animation: fieldFadeInHighlight 0.4s ease-out both;
 }
 
 .field-header {
@@ -342,6 +370,7 @@
 /* ── Edit mode: textarea ── */
 .field-edit {
     margin-top: 4px;
+    animation: editExpand 0.2s ease-out;
 }
 
 .edit-textarea {
@@ -440,6 +469,57 @@
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes fieldFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fieldFadeInHighlight {
+    0% {
+        opacity: 0;
+        transform: translateY(6px);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+    60% {
+        opacity: 1;
+        transform: translateY(0);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+        box-shadow: none;
+    }
+}
+
+@keyframes stageFadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes editExpand {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 200px;
     }
 }
 

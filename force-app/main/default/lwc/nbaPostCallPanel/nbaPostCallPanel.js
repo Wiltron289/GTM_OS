@@ -17,8 +17,20 @@ const INCEPTION_SWITCHER_OPTIONS = [
 ];
 
 export default class NbaPostCallPanel extends LightningElement {
-    @api postCallContext;
+    _postCallContext;
     @api callNote; // Original Platform Event payload (fallback)
+
+    @api
+    get postCallContext() {
+        return this._postCallContext;
+    }
+    set postCallContext(value) {
+        this._postCallContext = value;
+        // Reset edit state when parent changes context (new event or cleared)
+        this._isEditMode = false;
+        this._fieldEdits = {};
+        this._userEditedNotes = null;
+    }
 
     _userEditedNotes = null;
     _isEditMode = false;
@@ -70,6 +82,27 @@ export default class NbaPostCallPanel extends LightningElement {
         return INCEPTION_SWITCHER_OPTIONS;
     }
 
+    // ── Empty state for qualification fields ──
+    get hasQualificationFields() {
+        const fields = this.postCallContext?.qualificationFields;
+        return fields && fields.length > 0;
+    }
+
+    get allFieldsEmpty() {
+        const fields = this.postCallContext?.qualificationFields;
+        if (!fields || fields.length === 0) {
+            return true;
+        }
+        return fields.every((f) => {
+            const val = f.value;
+            return val == null || val === '' || val === false;
+        });
+    }
+
+    get showFieldsGrid() {
+        return this.hasQualificationFields && !this.allFieldsEmpty;
+    }
+
     // ── Qualification fields grouped by stage gate ──
     get fieldGroups() {
         const fields = this.postCallContext?.qualificationFields;
@@ -87,14 +120,19 @@ export default class NbaPostCallPanel extends LightningElement {
             grouped[gate].push(this._buildFieldViewModel(f));
         });
 
-        // Return in gate order
+        // Return in gate order with stagger index
         const result = [];
+        let fieldIndex = 0;
         GATE_ORDER.forEach((gate) => {
             if (grouped[gate]) {
+                const fields = grouped[gate].map((f) => {
+                    const idx = fieldIndex++;
+                    return { ...f, staggerStyle: `animation-delay: ${idx * 50}ms` };
+                });
                 result.push({
                     gate,
                     gateLabel: GATE_LABELS[gate] || gate,
-                    fields: grouped[gate]
+                    fields
                 });
             }
         });
@@ -102,10 +140,14 @@ export default class NbaPostCallPanel extends LightningElement {
         // Add any ungrouped fields
         Object.keys(grouped).forEach((gate) => {
             if (!GATE_ORDER.includes(gate)) {
+                const fields = grouped[gate].map((f) => {
+                    const idx = fieldIndex++;
+                    return { ...f, staggerStyle: `animation-delay: ${idx * 50}ms` };
+                });
                 result.push({
                     gate,
                     gateLabel: gate,
-                    fields: grouped[gate]
+                    fields
                 });
             }
         });
