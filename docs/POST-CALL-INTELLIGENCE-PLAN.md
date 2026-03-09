@@ -117,7 +117,7 @@
 
 ---
 
-### Session 2: Post-Call Context Apex Method
+### Session 2: Post-Call Context Apex Method — COMPLETE
 
 **Goal**: Build the Apex method the LWC will call after receiving a Platform Event to get full qualification + stage context.
 
@@ -142,13 +142,9 @@
    @AuraEnabled public Boolean stageChanged
    @AuraEnabled public List<QualificationField> qualificationFields
    @AuraEnabled public String callNotes          // editable notes
-   @AuraEnabled public String customerProfile    // AI summary
-   @AuraEnabled public String topicsDiscussed    // AI topics
-   @AuraEnabled public String mainChallenges     // AI challenges
-   @AuraEnabled public String dealMomentum       // AI momentum
-   @AuraEnabled public String overallTone        // AI tone
    @AuraEnabled public String sourceType         // 'Talkdesk' or 'AI_Call_Note'
    ```
+   **Design decision**: The 5 AI-specific fields (customerProfile, topicsDiscussed, mainChallenges, dealMomentum, overallTone) from the original plan were removed — those are the same qualification fields already captured in the `qualificationFields` list from the Opp query. Neither Talkdesk Activity nor AI_Call_Note__c has separate "AI analysis" fields; both objects share the same 9 qualification fields.
 
 3. **Inner class `QualificationField`**:
    ```
@@ -162,26 +158,28 @@
 
 4. **Logic**:
    - Query Opportunity for all 9 qualification fields + StageName (1 SOQL)
-   - Query source record (Talkdesk Activity or AI_Call_Note__c by sourceType) for AI analysis fields (1 SOQL)
+   - Query source record for callNotes (1 SOQL): AI_Call_Note → `Customer_Story__c`, Talkdesk → `talkdesk__Notes__c`
    - Compare `previousStage` param with current `StageName` → set `stageChanged`
    - For each qualification field: determine if `isNewlyPopulated` by checking if value is non-blank/true
    - Map each field to its `stageGate` (`'NEW_TO_CONNECTED'`, `'CONNECTED_TO_CONSULT'`, `'CONSULT_TO_CLOSING'`)
+   - Try/catch on source record query for graceful degradation
    - Return structured `PostCallContext`
 
-5. **Tests in `NbaActionControllerTest.cls`** (add test methods):
-   - Test with Talkdesk source → returns correct context
-   - Test with AI_Call_Note source → returns correct context + AI fields
+5. **Tests in `NbaActionControllerTest.cls`** (5 new methods, 24 total — all passing):
+   - Test with AI_Call_Note source → returns correct context + callNotes from Customer_Story__c
+   - Test with Talkdesk source → returns correct context + callNotes from talkdesk__Notes__c
    - Test stage change detection (previousStage differs from current)
-   - Test no stage change
-   - Test with no qualification fields populated
+   - Test no stage change (previousStage matches current)
+   - Test with no qualification fields populated (all isNewlyPopulated = false)
 
 **Entry criteria**: Session 1 complete (Platform Event fields + AI_Call_Note trigger deployed)
 **Exit criteria**: `getPostCallContext()` returns correct data for both source types, all tests pass
-**Files modified**: ~2 files (NbaActionController.cls, NbaActionControllerTest.cls)
+**Files modified**: 2 files (NbaActionController.cls, NbaActionControllerTest.cls)
+**Commits**: `17f84bd` (initial), `4b49090` (simplify — remove AI-specific fields)
 
 ---
 
-### Session 3: Post-Call Panel LWC — Layout & Display
+### Session 3: Post-Call Panel LWC — Layout & Display — COMPLETE
 
 **Goal**: Build the new `nbaPostCallPanel` LWC that displays post-call intelligence. Display-only this session — no editing or save.
 
@@ -198,12 +196,7 @@
      - Green checkmark badge if `isNewlyPopulated`
      - Stage gate label (e.g., "Required for Connected")
      - Grouped by stage transition
-   - **AI Analysis section** (conditional, AI_Call_Note source only):
-     - Customer profile summary
-     - Topics discussed
-     - Deal momentum badge (color-coded)
-     - Overall tone badge
-   - **Call notes textarea**: Pre-populated, editable (but save wired in Session 4)
+   - **Call notes textarea**: Pre-populated from source record (AI_Call_Note → Customer_Story__c, Talkdesk → talkdesk__Notes__c), editable (but save wired in Session 4)
    - **Button row**: "Confirm & Continue" (primary), "Edit Fields" (secondary), "Skip" (tertiary)
 
 2. **Component API**:
@@ -224,6 +217,16 @@
 **Entry criteria**: Session 2 complete (`getPostCallContext()` deployed and tested)
 **Exit criteria**: Panel renders correctly with mock data, stage banner animates, qualification fields display, workspace shows panel on Platform Event receipt
 **Files created/modified**: ~5 files (4 new LWC files + nbaDemoWorkspace.js/html updates)
+**Commits**: `e75c779` (LWC + workspace wiring)
+
+**Implementation notes**:
+- `nbaPostCallPanel` uses overlay-backdrop pattern from `nbaCallNoteCapture` (z-index 299/300)
+- Fields grouped by stage gate using `GATE_ORDER` array for consistent ordering
+- Boolean fields render as check/close icons with Yes/No labels (not raw true/false)
+- Text values truncated at 120 chars with `...` suffix
+- Workspace falls back to old `nbaCallNoteCapture` if `getPostCallContext()` fails
+- `previousStage` captured from `engagementData.stageName` (not headerData)
+- `_handleCallCompletedEvent` now async — calls `getPostCallContext()` Apex after building raw callNote
 
 ---
 
