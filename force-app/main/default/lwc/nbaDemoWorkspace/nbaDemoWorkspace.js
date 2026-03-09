@@ -10,6 +10,7 @@ import completeAction from '@salesforce/apex/NbaActionController.completeAction'
 import snoozeAction from '@salesforce/apex/NbaActionController.snoozeAction';
 import dismissAction from '@salesforce/apex/NbaActionController.dismissAction';
 import saveCallNotes from '@salesforce/apex/NbaActionController.saveCallNotes';
+import getPostCallContext from '@salesforce/apex/NbaActionController.getPostCallContext';
 
 export default class NbaDemoWorkspace extends LightningElement {
     @api recordId;
@@ -43,6 +44,8 @@ export default class NbaDemoWorkspace extends LightningElement {
     pendingInterrupts = [];     // List of interrupt ActionWrappers from checkInterrupts
     _pausedAction = null;       // Saved scored-queue action when rep jumps to interrupt
     _pendingCallNote = null;    // Platform Event payload for Call Completed overlay
+    _postCallContext = null;    // PostCallContext from Apex (replaces simple call note capture)
+    _previousStage = null;      // Cached stage before Platform Event arrived
 
     // ── Follow-up modal state ────────────────────────────────
     _showFollowUpModal = false;
@@ -133,7 +136,7 @@ export default class NbaDemoWorkspace extends LightningElement {
         });
     }
 
-    _handleCallCompletedEvent(message) {
+    async _handleCallCompletedEvent(message) {
         const payload = message.data?.payload;
         if (!payload) {
             return;
@@ -149,12 +152,12 @@ export default class NbaDemoWorkspace extends LightningElement {
             return;
         }
 
-        // Don't overwrite an existing pending call note
-        if (this._pendingCallNote) {
+        // Don't overwrite an existing pending panel
+        if (this._postCallContext || this._pendingCallNote) {
             return;
         }
 
-        // Build the call note object matching what nbaCallNoteCapture expects
+        // Save the raw call note as fallback
         this._pendingCallNote = {
             opportunityId: payload.Opportunity_Id__c,
             activityId: payload.Activity_Id__c,
@@ -162,8 +165,30 @@ export default class NbaDemoWorkspace extends LightningElement {
             callDisposition: payload.Disposition__c,
             talkTimeSec: payload.Talk_Time_Sec__c,
             accountName: payload.Account_Name__c,
-            oppName: payload.Opp_Name__c
+            oppName: payload.Opp_Name__c,
+            sourceType: payload.Source_Type__c || 'Talkdesk',
+            sourceRecordId: payload.Source_Record_Id__c || payload.Activity_Id__c
         };
+
+        // Capture current stage BEFORE the sync/flow ran (cached from getPageData)
+        this._previousStage = this.engagementData?.stageName || '';
+
+        // Call Apex for full post-call context
+        try {
+            const ctx = await getPostCallContext({
+                opportunityId: payload.Opportunity_Id__c,
+                sourceType: this._pendingCallNote.sourceType,
+                sourceRecordId: this._pendingCallNote.sourceRecordId,
+                previousStage: this._previousStage
+            });
+            if (ctx) {
+                this._postCallContext = ctx;
+            }
+            // If getPostCallContext returns null, _pendingCallNote remains as fallback
+        } catch (err) {
+            console.error('[nbaDemoWorkspace] getPostCallContext error:', err);
+            // Fall back to _pendingCallNote (old call note capture)
+        }
     }
 
     // ────────────────────────────────────────────
@@ -298,8 +323,13 @@ export default class NbaDemoWorkspace extends LightningElement {
         return this.isActionMode && this.currentAction;
     }
 
+    get showPostCallPanel() {
+        return this.isActionMode && this._postCallContext != null;
+    }
+
     get showCallNoteCapture() {
-        return this.isActionMode && this._pendingCallNote != null;
+        // Only show old call note capture as fallback when post-call context failed
+        return this.isActionMode && this._pendingCallNote != null && this._postCallContext == null;
     }
 
     get showTagPanel() {
@@ -367,7 +397,39 @@ export default class NbaDemoWorkspace extends LightningElement {
     }
 
     // ────────────────────────────────────────────
-    // Call Notes capture handlers
+    // Post-Call Panel handlers
+    // ────────────────────────────────────────────
+    async handlePostCallConfirm(event) {
+        const { notes } = event.detail;
+        this.isTransitioning = true;
+        try {
+            // Save notes using existing saveCallNotes method
+            await saveCallNotes({
+                opportunityId: this._postCallContext?.opportunityId || this.currentAction?.opportunityId,
+                notes: notes || ''
+            });
+        } catch (err) {
+            this.error = err;
+        } finally {
+            this._postCallContext = null;
+            this._pendingCallNote = null;
+            this._previousStage = null;
+            this.isTransitioning = false;
+        }
+    }
+
+    handlePostCallEditFields() {
+        // Session 4 will wire inline editing — for now just dispatch for future use
+    }
+
+    handlePostCallSkip() {
+        this._postCallContext = null;
+        this._pendingCallNote = null;
+        this._previousStage = null;
+    }
+
+    // ────────────────────────────────────────────
+    // Call Notes capture handlers (fallback)
     // ────────────────────────────────────────────
     async handleSaveCallNotes(event) {
         const { notes } = event.detail;

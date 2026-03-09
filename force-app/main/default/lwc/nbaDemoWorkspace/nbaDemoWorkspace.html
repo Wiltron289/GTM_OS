@@ -158,7 +158,18 @@
             </c-nba-follow-up-modal>
         </template>
 
-        <!-- Call Notes Capture Overlay (Post-Call Notes) -->
+        <!-- Post-Call Intelligence Panel (primary) -->
+        <template lwc:if={showPostCallPanel}>
+            <c-nba-post-call-panel
+                post-call-context={_postCallContext}
+                call-note={_pendingCallNote}
+                onconfirm={handlePostCallConfirm}
+                oneditfields={handlePostCallEditFields}
+                onskip={handlePostCallSkip}>
+            </c-nba-post-call-panel>
+        </template>
+
+        <!-- Call Notes Capture Overlay (fallback when post-call context unavailable) -->
         <template lwc:if={showCallNoteCapture}>
             <c-nba-call-note-capture
                 call-note={_pendingCallNote}
