@@ -325,6 +325,20 @@
 **Entry criteria**: Session 4 complete (edit/save flow works)
 **Exit criteria**: All edge cases handled, both detection paths verified, no regressions
 **Files modified**: ~4-6 files (workspace JS, panel JS/CSS, possibly handler updates)
+**Commits**: `07e90d8` (polish, edge cases & event queue)
+
+**Implementation notes**:
+- `_pendingEventQueue` array queues Platform Events while panel is open; processed FIFO after confirm/skip
+- `_showPostCallForEvent()` extracted from `_handleCallCompletedEvent()` for reuse by queue processor
+- `_dismissPostCallPanel()` helper clears all panel state + empties event queue (used by action change paths)
+- `_processEventQueue()` recursively skips stale events (Opp mismatch) before showing next valid one
+- `postCallContext` @api property converted to getter/setter in nbaPostCallPanel — setter resets edit state
+- `showPostCallPanel` / `showCallNoteCapture` getters removed `isActionMode` guard — now work in Record Page mode
+- empApi subscription moved to `connectedCallback()` (outside `if (!this.recordId)` block) for dual-mode support
+- CSS animations: `fieldFadeIn` (0.3s ease-out) with `animation-delay` set via inline `style` attribute per field
+- `fieldFadeInHighlight` for newly populated fields adds brief green glow (box-shadow pulse)
+- Stage labels use `stageFadeIn` with staggered delays (0.1s old, 0.3s new) for left-slide entrance
+- `editExpand` keyframe animates `max-height` 0→200px for smooth edit mode toggle
 
 ---
 
