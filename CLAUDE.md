@@ -58,7 +58,7 @@ When developing features or debugging, update the appropriate doc file:
 
 | Item | Value |
 |------|-------|
-| **Active Branch** | `feature/post-call-intelligence` (branched off `testing/sprint-22-20260303`) |
+| **Active Branch** | `testing/sprint-22-20260303` |
 | **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
 | **Apex Tests** | 271 targeted tests passing (100%) across 22 test classes. All GTM OS classes ≥75% coverage. |
 | **Current Phase** | **Post-Call Intelligence Panel — COMPLETE (6 sessions)** |
@@ -455,7 +455,7 @@ Keep this reference for future phases — describes how the engine reads CRM dat
 **Opportunity Signals**: `Days_Since_Last_Interaction__c` formula (0 SOQL cost, returns 99999 if no interaction). Account_Scoring__c has only 3 records — fallback via `Opp.Amount + Opp.Probability`.
 
 ### Pending Actions
-- Merge `testing/sprint-22-20260303` to master (Sprint 22 complete — ready for review)
+- Merge `testing/sprint-22-20260303` to master (Post-Call Intelligence complete)
 - Share data contract with Data Engineering for Account_Scoring__c pipeline
 - Assign GTM OS FlexiPages in production org
 - Assign GTM Queue AE permission set to AE profiles/users
