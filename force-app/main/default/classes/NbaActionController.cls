@@ -87,9 +87,9 @@ public with sharing class NbaActionController {
 
         List<NBA_Queue__c> actions = [
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
-                   Action_Instruction__c, ReasonText__c,
+                   Action_Instruction__c, ReasonText__c, Rule_Name__c,
                    Priority_Score__c, Is_Time_Bound__c,
-                   DueAt__c, Status__c, UniqueKey__c,
+                   DueAt__c, Status__c, UniqueKey__c, Sales_Rep__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
             WHERE Id = :actionId
@@ -108,6 +108,50 @@ public with sharing class NbaActionController {
         update action;
 
         return toWrapperFromRecord(action);
+    }
+
+    /**
+     * Enrich a Layer 1 action with tags + payroll probability via signal query.
+     * Called asynchronously by the LWC after the action is already displayed,
+     * so the AE sees the action immediately and enrichment loads in the background.
+     * @param opportunityId The Opp to generate tags for
+     * @param actionType The action type (for tag context)
+     * @param isTimeBound Whether this is a time-bound action
+     * @param ruleName The rule that created this action
+     * @return EnrichmentResult with tags JSON + payroll probability, or null if fails
+     */
+    @AuraEnabled
+    public static EnrichmentResult enrichActionTags(Id opportunityId, String actionType, Boolean isTimeBound, String ruleName) {
+        if (opportunityId == null) return null;
+        try {
+            Map<Id, NbaSignalService.OpportunitySignal> signals =
+                NbaSignalService.getSignals(new Set<Id>{ opportunityId });
+            NbaSignalService.OpportunitySignal signal = signals.get(opportunityId);
+            if (signal == null) return null;
+
+            // Build a minimal wrapper for tag generation
+            ActionWrapper wrapper = new ActionWrapper();
+            wrapper.opportunityId = opportunityId;
+            wrapper.actionType = actionType;
+            wrapper.isTimeBound = isTimeBound == true;
+            wrapper.oppStage = signal.stageName;
+
+            List<NbaTagService.Tag> tags = NbaTagService.generateTags(wrapper, signal);
+
+            EnrichmentResult result = new EnrichmentResult();
+            result.actionTags = NbaTagService.toJson(tags);
+            result.payrollProbability = signal.probPayrollConversion;
+            return result;
+        } catch (Exception e) {
+            System.debug(LoggingLevel.WARN,
+                'enrichActionTags failed for opp ' + opportunityId + ': ' + e.getMessage());
+            return null;
+        }
+    }
+
+    public class EnrichmentResult {
+        @AuraEnabled public String actionTags;
+        @AuraEnabled public Decimal payrollProbability;
     }
 
     // ─── Action Lifecycle ───────────────────────────────────────────
@@ -558,11 +602,12 @@ public with sharing class NbaActionController {
         NBA_Queue__c topCandidate = ranked[0].action;
         ActionWrapper wrapper = toWrapperFromCandidate(topCandidate);
 
-        // Generate prioritization tags using the signal data
+        // Generate tags and populate payroll probability from signal data
         NbaSignalService.OpportunitySignal signal = signals.get(topCandidate.Opportunity__c);
         if (signal != null) {
             List<NbaTagService.Tag> tags = NbaTagService.generateTags(wrapper, signal);
             wrapper.actionTags = NbaTagService.toJson(tags);
+            wrapper.payrollProbability = signal.probPayrollConversion;
         }
 
         return wrapper;
@@ -581,47 +626,44 @@ public with sharing class NbaActionController {
     private static List<ActionWrapper> checkInterruptsInternal(Id userId) {
         List<ActionWrapper> interrupts = new List<ActionWrapper>();
 
-        // Query 1: Time-bound meetings due within 5 minutes
+        // Query 1: Time-bound meetings starting within 5 minutes
+        // Event_Start_DateTime__c = meeting start (for surfacing), DueAt__c = meeting end (for expiration)
         Datetime fiveMinFromNow = Datetime.now().addMinutes(5);
         List<NBA_Queue__c> meetings = [
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
-                   Action_Instruction__c, ReasonText__c,
+                   Action_Instruction__c, ReasonText__c, Rule_Name__c,
                    Priority_Score__c, Is_Time_Bound__c,
-                   DueAt__c, Status__c, UniqueKey__c,
+                   DueAt__c, Event_Start_DateTime__c, Status__c, UniqueKey__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
             WHERE Sales_Rep__c = :userId
-              AND Is_Time_Bound__c = true
+              AND Rule_Name__c = 'Meeting_TimeBound'
               AND Status__c IN ('New', 'Pending', 'Accepted')
-              AND DueAt__c != null
-              AND DueAt__c <= :fiveMinFromNow
-              AND DueAt__c >= :Datetime.now().addMinutes(-15)
+              AND Event_Start_DateTime__c != null
+              AND Event_Start_DateTime__c <= :fiveMinFromNow
+              AND DueAt__c >= :Datetime.now()
             WITH SECURITY_ENFORCED
-            ORDER BY DueAt__c ASC
+            ORDER BY Event_Start_DateTime__c ASC
             LIMIT 5
         ];
         for (NBA_Queue__c m : meetings) {
             interrupts.add(toWrapperFromRecord(m));
         }
 
-        // Query 2: New-assignment interrupt records (L1, non-time-bound, within 24h)
-        // Excludes Call Completed — those are now Platform Events
-        Datetime twentyFourHoursAgo = Datetime.now().addHours(-24);
+        // Query 2: New-assignment interrupts (time-bound, 5-min SLA window)
+        // These are now Is_Time_Bound__c = true with DueAt__c = creation timestamp
         List<NBA_Queue__c> assignments = [
             SELECT Id, Opportunity__c, Account__c, Action_Type__c,
-                   Action_Instruction__c, ReasonText__c,
+                   Action_Instruction__c, ReasonText__c, Rule_Name__c,
                    Priority_Score__c, Is_Time_Bound__c,
                    DueAt__c, Status__c, UniqueKey__c,
                    Account__r.Name, Opportunity__r.Name, Opportunity__r.StageName
             FROM NBA_Queue__c
             WHERE Sales_Rep__c = :userId
-              AND Source_Path__c = 'Immediate'
-              AND Is_Time_Bound__c = false
+              AND Rule_Name__c = 'NewAssignment_Interrupt'
               AND Status__c IN ('New', 'Pending', 'Accepted')
-              AND CreatedDate >= :twentyFourHoursAgo
-              AND Action_Type__c != 'Call Completed'
             WITH SECURITY_ENFORCED
-            ORDER BY CreatedDate DESC
+            ORDER BY DueAt__c DESC
             LIMIT 5
         ];
         for (NBA_Queue__c a : assignments) {
@@ -670,8 +712,17 @@ public with sharing class NbaActionController {
             }
         }
 
-        // Layer 1 time-bound actions are meetings, not cadence
+        // Layer 1 actions are interrupts (meetings, new assignments), not cadence
         w.isCadenceAction = false;
+
+        // Set clear contextual reason for Layer 1 interrupt types
+        if (String.isBlank(w.reasonText)) {
+            if (action.Action_Type__c == 'Meeting') {
+                w.reasonText = 'Upcoming meeting — review context and prepare.';
+            } else if (action.Rule_Name__c == 'NewAssignment_Interrupt') {
+                w.reasonText = 'Newly assigned opportunity — make initial contact.';
+            }
+        }
 
         return w;
     }
@@ -763,7 +814,8 @@ public with sharing class NbaActionController {
         @AuraEnabled public List<String> upcomingSteps; // Next 2-3 step previews
         @AuraEnabled public Boolean isCadenceAction;
         @AuraEnabled public String eventId;          // Event ID parsed from UniqueKey for Meeting actions
-        @AuraEnabled public String actionTags;        // JSON from NbaTagService.toJson() for tag panel display
+        @AuraEnabled public String actionTags;        // JSON from NbaTagService.toJson() — DS driver tags for engine actions, time-bound rationale for interrupts
+        @AuraEnabled public Decimal payrollProbability; // Prob_Payroll_Conversion (0-1) for separate UI display
     }
 
     public class ActionResultWrapper {

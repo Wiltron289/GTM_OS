@@ -4,7 +4,11 @@
  * Two-stream architecture:
  * After Insert: New open Opportunity → create Layer 1 new-assignment interrupt
  *   record (picked up by checkInterrupts 15s poll) + invalidate cache for AE.
- * After Update: Stage change on open Opportunity → invalidate cache for AE.
+ * After Update:
+ *   - Stage change on open Opportunity → invalidate cache for AE.
+ *   - Owner change (by another user) → create new-assignment interrupt for new
+ *     owner + invalidate cache for both old and new owners. Self-reassignment
+ *     is excluded (AE already knows they assigned it to themselves).
  */
 public with sharing class NbaOpportunityTriggerHandler {
 
@@ -12,6 +16,7 @@ public with sharing class NbaOpportunityTriggerHandler {
      * Entry point called by OpportunityTrigger.
      * Filters affected Opps, collects owner IDs, invalidates their cache.
      * On AFTER_INSERT: also creates Layer 1 new-assignment interrupt records.
+     * On AFTER_UPDATE: detects stage changes + owner reassignments.
      */
     public static void handle(
         List<Opportunity> newList,
@@ -33,7 +38,22 @@ public with sharing class NbaOpportunityTriggerHandler {
             // Two-stream: create Layer 1 new-assignment interrupt records
             createNewAssignmentInterrupts(newOpps);
         } else if (operationType == System.TriggerOperation.AFTER_UPDATE) {
+            // Stage changes → invalidate cache
             aeIdsToInvalidate = collectOwnerIds(filterStageChanges(newList, oldMap));
+
+            // Owner reassignment (by someone other than the new owner) → interrupt
+            List<Opportunity> reassigned = filterOwnerChanges(newList, oldMap);
+            if (!reassigned.isEmpty()) {
+                // Invalidate cache for both old and new owners
+                for (Opportunity opp : reassigned) {
+                    Opportunity old = oldMap.get(opp.Id);
+                    aeIdsToInvalidate.add(opp.OwnerId);
+                    if (old.OwnerId != null) {
+                        aeIdsToInvalidate.add(old.OwnerId);
+                    }
+                }
+                createNewAssignmentInterrupts(reassigned);
+            }
         }
 
         if (!aeIdsToInvalidate.isEmpty()) {
@@ -70,6 +90,30 @@ public with sharing class NbaOpportunityTriggerHandler {
             if (opp.StageName != old.StageName
                 && !opp.IsClosed
                 && !NbaTriggerContext.EXCLUDED_STAGES.contains(opp.StageName)) {
+                filtered.add(opp);
+            }
+        }
+        return filtered;
+    }
+
+    /**
+     * After Update: Return Opps where OwnerId changed, the Opp is still open,
+     * not in an excluded stage, AND the change was made by someone other than
+     * the new owner (i.e., a router or manager assigned it — not self-assignment).
+     */
+    @TestVisible
+    private static List<Opportunity> filterOwnerChanges(
+        List<Opportunity> newOpps,
+        Map<Id, Opportunity> oldMap
+    ) {
+        Id currentUserId = UserInfo.getUserId();
+        List<Opportunity> filtered = new List<Opportunity>();
+        for (Opportunity opp : newOpps) {
+            Opportunity old = oldMap.get(opp.Id);
+            if (opp.OwnerId != old.OwnerId
+                && !opp.IsClosed
+                && !NbaTriggerContext.EXCLUDED_STAGES.contains(opp.StageName)
+                && opp.OwnerId != currentUserId) {
                 filtered.add(opp);
             }
         }

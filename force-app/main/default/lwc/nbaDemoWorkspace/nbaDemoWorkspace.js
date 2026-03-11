@@ -11,6 +11,7 @@ import snoozeAction from '@salesforce/apex/NbaActionController.snoozeAction';
 import dismissAction from '@salesforce/apex/NbaActionController.dismissAction';
 import savePostCallEdits from '@salesforce/apex/NbaActionController.savePostCallEdits';
 import getPostCallContext from '@salesforce/apex/NbaActionController.getPostCallContext';
+import enrichActionTags from '@salesforce/apex/NbaActionController.enrichActionTags';
 
 export default class NbaDemoWorkspace extends LightningElement {
     @api recordId;
@@ -256,6 +257,22 @@ export default class NbaDemoWorkspace extends LightningElement {
                 const data = await getPageData({ oppId: action.opportunityId });
                 this._applyPageData(data);
             } else {
+                // No scored-queue action — check for Layer 1 interrupts
+                // (time-bound meetings, new assignments) and serve the first
+                // one as the primary action instead of showing empty state.
+                const interrupts = await checkInterrupts();
+                if (interrupts && interrupts.length > 0) {
+                    const first = interrupts[0];
+                    const accepted = await acceptInterrupt({ actionId: first.actionId });
+                    if (accepted) {
+                        this.currentAction = accepted;
+                        this._enrichTags(accepted);
+                        this.showEmptyState = false;
+                        const data = await getPageData({ oppId: accepted.opportunityId });
+                        this._applyPageData(data);
+                        return;
+                    }
+                }
                 this.currentAction = null;
                 this.showEmptyState = true;
             }
@@ -293,7 +310,22 @@ export default class NbaDemoWorkspace extends LightningElement {
                     }
                 }
             } else if (this.currentAction) {
-                // Actions cleared — show empty state
+                // Scored queue cleared — check for Layer 1 interrupts before empty state
+                const interrupts = await checkInterrupts();
+                if (interrupts && interrupts.length > 0) {
+                    const first = interrupts[0];
+                    const accepted = await acceptInterrupt({ actionId: first.actionId });
+                    if (accepted) {
+                        this._dismissPostCallPanel();
+                        this.currentAction = accepted;
+                        this._enrichTags(accepted);
+                        this.showEmptyState = false;
+                        const data = await getPageData({ oppId: accepted.opportunityId });
+                        this._applyPageData(data);
+                        return;
+                    }
+                }
+                // No interrupts either — truly empty
                 this._dismissPostCallPanel();
                 this.currentAction = null;
                 this.showEmptyState = true;
@@ -314,6 +346,22 @@ export default class NbaDemoWorkspace extends LightningElement {
                 (i) => !this._dismissedInterruptIds.has(i.actionId)
             );
 
+            // If workspace is in empty state, auto-accept the first interrupt
+            // as the primary action instead of showing a banner over nothing
+            if (this.showEmptyState && filtered.length > 0) {
+                const first = filtered[0];
+                const accepted = await acceptInterrupt({ actionId: first.actionId });
+                if (accepted) {
+                    this.currentAction = accepted;
+                    this._enrichTags(accepted);
+                    this.showEmptyState = false;
+                    this.pendingInterrupts = filtered.slice(1);
+                    const data = await getPageData({ oppId: accepted.opportunityId });
+                    this._applyPageData(data);
+                    return;
+                }
+            }
+
             // Regular interrupts only (Call Completed now handled via Platform Events)
             this.pendingInterrupts = filtered;
         } catch (err) {
@@ -323,6 +371,31 @@ export default class NbaDemoWorkspace extends LightningElement {
 
     // Track dismissed interrupt IDs for this session so they don't re-appear
     _dismissedInterruptIds = new Set();
+
+    /**
+     * Enrich a Layer 1 action with tags + payroll probability in the background.
+     * Called after the action is already displayed so there's no loading delay.
+     */
+    async _enrichTags(action) {
+        if (!action || action.actionTags) return; // already has tags
+        try {
+            const result = await enrichActionTags({
+                opportunityId: action.opportunityId,
+                actionType: action.actionType,
+                isTimeBound: action.isTimeBound || false,
+                ruleName: null
+            });
+            if (result && this.currentAction?.actionId === action.actionId) {
+                this.currentAction = {
+                    ...this.currentAction,
+                    actionTags: result.actionTags,
+                    payrollProbability: result.payrollProbability
+                };
+            }
+        } catch (err) {
+            // Silent — enrichment is supplementary
+        }
+    }
 
     // ────────────────────────────────────────────
     // Computed: effective record ID for children
@@ -382,6 +455,7 @@ export default class NbaDemoWorkspace extends LightningElement {
             const accepted = await acceptInterrupt({ actionId });
             if (accepted) {
                 this.currentAction = accepted;
+                this._enrichTags(accepted);
                 this.showEmptyState = false;
                 this.pendingInterrupts = [];
 
@@ -579,6 +653,32 @@ export default class NbaDemoWorkspace extends LightningElement {
             }
             this.isTransitioning = false;
         } else {
+            // No scored action — check for more Layer 1 interrupts before empty state
+            try {
+                const interrupts = await checkInterrupts();
+                const filtered = (interrupts || []).filter(
+                    (i) => !this._dismissedInterruptIds.has(i.actionId)
+                );
+                if (filtered.length > 0) {
+                    const first = filtered[0];
+                    const accepted = await acceptInterrupt({ actionId: first.actionId });
+                    if (accepted) {
+                        const prevOppId = this.currentAction?.opportunityId;
+                        this.currentAction = accepted;
+                        this._enrichTags(accepted);
+                        this.showEmptyState = false;
+                        this.pendingInterrupts = filtered.slice(1);
+                        if (accepted.opportunityId !== prevOppId) {
+                            const data = await getPageData({ oppId: accepted.opportunityId });
+                            this._applyPageData(data);
+                        }
+                        this.isTransitioning = false;
+                        return;
+                    }
+                }
+            } catch (err) {
+                // Silent fail — fall through to empty state
+            }
             this.currentAction = null;
             this.showEmptyState = true;
             this.isTransitioning = false;

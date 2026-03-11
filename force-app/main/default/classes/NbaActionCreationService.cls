@@ -203,13 +203,14 @@ public with sharing class NbaActionCreationService {
      * @param oppId Opportunity ID the meeting is linked to
      * @param accountId Account ID for the action
      * @param aeId Sales Rep (AE) User ID
-     * @param dueAt The meeting start time (sets DueAt__c)
+     * @param startTime The meeting start time (for interrupt surfacing)
+     * @param endTime The meeting end time (for expiration — action expires after meeting ends)
      * @param eventId Event record ID (used in UniqueKey for dedup)
      * @param instruction Human-readable action instruction
      * @return NBA_Queue__c record ready for insert, or null if duplicate exists
      */
     public static NBA_Queue__c createTimeBoundAction(
-        Id oppId, Id accountId, Id aeId, Datetime dueAt, Id eventId, String instruction
+        Id oppId, Id accountId, Id aeId, Datetime startTime, Datetime endTime, Id eventId, String instruction
     ) {
         // Dedup check: one action per Event
         String uniqueKey = 'V2|' + oppId + '|Meeting|' + eventId;
@@ -248,18 +249,19 @@ public with sharing class NbaActionCreationService {
             Expected_Incremental_ARR__c = 0,
             Stage_Priority__c = stagePriority,
             Is_Time_Bound__c = true,
-            DueAt__c = dueAt,
+            DueAt__c = endTime,
+            Event_Start_DateTime__c = startTime,
             Cadence_Stage__c = 1,
             Attempt_Count_Today__c = 0,
             Source_Path__c = 'Immediate',
             Rule_Name__c = 'Meeting_TimeBound',
             Action_Instruction__c = instruction != null ? instruction.left(255) : 'Prepare for upcoming meeting',
             Workflow_Mode__c = 'Pipeline',
-            ReasonText__c = 'Time-bound meeting action. Prepare context before the call.',
+            ReasonText__c = 'Upcoming meeting — review context and prepare.',
             LastEvaluatedAt__c = Datetime.now(),
             UniqueKey__c = uniqueKey,
             Opportunity_Stage__c = stageName,
-            Due_Date__c = dueAt.date()
+            Due_Date__c = startTime.date()
         );
 
         return action;
@@ -269,13 +271,14 @@ public with sharing class NbaActionCreationService {
      * Update an existing time-bound action's due time (meeting rescheduled).
      * @param eventId The Event record ID to look up the action
      * @param oppId The Opportunity the event is linked to
-     * @param newDueAt The new meeting start time
+     * @param newStartTime The new meeting start time
+     * @param newEndTime The new meeting end time
      * @return Updated NBA_Queue__c, or null if no matching action found
      */
-    public static NBA_Queue__c updateTimeBoundAction(Id eventId, Id oppId, Datetime newDueAt) {
+    public static NBA_Queue__c updateTimeBoundAction(Id eventId, Id oppId, Datetime newStartTime, Datetime newEndTime) {
         String uniqueKey = 'V2|' + oppId + '|Meeting|' + eventId;
         List<NBA_Queue__c> actions = [
-            SELECT Id, DueAt__c, Due_Date__c, Status__c
+            SELECT Id, DueAt__c, Due_Date__c, Event_Start_DateTime__c, Status__c
             FROM NBA_Queue__c
             WHERE UniqueKey__c = :uniqueKey
               AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
@@ -288,8 +291,9 @@ public with sharing class NbaActionCreationService {
         }
 
         NBA_Queue__c action = actions[0];
-        action.DueAt__c = newDueAt;
-        action.Due_Date__c = newDueAt.date();
+        action.DueAt__c = newEndTime;
+        action.Event_Start_DateTime__c = newStartTime;
+        action.Due_Date__c = newStartTime.date();
         action.LastEvaluatedAt__c = Datetime.now();
         return action;
     }
@@ -326,8 +330,8 @@ public with sharing class NbaActionCreationService {
     // ─── New Assignment Interrupt (Two-Stream Architecture) ──────────
 
     /**
-     * Create a Layer 1 interrupt record for a newly assigned Opportunity.
-     * Unlike time-bound actions, these have Is_Time_Bound=false and no DueAt.
+     * Create a Layer 1 time-bound interrupt record for a newly assigned Opportunity.
+     * DueAt__c = creation time, expires 5 minutes later (SLA window per PRD 13.3).
      * The LWC's 15s interrupt poll picks them up via checkInterrupts().
      * Does NOT insert the record — caller handles DML for bulkification.
      *
@@ -340,8 +344,8 @@ public with sharing class NbaActionCreationService {
     public static NBA_Queue__c createNewAssignmentAction(
         Id oppId, Id accountId, Id aeId, String stageName
     ) {
-        // Dedup check: one new-assignment interrupt per Opp
-        String uniqueKey = 'V2|' + oppId + '|First Touch|NewAssignment';
+        // Dedup check: one new-assignment interrupt per Opp + Owner combination
+        String uniqueKey = 'V2|' + oppId + '|First Touch|NewAssignment|' + aeId;
         List<NBA_Queue__c> existing = [
             SELECT Id FROM NBA_Queue__c
             WHERE UniqueKey__c = :uniqueKey
@@ -363,14 +367,15 @@ public with sharing class NbaActionCreationService {
             Priority_Score__c = 0,
             Expected_Incremental_ARR__c = 0,
             Stage_Priority__c = stagePriority,
-            Is_Time_Bound__c = false,
+            Is_Time_Bound__c = true,
+            DueAt__c = Datetime.now(),
             Cadence_Stage__c = 1,
             Attempt_Count_Today__c = 0,
             Source_Path__c = 'Immediate',
             Rule_Name__c = 'NewAssignment_Interrupt',
             Action_Instruction__c = 'New opportunity assigned — make initial contact',
             Workflow_Mode__c = 'Pipeline',
-            ReasonText__c = 'New assignment interrupt. First Touch action for newly assigned opportunity.',
+            ReasonText__c = 'Newly assigned opportunity — make initial contact within SLA window.',
             LastEvaluatedAt__c = Datetime.now(),
             UniqueKey__c = uniqueKey,
             Opportunity_Stage__c = stageName,
@@ -392,11 +397,11 @@ public with sharing class NbaActionCreationService {
             return new List<NBA_Queue__c>();
         }
 
-        // Build all unique keys and check for existing in one SOQL
+        // Build all unique keys (includes OwnerId so reassignment creates new interrupt)
         Set<String> allKeys = new Set<String>();
         Map<Id, String> oppKeyMap = new Map<Id, String>();
         for (Opportunity opp : opps) {
-            String key = 'V2|' + opp.Id + '|First Touch|NewAssignment';
+            String key = 'V2|' + opp.Id + '|First Touch|NewAssignment|' + opp.OwnerId;
             allKeys.add(key);
             oppKeyMap.put(opp.Id, key);
         }
@@ -429,14 +434,15 @@ public with sharing class NbaActionCreationService {
                 Priority_Score__c = 0,
                 Expected_Incremental_ARR__c = 0,
                 Stage_Priority__c = stagePriority,
-                    Is_Time_Bound__c = false,
+                Is_Time_Bound__c = true,
+                DueAt__c = Datetime.now(),
                 Cadence_Stage__c = 1,
                 Attempt_Count_Today__c = 0,
                 Source_Path__c = 'Immediate',
                 Rule_Name__c = 'NewAssignment_Interrupt',
                 Action_Instruction__c = 'New opportunity assigned — make initial contact',
                 Workflow_Mode__c = 'Pipeline',
-                ReasonText__c = 'New assignment interrupt. First Touch action for newly assigned opportunity.',
+                ReasonText__c = 'Newly assigned opportunity — make initial contact within SLA window.',
                 LastEvaluatedAt__c = Datetime.now(),
                 UniqueKey__c = key,
                 Opportunity_Stage__c = opp.StageName,

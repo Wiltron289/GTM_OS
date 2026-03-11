@@ -16,7 +16,16 @@
  */
 public with sharing class NbaActionStateService {
 
-    // Expiration threshold for Layer 1 time-bound actions (configurable for testing)
+    // Expiration thresholds (configurable for testing)
+    // New assignments: 5-minute SLA window per PRD 13.3
+    @TestVisible
+    private static Integer NEW_ASSIGNMENT_EXPIRE_MINUTES = 5;
+
+    // Meetings: expire after Event end time (DueAt__c stores EndDateTime)
+    // No constant needed — DueAt__c < NOW is the condition
+
+    // Follow-up Tasks: never expire (handled via native SF Task reminders)
+
     @TestVisible
     private static Integer TIMEBOUND_EXPIRE_MINUTES = 15;
 
@@ -136,33 +145,36 @@ public with sharing class NbaActionStateService {
     public static Integer expireStaleActions() {
         List<NBA_Queue__c> toExpire = new List<NBA_Queue__c>();
 
-        // 1. Expire stale time-bound actions (meetings past due)
-        Datetime timeboundCutoff = Datetime.now().addMinutes(-TIMEBOUND_EXPIRE_MINUTES);
-        List<NBA_Queue__c> staleTimeBound = [
+        // 1. Expire meetings after Event end time (DueAt__c stores EndDateTime)
+        List<NBA_Queue__c> staleMeetings = [
             SELECT Id, Status__c, Sales_Rep__c
             FROM NBA_Queue__c
             WHERE Is_Time_Bound__c = true
+              AND Rule_Name__c = 'Meeting_TimeBound'
               AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
               AND DueAt__c != null
-              AND DueAt__c < :timeboundCutoff
+              AND DueAt__c < :Datetime.now()
             WITH SECURITY_ENFORCED
             LIMIT 200
         ];
-        toExpire.addAll(staleTimeBound);
+        toExpire.addAll(staleMeetings);
 
-        // 2. Expire stale non-time-bound L1 interrupt records (new-assignment > 24h)
-        Datetime interruptCutoff = Datetime.now().addHours(-INTERRUPT_EXPIRE_HOURS);
-        List<NBA_Queue__c> staleInterrupts = [
+        // 2. Expire new-assignment interrupts after 5-minute SLA window
+        Datetime assignmentCutoff = Datetime.now().addMinutes(-NEW_ASSIGNMENT_EXPIRE_MINUTES);
+        List<NBA_Queue__c> staleAssignments = [
             SELECT Id, Status__c, Sales_Rep__c
             FROM NBA_Queue__c
-            WHERE Source_Path__c = 'Immediate'
-              AND Is_Time_Bound__c = false
+            WHERE Is_Time_Bound__c = true
+              AND Rule_Name__c = 'NewAssignment_Interrupt'
               AND Status__c IN ('New', 'Pending', 'In Progress', 'Accepted')
-              AND CreatedDate < :interruptCutoff
+              AND DueAt__c != null
+              AND DueAt__c < :assignmentCutoff
             WITH SECURITY_ENFORCED
             LIMIT 200
         ];
-        toExpire.addAll(staleInterrupts);
+        toExpire.addAll(staleAssignments);
+
+        // Note: Follow-up Tasks (handled via native SF Task reminders) never expire
 
         if (toExpire.isEmpty()) {
             return 0;

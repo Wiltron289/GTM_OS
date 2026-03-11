@@ -70,7 +70,7 @@ public with sharing class NbaEventTriggerHandler {
             String instruction = buildMeetingInstruction(evt, opp);
             NBA_Queue__c action = NbaActionCreationService.createTimeBoundAction(
                 opp.Id, opp.AccountId, opp.OwnerId,
-                evt.StartDateTime, evt.Id, instruction
+                evt.StartDateTime, evt.EndDateTime, evt.Id, instruction
             );
 
             if (action != null) {
@@ -110,7 +110,7 @@ public with sharing class NbaEventTriggerHandler {
             }
 
             NBA_Queue__c updated = NbaActionCreationService.updateTimeBoundAction(
-                evt.Id, whatId, evt.StartDateTime
+                evt.Id, whatId, evt.StartDateTime, evt.EndDateTime
             );
             if (updated != null) {
                 actionsToUpdate.add(updated);

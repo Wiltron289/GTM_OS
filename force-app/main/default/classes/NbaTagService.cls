@@ -1,107 +1,133 @@
 /**
- * NbaTagService — Tag generation for the GTM OS Action Orchestration Engine.
+ * NbaTagService — Explainability tag generation for the GTM OS engine.
  *
- * Generates 2-4 prioritization tags per served action explaining WHY this
- * opportunity was prioritized. Tags are read-only context — they don't
- * affect scoring or selection.
+ * Two display modes:
+ *   1. Time-Bound actions → single rationale tag (Meeting Upcoming, SLA Active, Follow-Up Due)
+ *   2. Engine-Generated actions → Data Science driver tags parsed from
+ *      Account_Scoring__c.Payroll_Top_Drivers__c, mapped to AE-facing language
  *
- * Tag priority (higher = survives 4-tag cap):
- *   1 = Time-Bound, 2 = Cadence, 3 = Signal (Data Science), 4 = Engagement, 5 = Stage/Economic
+ * Cadence context and payroll probability are displayed separately by the LWC
+ * (not as tags). Tags are strictly for explaining WHY this account was prioritized.
  *
  * Called by NbaActionController after ActionWrapper is built.
  * Output is serialized to NBA_Queue__c.Action_Tags__c as JSON.
  *
- * See PRD Section 15 and TAG-TAXONOMY.md for full definitions.
+ * See docs/EXPLAINABILITY-MODEL.md for the full specification.
  */
 public with sharing class NbaTagService {
 
     // ─── Constants ────────────────────────────────────────────────────
     private static final Integer MAX_TAGS = 4;
 
-    // Priority tiers (lower number = higher priority = survives cap)
-    private static final Integer PRIORITY_TIME_BOUND = 1;
-    private static final Integer PRIORITY_CADENCE = 2;
-    private static final Integer PRIORITY_SIGNAL = 3;
-    private static final Integer PRIORITY_ENGAGEMENT = 4;
-    private static final Integer PRIORITY_STAGE = 5;
+    // ─── Driver Mapping (Model Output → AE-Facing Language) ─────────
+    // Keys are lowercase-trimmed for case-insensitive matching.
+    // New drivers from the DS team just need a map entry added here.
+    @TestVisible
+    private static final Map<String, DriverMapping> DRIVER_MAP = new Map<String, DriverMapping>{
+        'growing team size' => new DriverMapping(
+            'Growing Team',
+            'This account is actively growing their team — payroll need increases with headcount'),
+        'high hiring activity' => new DriverMapping(
+            'Hiring Surge',
+            'High hiring activity recently — strong signal for payroll adoption'),
+        'high engagement across features' => new DriverMapping(
+            'Power User',
+            'Account is highly engaged across multiple product features'),
+        'enterprise-adjacent size' => new DriverMapping(
+            'Enterprise-Adjacent',
+            'Company size is approaching enterprise scale — higher payroll complexity'),
+        'low tier' => new DriverMapping(
+            'Room to Grow',
+            'Currently on a lower tier — strong upsell opportunity with payroll'),
+        'essential tier' => new DriverMapping(
+            'Room to Grow',
+            'Currently on Essential tier — strong upsell opportunity with payroll'),
+        'recent team management usage' => new DriverMapping(
+            'Managing Teams',
+            'Account recently started using team management features — payroll is a natural next step'),
+        'new location' => new DriverMapping(
+            'New Location',
+            'Account just added a new location — expansion signal for payroll'),
+        'active scheduling' => new DriverMapping(
+            'Active Scheduling',
+            'Heavy scheduling usage signals operational maturity for payroll'),
+        'steady usage growth' => new DriverMapping(
+            'Usage Growing',
+            'Account shows steady growth in platform usage over time'),
+        'multi-location company' => new DriverMapping(
+            'Multi-Location',
+            'Company operates multiple locations — payroll complexity drives need'),
+        'spike in timeclock punches' => new DriverMapping(
+            'Timeclock Spike',
+            'Unusual spike in timeclock activity recently — possible event or growth'),
+        'high timeclock usage' => new DriverMapping(
+            'Heavy Timeclock',
+            'Consistently high timeclock usage — strong payroll readiness signal'),
+        'consistent time tracking' => new DriverMapping(
+            'Tracking Time',
+            'Account consistently tracks employee time — payroll is the next logical step'),
+        'frequent scheduling activity' => new DriverMapping(
+            'Active Scheduler',
+            'Frequent scheduling activity signals operational reliance on the platform')
+    };
 
-    // Thresholds
-    private static final Decimal HIGH_WIN_THRESHOLD = 0.70;
-    private static final Decimal PAYROLL_READY_THRESHOLD = 0.60;
-    private static final Decimal HIGH_VALUE_THRESHOLD = 500; // $500 MRR
-    private static final Integer LATE_STAGE_DAYS = 14;
-    private static final Integer CONNECTED_RECENTLY_DAYS = 7;
-    private static final Integer NO_CONTACT_DAYS = 5;
-    private static final Integer NO_CONTACT_MIN_ATTEMPTS = 3;
-    private static final Integer INBOUND_REPLY_HOURS = 48;
+    // ─── Inner Classes ──────────────────────────────────────────────
 
-    // ─── Tag Inner Class ──────────────────────────────────────────────
-
-    public class Tag implements Comparable {
+    public class Tag {
         public String id;
         public String category;
         public String chip;
         public String expanded;
-        public Integer priority;
 
-        public Tag(String id, String category, String chip, String expanded, Integer priority) {
+        public Tag(String id, String category, String chip, String expanded) {
             this.id = id;
             this.category = category;
             this.chip = chip;
             this.expanded = expanded;
-            this.priority = priority;
         }
+    }
 
-        public Integer compareTo(Object other) {
-            Tag otherTag = (Tag) other;
-            return this.priority - otherTag.priority;
+    private class DriverMapping {
+        public String chip;
+        public String expanded;
+        public DriverMapping(String chip, String expanded) {
+            this.chip = chip;
+            this.expanded = expanded;
         }
     }
 
     // ─── Primary Entry Point ──────────────────────────────────────────
 
     /**
-     * Generate up to 4 prioritized tags for the given action.
+     * Generate tags for the given action.
+     *
+     * Time-bound actions: single rationale tag explaining why (meeting, SLA, follow-up).
+     * Engine-generated actions: DS driver tags from Payroll_Top_Drivers__c.
      *
      * @param wrapper The built ActionWrapper with action context
      * @param signal  The OpportunitySignal with CRM data
-     * @return List of Tag objects sorted by priority, capped at 4
+     * @return List of Tag objects (max 4 for engine actions, 1 for time-bound)
      */
     public static List<Tag> generateTags(
         NbaActionController.ActionWrapper wrapper,
         NbaSignalService.OpportunitySignal signal
     ) {
-        List<Tag> candidates = new List<Tag>();
+        List<Tag> tags = new List<Tag>();
 
         if (wrapper == null || signal == null) {
-            return candidates;
+            return tags;
         }
 
-        // 1. Time-Bound tags (priority 1)
-        addTimeBoundTags(candidates, wrapper, signal);
-
-        // 2. Cadence tags (priority 2)
-        addCadenceTags(candidates, wrapper);
-
-        // 3. Data Science signal tags (priority 3)
-        addSignalTags(candidates, signal);
-
-        // 4. Engagement tags (priority 4)
-        addEngagementTags(candidates, signal);
-
-        // 5. Stage/Economic tags (priority 5)
-        addStageTags(candidates, wrapper, signal);
-
-        // Sort by priority (ascending = highest priority first)
-        candidates.sort();
-
-        // Cap at MAX_TAGS
-        List<Tag> result = new List<Tag>();
-        for (Integer i = 0; i < Math.min(candidates.size(), MAX_TAGS); i++) {
-            result.add(candidates[i]);
+        // Time-bound actions: only show the time-bound rationale
+        if (wrapper.isTimeBound == true) {
+            addTimeBoundRationale(tags, wrapper);
+            return tags;
         }
 
-        return result;
+        // Engine-generated actions: show DS driver tags
+        addDriverTags(tags, signal);
+
+        return tags;
     }
 
     /**
@@ -118,231 +144,91 @@ public with sharing class NbaTagService {
             tagMap.put('category', t.category);
             tagMap.put('chip', t.chip);
             tagMap.put('expanded', t.expanded);
-            tagMap.put('priority', t.priority);
             tagList.add(tagMap);
         }
         return JSON.serialize(tagList);
     }
 
-    // ─── Tag Generators ───────────────────────────────────────────────
+    // ─── Time-Bound Rationale ────────────────────────────────────────
 
-    private static void addTimeBoundTags(
-        List<Tag> candidates,
-        NbaActionController.ActionWrapper wrapper,
-        NbaSignalService.OpportunitySignal signal
-    ) {
-        // TB-01: Meeting Upcoming
-        if (wrapper.isTimeBound == true && wrapper.actionType == 'Meeting' && wrapper.dueAt != null) {
-            Long minutesUntil = getMinutesBetween(Datetime.now(), wrapper.dueAt);
-            candidates.add(new Tag(
-                'TB-01', 'Time-Bound', 'Meeting Upcoming',
-                'You have a meeting in ' + minutesUntil + ' minutes',
-                PRIORITY_TIME_BOUND
-            ));
-        }
-
-        // TB-02: SLA Active
-        if (signal.hoursSinceAssignment != null && signal.hoursSinceAssignment < 1) {
-            Long minutesSince = (Long)(signal.hoursSinceAssignment * 60);
-            candidates.add(new Tag(
-                'TB-02', 'Time-Bound', 'SLA Active',
-                'New opportunity assigned ' + minutesSince + ' minutes ago — respond within SLA window',
-                PRIORITY_TIME_BOUND
-            ));
-        }
-
-        // TB-03: Follow-Up Due (detected via action type)
-        if (wrapper.actionType == 'Follow Up' && wrapper.isTimeBound == true) {
-            candidates.add(new Tag(
-                'TB-03', 'Time-Bound', 'Follow-Up Due',
-                'Your scheduled follow-up is now due',
-                PRIORITY_TIME_BOUND
-            ));
-        }
-    }
-
-    private static void addCadenceTags(
-        List<Tag> candidates,
+    private static void addTimeBoundRationale(
+        List<Tag> tags,
         NbaActionController.ActionWrapper wrapper
     ) {
-        if (wrapper.isCadenceAction != true) {
+        if (wrapper.actionType == 'Meeting') {
+            tags.add(new Tag(
+                'TB-01', 'Time-Bound', 'Meeting Upcoming',
+                'Upcoming meeting — review context and prepare.'
+            ));
+        } else if (wrapper.actionType == 'Follow Up') {
+            tags.add(new Tag(
+                'TB-03', 'Time-Bound', 'Follow-Up Due',
+                'Your scheduled follow-up is now due.'
+            ));
+        } else {
+            // New assignment / SLA
+            tags.add(new Tag(
+                'TB-02', 'Time-Bound', 'Newly Assigned',
+                'Newly assigned opportunity — make initial contact within SLA window.'
+            ));
+        }
+    }
+
+    // ─── Data Science Driver Tags ────────────────────────────────────
+
+    /**
+     * Parse Payroll_Top_Drivers__c (comma-separated string from DS model)
+     * and map each driver to an AE-facing tag using DRIVER_MAP.
+     * Unknown drivers fall back to displaying the raw model text.
+     */
+    private static void addDriverTags(
+        List<Tag> tags,
+        NbaSignalService.OpportunitySignal signal
+    ) {
+        if (!signal.hasAccountScoring || String.isBlank(signal.payrollTopDrivers)) {
             return;
         }
 
-        Integer stepNum = wrapper.cadenceStepNumber;
-        Integer totalSteps = wrapper.cadenceTotalSteps;
-        String method = wrapper.stepMethod;
+        // Parse comma-separated drivers (e.g., "Growing team size, high hiring activity (9d), essential tier")
+        List<String> rawDrivers = signal.payrollTopDrivers.split(',');
+        Integer driverIndex = 0;
 
-        // CD-02: First Touch (Step 1, no prior activity)
-        if (stepNum != null && stepNum == 1) {
-            candidates.add(new Tag(
-                'CD-02', 'Cadence', 'First Touch',
-                'First outreach attempt for this opportunity — no prior contact',
-                PRIORITY_CADENCE
-            ));
-        }
-        // CD-01: Call Attempt {N} (for Call steps beyond step 1)
-        else if (method == 'Call' && stepNum != null) {
-            candidates.add(new Tag(
-                'CD-01', 'Cadence', 'Call Attempt ' + stepNum,
-                'Attempt ' + stepNum + ' of ' + (totalSteps != null ? String.valueOf(totalSteps) : '?') + ' in cadence',
-                PRIORITY_CADENCE
-            ));
-        }
+        for (String raw : rawDrivers) {
+            if (driverIndex >= MAX_TAGS) break;
 
-        // CD-04: Last Attempt
-        if (stepNum != null && totalSteps != null && stepNum == totalSteps) {
-            candidates.add(new Tag(
-                'CD-04', 'Cadence', 'Last Attempt',
-                'Final attempt in cadence — breakup step',
-                PRIORITY_CADENCE
-            ));
-        }
+            String trimmed = raw.trim();
+            if (String.isBlank(trimmed)) continue;
 
-        // CD-03: Cadence Day context (from progress text)
-        if (wrapper.cadenceProgress != null && stepNum != null && stepNum > 1 && stepNum < totalSteps) {
-            candidates.add(new Tag(
-                'CD-03', 'Cadence', 'Step ' + stepNum + '/' + totalSteps,
-                wrapper.cadenceProgress,
-                PRIORITY_CADENCE
-            ));
-        }
+            // Strip parenthetical suffixes for matching (e.g., "(9d)", "(30d)", "(3d)")
+            String matchKey = trimmed.replaceAll('\\s*\\([^)]*\\)\\s*$', '').toLowerCase().trim();
 
-        // CD-05: Re-engaged (if cadence name contains Re_engage)
-        if (wrapper.cadenceName != null && wrapper.cadenceName.containsIgnoreCase('Re_engage')) {
-            candidates.add(new Tag(
-                'CD-05', 'Cadence', 'Re-engaged',
-                'Cadence resumed — re-engagement outreach',
-                PRIORITY_CADENCE
-            ));
-        }
-    }
+            DriverMapping mapping = DRIVER_MAP.get(matchKey);
 
-    private static void addSignalTags(
-        List<Tag> candidates,
-        NbaSignalService.OpportunitySignal signal
-    ) {
-        if (!signal.hasAccountScoring) {
-            return;
-        }
-
-        // DS-01: High Win Likelihood
-        if (signal.likelihoodToWin != null && signal.likelihoodToWin > HIGH_WIN_THRESHOLD) {
-            Integer pct = (Integer)(signal.likelihoodToWin * 100);
-            candidates.add(new Tag(
-                'DS-01', 'Signal', 'High Win Likelihood',
-                'Data model scores this account at ' + pct + '% probability of conversion',
-                PRIORITY_SIGNAL
-            ));
-        }
-
-        // DS-06: Payroll Ready
-        if (signal.probPayrollConversion != null && signal.probPayrollConversion > PAYROLL_READY_THRESHOLD) {
-            candidates.add(new Tag(
-                'DS-06', 'Signal', 'Payroll Ready',
-                'Account signals readiness for payroll product adoption',
-                PRIORITY_SIGNAL
-            ));
-        }
-
-        // DS-03: Tier Upgrade (using probTierUpgrade as proxy)
-        if (signal.probTierUpgrade != null && signal.probTierUpgrade > 0.5) {
-            candidates.add(new Tag(
-                'DS-03', 'Signal', 'Tier Upgrade',
-                'Account trending toward tier upgrade based on usage patterns',
-                PRIORITY_SIGNAL
-            ));
-        }
-    }
-
-    private static void addEngagementTags(
-        List<Tag> candidates,
-        NbaSignalService.OpportunitySignal signal
-    ) {
-        // EN-01: Inbound Reply
-        if (signal.hadIncomingReply && signal.lastSmsDate != null) {
-            Long hoursSince = getHoursBetween(signal.lastSmsDate, Datetime.now());
-            if (hoursSince <= INBOUND_REPLY_HOURS) {
-                candidates.add(new Tag(
-                    'EN-01', 'Engagement', 'Inbound Reply',
-                    'Contact replied to SMS ' + hoursSince + ' hours ago — no follow-up yet',
-                    PRIORITY_ENGAGEMENT
+            if (mapping != null) {
+                tags.add(new Tag(
+                    'DS-' + String.valueOf(driverIndex + 1),
+                    'Signal',
+                    mapping.chip,
+                    mapping.expanded
+                ));
+            } else {
+                // Unknown driver — show raw text (graceful degradation)
+                tags.add(new Tag(
+                    'DS-' + String.valueOf(driverIndex + 1),
+                    'Signal',
+                    trimmed.length() > 25 ? trimmed.left(22) + '...' : trimmed,
+                    trimmed
                 ));
             }
-        }
-
-        // EN-02: Connected Recently
-        if (signal.hadConnectedCall && signal.lastCallDate != null) {
-            Long daysSince = getDaysBetween(signal.lastCallDate, Datetime.now());
-            if (daysSince <= CONNECTED_RECENTLY_DAYS && daysSince >= 1) {
-                candidates.add(new Tag(
-                    'EN-02', 'Engagement', 'Connected Recently',
-                    'Connected ' + daysSince + ' days ago — follow-up window open',
-                    PRIORITY_ENGAGEMENT
-                ));
-            }
-        }
-
-        // EN-03: No Contact
-        if (!signal.hadConnectedCall && signal.todayCallCount != null && signal.todayCallCount >= NO_CONTACT_MIN_ATTEMPTS) {
-            Decimal daysSince = signal.daysSinceLastInteraction != null ? signal.daysSinceLastInteraction : 0;
-            if (daysSince >= NO_CONTACT_DAYS) {
-                candidates.add(new Tag(
-                    'EN-03', 'Engagement', 'No Contact',
-                    'No successful connection in ' + daysSince.intValue() + ' days across ' + signal.todayCallCount + ' attempts',
-                    PRIORITY_ENGAGEMENT
-                ));
-            }
-        }
-    }
-
-    private static void addStageTags(
-        List<Tag> candidates,
-        NbaActionController.ActionWrapper wrapper,
-        NbaSignalService.OpportunitySignal signal
-    ) {
-        // ST-01: Late Stage (opportunity stuck)
-        if (signal.daysSinceLastInteraction != null
-            && signal.daysSinceLastInteraction >= LATE_STAGE_DAYS
-            && signal.daysSinceLastInteraction < 99999
-            && signal.stageName != null) {
-            candidates.add(new Tag(
-                'ST-01', 'Stage', 'Late Stage',
-                'Opportunity in ' + signal.stageName + ' for ' + signal.daysSinceLastInteraction.intValue() + ' days — at risk of stalling',
-                PRIORITY_STAGE
-            ));
-        }
-
-        // ST-03: High Value
-        if (signal.incrementalIfWon != null && signal.incrementalIfWon > HIGH_VALUE_THRESHOLD) {
-            candidates.add(new Tag(
-                'ST-03', 'Economic', 'High Value',
-                'This opportunity represents $' + signal.incrementalIfWon.intValue() + ' incremental MRR',
-                PRIORITY_STAGE
-            ));
-        } else if (signal.mrr != null && signal.mrr > HIGH_VALUE_THRESHOLD) {
-            candidates.add(new Tag(
-                'ST-03', 'Economic', 'High Value',
-                'This opportunity represents $' + signal.mrr.intValue() + ' MRR',
-                PRIORITY_STAGE
-            ));
+            driverIndex++;
         }
     }
 
     // ─── Utilities ────────────────────────────────────────────────────
 
+    @TestVisible
     private static Long getMinutesBetween(Datetime dt1, Datetime dt2) {
         Long ms = Math.abs(dt2.getTime() - dt1.getTime());
         return ms / 60000;
-    }
-
-    private static Long getHoursBetween(Datetime dt1, Datetime dt2) {
-        Long ms = Math.abs(dt2.getTime() - dt1.getTime());
-        return ms / 3600000;
-    }
-
-    private static Long getDaysBetween(Datetime dt1, Datetime dt2) {
-        Long ms = Math.abs(dt2.getTime() - dt1.getTime());
-        return ms / 86400000;
     }
 }
