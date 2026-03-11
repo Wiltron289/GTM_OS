@@ -14,8 +14,9 @@
         </div>
         <template lwc:if={isExpanded}>
             <div class="insights-body">
-                <!-- Action Mode: instruction + reason -->
-                <template lwc:if={showActionContext}>
+
+                <!-- ═══ ACTION MODE: TIME-BOUND ═══ -->
+                <template lwc:if={isTimeBoundAction}>
                     <div class="action-instruction">
                         <lightning-icon icon-name={stepMethodIcon} size="xx-small"></lightning-icon>
                         <span>{stepInstruction}</span>
@@ -23,10 +24,30 @@
                     <template lwc:if={currentAction.reasonText}>
                         <p class="action-reason">{currentAction.reasonText}</p>
                     </template>
-                    <!-- Phase 7: Enhanced cadence context -->
+                </template>
+
+                <!-- ═══ ACTION MODE: ENGINE-GENERATED ═══ -->
+                <template lwc:if={isEngineAction}>
+
+                    <!-- DS Driver Tags -->
+                    <template lwc:if={hasDriverTags}>
+                        <div class="driver-tags-section">
+                            <template for:each={parsedTags} for:item="tag">
+                                <span key={tag.key} class="driver-tag" title={tag.expanded}>
+                                    {tag.chip}
+                                </span>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Reason text (fallback if no tags) -->
+                    <template lwc:if={currentAction.reasonText}>
+                        <p class="action-reason">{currentAction.reasonText}</p>
+                    </template>
+
+                    <!-- Cadence Context -->
                     <template lwc:if={showCadenceContext}>
                         <div class="cadence-context">
-                            <!-- Progress bar -->
                             <div class="cadence-progress-row">
                                 <lightning-icon icon-name="utility:steps" size="xx-small"></lightning-icon>
                                 <span class="cadence-progress-text">{cadenceProgressText}</span>
@@ -35,7 +56,6 @@
                             <div class="progress-bar-track">
                                 <div class="progress-bar-fill" style={progressBarStyle}></div>
                             </div>
-                            <!-- Upcoming steps -->
                             <template lwc:if={hasUpcomingSteps}>
                                 <div class="upcoming-steps">
                                     <span class="upcoming-label">Up next:</span>
@@ -49,9 +69,23 @@
                             </template>
                         </div>
                     </template>
+
+                    <!-- Payroll Conversion Probability -->
+                    <template lwc:if={hasPayrollProbability}>
+                        <div class="probability-section">
+                            <div class="probability-row">
+                                <lightning-icon icon-name="utility:trending" size="xx-small"></lightning-icon>
+                                <span class="probability-label">{payrollProbabilityLabel}</span>
+                            </div>
+                            <div class="prob-bar-track">
+                                <div class={payrollBarColorClass} style={payrollBarStyle}></div>
+                            </div>
+                        </div>
+                    </template>
+
                 </template>
 
-                <!-- Record Page Mode: drivers + tags -->
+                <!-- ═══ RECORD PAGE MODE ═══ -->
                 <template lwc:if={showDrivers}>
                     <ul class="insights-list">
                         <template for:each={insightsData.drivers} for:item="driver">
@@ -67,6 +101,7 @@
                         </template>
                     </div>
                 </template>
+
             </div>
         </template>
     </div>

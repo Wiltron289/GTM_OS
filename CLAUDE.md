@@ -54,18 +54,89 @@ When developing features or debugging, update the appropriate doc file:
 
 ## Current Project State
 
-**Last Updated**: 2026-03-09
+**Last Updated**: 2026-03-10
 
 | Item | Value |
 |------|-------|
-| **Active Branch** | `testing/sprint-22-20260303` |
-| **Deployment Target** | vscodeOrg (Homebase UAT sandbox) |
+| **Active Branch** | `testing/sprint-22-20260303` (local changes pending: owner-reassignment interrupt, repo merge) |
+| **Deployment Target** | vscodeOrg (Homebase UAT sandbox) + nbav2 (dev sandbox) |
 | **Apex Tests** | 271 targeted tests passing (100%) across 22 test classes. All GTM OS classes ≥75% coverage. |
 | **Current Phase** | **Post-Call Intelligence Panel — COMPLETE (6 sessions)** |
 | **Phase Plan** | `docs/POST-CALL-INTELLIGENCE-PLAN.md` (6 sessions). |
 | **Previous Phase** | PRD v2.2 Refactor — ALL 14 SESSIONS COMPLETE. `docs/REFACTOR-SESSION-PLAN.md`. |
+| **PRD** | `/Users/lwilson/Downloads/PRD-GTM-OS-MVP.md` — PRD v2.0, 92% coverage verified 2026-03-10 |
 | **GitHub** | https://github.com/Wiltron289/GTM_OS |
-| **Related Repo** | `C:\Users\Yeyian PC\SalesforceAICallNotes` — AI call notes field extraction (reference only) |
+| **Related Repo** | SalesforceAICallNotes — **MERGED INTO THIS REPO** (2026-03-10). AI call notes REST endpoint + Talkdesk qualification parsing. |
+
+## Engine Architecture (PRD-Aligned)
+
+GTM OS uses a 3-engine architecture per PRD v2.0. **Do not confuse with the older Impact×Urgency model** — the engine was rewritten in the PRD v2 refactor (14 sessions).
+
+### Three-Engine Model
+
+```
+Engine 1: ELIGIBILITY — "What work is logically required?"
+  Cadence rules, suppression, timezone gates, timing
+  → Logical Candidate Pool (in-memory, not persisted)
+
+Engine 2: SELECTION — "Which work is most valuable right now?"
+  Time-bound override → Timezone gate → Stage priority → Expected Incremental ARR
+  → Single top-ranked candidate
+
+Engine 3: RECORD CREATION & SERVING — "What must be shown to the AE?"
+  Persist to NBA_Queue__c, cache in Platform Cache, serve via LWC
+```
+
+### Selection Hierarchy (PRD Section 8.2)
+
+```
+Step 1: Time-Bound Override — meetings, SLAs, follow-ups (ordered by deadline proximity)
+Step 2: Timezone Gate — filter contacts where local time < 8 AM (via Account.Timezone_Router__c)
+Step 3: Stage Priority — HARD boundary: Closing(1) > Consult(2) > Connect(3) > New(4)
+Step 4: Expected Incremental ARR — highest economic value within same stage bucket
+Step 5: Tiebreaker — oldest Opportunity CreatedDate
+```
+
+**No urgency blending. No Impact×Urgency. Stage priority is a hard boundary** — a Closing $20K deal always beats a New $100K deal.
+
+### Expected Incremental ARR Formula (PRD Section 8.3)
+
+```
+Expected_ARR = Likelihood_To_Win × Incremental_If_Won × Meaningful_Connect_Rate(attempt_i)
+```
+
+- **Likelihood_To_Win**: `Account_Scoring__c.Prob_Payroll_Conversion__c` (fallback: stage-based: New=10%, Connect=25%, Consult=50%, Closing=75%)
+- **Incremental_If_Won**: `Account_Scoring__c.Incremental_If_Won__c` (fallback: `Opp.MRR__c` or `Opp.Amount`)
+- **Connect_Rate**: `NBA_Connect_Rate__mdt` per attempt number (decreasing: 0.13, 0.10, 0.08, 0.06, 0.05, 0.04)
+
+### Two-Stream Serving
+
+| Stream | Purpose | Frequency | Cost |
+|--------|---------|-----------|------|
+| Scored Queue | Full evaluation: Eligibility → Selection → Serve top action | 5 min (Platform Cache TTL) | ~12 SOQL (cache miss) |
+| Real-Time Interrupts | Time-bound commitments + new assignments | 15 seconds | 2 SOQL |
+
+### Stage-Scoped Cadences (5 deployed)
+
+| Stage | Cadence | Trigger | Touches |
+|-------|---------|---------|:-------:|
+| New | First_Touch_A | Opp created (SLA 5 min) | 12 (6C, 3S, 3E) |
+| Connect | Post_Demo_Connect_A | Missed follow-up meeting | 7 (3C, 1S, 2E, 1 recap) |
+| Consult | Post_Demo_Consult_A | Missed follow-up meeting | 8 (3C, 2S, 2E, 1 recap) |
+| Closing | Closing_Follow_Through_A | Follow-up Task date passes | 7 (2C, 2S, 2E, 1 recap) |
+| Any | Re_engage_A | 5+ days inactivity | 6 (3C, 1S, 2E) |
+
+Stage change resets cadence to Step 1 of the new stage. MCR attempt counter also resets.
+
+### PRD Gap Analysis (2026-03-10)
+
+| Gap | PRD Section | Severity | Status |
+|-----|------------|----------|--------|
+| Hand-Off stage suppression | 7.4, 7.8 | P1 | Missing — add check in NbaActionCreationService |
+| SLA expiration window | 13.3 | P1 | PRD=5min, code=15min — verify and align |
+| Incremental_If_Won__c field | 8.4 | P2 | Verify DS pipeline populates this field |
+| Starvation report/dashboard | 18.1 | P2 | Fields exist, report type + dashboard not created |
+| Action metrics collection | 18.2 | P3 | Not implemented |
 
 ### What Exists
 
@@ -113,7 +184,7 @@ Stream 2 (Real-Time Interrupts) — checkInterrupts():
 |-----------|--------|
 | `NbaActionController.cls` | Removed L1 check from getActiveAction. Added checkInterrupts() returning List<ActionWrapper>. Added acceptInterrupt(Id). |
 | `NbaActionCreationService.cls` | Added createNewAssignmentAction() single + createNewAssignmentActions() bulk (1 SOQL dedup). |
-| `NbaOpportunityTriggerHandler.cls` | AFTER_INSERT creates new-assignment interrupt via bulk method. |
+| `NbaOpportunityTriggerHandler.cls` | AFTER_INSERT creates new-assignment interrupt via bulk method. AFTER_UPDATE detects OwnerId changes by non-self users (router/manager reassignment) → creates interrupt for new owner, invalidates cache for both old and new owners. Self-assignment excluded. |
 | `NbaActionStateService.cls` | expireStaleActions() extended: non-time-bound L1 older than 24h expired. INTERRUPT_EXPIRE_HOURS constant. |
 | `nbaDemoWorkspace` LWC | Replaced checkTimeBound with checkInterrupts + acceptInterrupt. Added _pausedAction, pendingInterrupts, _dismissedInterruptIds. |
 | `nbaDemoAlertBanner` LWC | Added indigo interrupt banner with "Jump to it" / "Later" buttons. Slide-down animation. |
@@ -188,30 +259,30 @@ Talkdesk Activity inserted → NbaTalkdeskActivityTrigger fires
 - **Call Completed picklist value**: Added then deactivated on `Action_Type__c` — preserves existing records but prevents new selections. History remains queryable.
 - **empApi subscription**: `subscribe('/event/Call_Completed_Event__e', -1, handler)` in `connectedCallback`, `unsubscribe` in `disconnectedCallback`. Filter by `Sales_Rep_Id__c` matching current user.
 
-### Phase 2 Engine Core — COMPLETE (Sprint 12)
+### Phase 2 Engine Core — COMPLETE (Sprint 12, REWRITTEN in PRD v2 Refactor)
 
-All 6 Apex service classes built, deployed, and tested. 43/43 tests passing.
+6 Apex service classes. **Scoring and selection were rewritten** in the PRD v2 refactor (14 sessions) to replace Impact×Urgency with Expected Incremental ARR + stage priority.
 
 | Class | Purpose | Coverage | Tests |
 |-------|---------|----------|-------|
 | `NbaSignalService` | CRM signal detection (7 SOQL/batch) | 84% | 8 |
-| `NbaActionCreationService` | Rule evaluation + candidate creation | 89% | 14 |
-| `NbaActionStateService` | Lifecycle: complete, snooze, dismiss, expire, promote | 85% | 12 |
-| `NbaActionSelectionService` | Gate → Rank prioritization | 91% | 5 |
-| `NbaActionCreationSchedulable` | 10-min creation job (6 scheduled jobs) | 89% | 2 |
-| `NbaActionExpirationSchedulable` | Expire stale + unsnooze due (6 scheduled jobs) | 100% | 2 |
+| `NbaActionCreationService` | Eligibility + Expected ARR scoring | 89% | 14 |
+| `NbaActionStateService` | Lifecycle: complete, snooze, dismiss, expire | 85% | 12 |
+| `NbaActionSelectionService` | Stage Priority → Expected ARR ranking | 91% | 10 |
+| `NbaAutomatedOutreachService` | SMS (Mogli) + Email automation | 89% | 8 |
+| `NbaActionExpirationSchedulable` | Expire stale + unsnooze due | 100% | 2 |
 
-#### Key Engine Architecture
+#### Key Engine Architecture (PRD v2 Aligned)
 
-**Signal Detection** (NbaSignalService): Queries 7 CRM data sources per Opp batch — Opportunity, Talkdesk Activity, Mogli SMS, Events, Tasks, Account_Scoring__c, existing NBA_Queue__c. Returns `Map<Id, OpportunitySignal>`.
+**Signal Detection** (NbaSignalService): Queries 7 CRM data sources per Opp batch — Opportunity, Talkdesk Activity, Mogli SMS, Events, Tasks, Account_Scoring__c (Likelihood_To_Win, Incremental_If_Won), existing NBA_Queue__c. Returns `Map<Id, OpportunitySignal>` with 40+ fields.
 
-**Action Creation** (NbaActionCreationService): Evaluates signals through pipeline: suppress? → determine type (First Touch/Stage Progression/Re-engage/Follow Up) → score (Impact + Urgency) → assign bucket/layer → create NBA_Queue__c with Status='Pending'. UniqueKey: `'V2|' + oppId + '|' + actionType`.
+**Action Creation** (NbaActionCreationService): Evaluates signals through pipeline: suppress? → determine cadence step (stage-scoped) → calculate Expected Incremental ARR (`LTW × IIW × ConnectRate(attempt)`) → assign Stage_Priority__c → create NBA_Queue__c candidate. UniqueKey: `'V2|' + oppId + '|' + actionType`.
 
-**State Management** (NbaActionStateService): AE-invoked transitions (complete, snooze, dismiss) + system-invoked (expire, unsnooze). Promotion: Layer 1 > 2 > 3, then score DESC. Constraint: max 2 active+pending per AE.
+**State Management** (NbaActionStateService): AE-invoked transitions (complete, snooze, dismiss) + system-invoked (expire). Writes cadence audit fields (Cadence_Name, Step_Number, Step_Outcome, Step_Method) to NBA_Queue__c.
 
-**Selection** (NbaActionSelectionService): Gate (cooldown, mode filter) → Rank (layer + score sort). Lightweight — most scoring happens at creation time.
+**Selection** (NbaActionSelectionService): Time-Bound Override → Timezone Gate (8 AM local) → Stage Priority (hard boundary) → Expected ARR DESC → Oldest Opp tiebreaker. No urgency blending.
 
-**Schedulables**: 6 jobs each at fixed minute offsets (SF cron doesn't support step/comma syntax). Creation: 0,10,20,30,40,50. Expiration: 5,15,25,35,45,55.
+**Automated Outreach** (NbaAutomatedOutreachService): Hybrid scheduling — immediate execution via Queueable for no-delay steps + 5-min Schedulable batch for delayed sends. SMS via Mogli, Email via Messaging.SingleEmailMessage. Compliance checks (opt-out, deliverability).
 
 ### Phase 3 — LWC Integration — COMPLETE (Sprint 13)
 
@@ -444,15 +515,17 @@ getActiveAction() → cache miss → NbaSignalService.getSignals()
 
 Keep this reference for future phases — describes how the engine reads CRM data.
 
-**Phone Calls → Talkdesk Activities** (`talkdesk__Talkdesk_Activity__c`): `talkdesk__Opportunity__c` direct lookup. Connected = `DispositionCode Label LIKE 'Connected%' AND Talk_Time > 0`.
+**Phone Calls → Talkdesk Activities** (`talkdesk__Talkdesk_Activity__c`): `talkdesk__Opportunity__c` direct lookup. Connected = `DispositionCode Label LIKE 'Connected%' AND Talk_Time > 0`. Connection triggers 24hr cooldown.
 
-**Text Messages → Mogli SMS** (`Mogli_SMS__SMS__c`): `Mogli_SMS__Opportunity__c` direct lookup. Direction: `'Outgoing'`/`'Incoming'`.
+**Text Messages → Mogli SMS** (`Mogli_SMS__SMS__c`): `Mogli_SMS__Opportunity__c` direct lookup. Direction: `'Outgoing'`/`'Incoming'`. Inbound reply = connection (24hr cooldown).
 
-**Meetings → Events**: `WhatId` link. Suppression: `StartDateTime` within 24h.
+**Meetings → Events**: `WhatId` link. Suppression: `StartDateTime` within 24h. Missed meeting triggers Post-Demo No-Show cadence.
 
-**Tasks**: `WhatId` link. Use Talkdesk as PRIMARY call source, not Tasks.
+**Tasks**: `WhatId` link. Use Talkdesk as PRIMARY call source, not Tasks. Follow-up Tasks with ReminderDateTime = time-bound commitment.
 
-**Opportunity Signals**: `Days_Since_Last_Interaction__c` formula (0 SOQL cost, returns 99999 if no interaction). Account_Scoring__c has only 3 records — fallback via `Opp.Amount + Opp.Probability`.
+**Opportunity Signals**: `Days_Since_Last_Interaction__c` formula (0 SOQL cost, returns 99999 if no interaction).
+
+**Account Scoring** (`Account_Scoring__c`): `Likelihood_To_Win__c` (mapped from `Prob_Payroll_Conversion__c`) and `Incremental_If_Won__c` feed Expected ARR formula. Fallback: stage-based probability × MRR/Amount.
 
 ### Pending Actions
 - Merge `testing/sprint-22-20260303` to master (Post-Call Intelligence complete)
@@ -555,6 +628,8 @@ Keep this reference for future phases — describes how the engine reads CRM dat
 - **empApi subscription**: Use `-1` replay ID for new events only. Always `unsubscribe` in `disconnectedCallback` to prevent memory leaks.
 - **Event queue for Platform Events**: When a post-call panel is already open and another Platform Event arrives, queue it in `_pendingEventQueue` and process FIFO after confirm/skip. Skip stale events where Opp no longer matches.
 - **Record Page mode Platform Events**: empApi subscription must be in `connectedCallback()` outside the `if (!this.recordId)` block so events work in both App Page and Record Page modes.
+- **New-assignment interrupt dedup**: UniqueKey includes OwnerId (`V2|oppId|First Touch|NewAssignment|ownerId`) so reassignment to a different user creates a new interrupt even if the original insert interrupt still exists.
+- **Owner change interrupt filter**: Only fires when `OwnerId` changed AND `UserInfo.getUserId() != new OwnerId` — self-assignment is excluded. This means the running user (router, manager, admin) must be different from the new owner.
 - **postCallContext setter reset pattern**: Converting `@api` property to getter/setter in child LWC allows resetting edit state when parent passes a new context object.
 
 ## Detailed Patterns, Agents & Commands

@@ -182,3 +182,75 @@
     margin-top: 4px;
     padding-left: 4px;
 }
+
+/* ── DS Driver Tags (engine-generated actions) ──── */
+
+.driver-tags-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.driver-tag {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--nba-indigo-600, #4f46e5);
+    color: white;
+    cursor: default;
+    transition: background 0.15s ease;
+}
+
+.driver-tag:hover {
+    background: var(--nba-indigo-700, #4338ca);
+}
+
+/* ── Payroll Probability ──────────────────────────── */
+
+.probability-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--nba-blue-200, #bfdbfe);
+}
+
+.probability-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--nba-indigo-800, #3730a3);
+}
+
+.probability-label {
+    flex: 1;
+}
+
+.prob-bar-track {
+    height: 6px;
+    background: var(--nba-blue-100, #dbeafe);
+    border-radius: 3px;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.prob-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.prob-high {
+    background: #059669; /* green-600 */
+}
+
+.prob-medium {
+    background: #d97706; /* amber-600 */
+}
+
+.prob-low {
+    background: var(--nba-text-400, #94a3b8);
+}
