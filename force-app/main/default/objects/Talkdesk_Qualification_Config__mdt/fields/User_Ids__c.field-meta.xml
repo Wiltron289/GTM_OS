@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>User_Ids__c</fullName>
+    <label>User Ids</label>
+    <description>Comma-separated User IDs for Specific_Users mode. These are the Opportunity Owner IDs whose records will be processed.</description>
+    <type>LongTextArea</type>
+    <length>2000</length>
+    <visibleLines>3</visibleLines>
+</CustomField>
