@@ -608,7 +608,7 @@ private class NbaActionCreationServiceTest {
         Test.startTest();
         NBA_Queue__c action = NbaActionCreationService.createTimeBoundAction(
             opp.Id, opp.AccountId, opp.OwnerId,
-            Datetime.now().addHours(2), evt.Id,
+            Datetime.now().addHours(2), Datetime.now().addHours(3), evt.Id,
             'Review context before demo meeting'
         );
         Test.stopTest();
@@ -644,7 +644,7 @@ private class NbaActionCreationServiceTest {
         // Create first action and insert it
         NBA_Queue__c first = NbaActionCreationService.createTimeBoundAction(
             opp.Id, opp.AccountId, opp.OwnerId,
-            Datetime.now().addHours(3), evt.Id, 'First'
+            Datetime.now().addHours(3), Datetime.now().addHours(4), evt.Id, 'First'
         );
         insert first;
 
@@ -652,7 +652,7 @@ private class NbaActionCreationServiceTest {
         // Second call with same event → should return null (duplicate)
         NBA_Queue__c second = NbaActionCreationService.createTimeBoundAction(
             opp.Id, opp.AccountId, opp.OwnerId,
-            Datetime.now().addHours(3), evt.Id, 'Duplicate'
+            Datetime.now().addHours(3), Datetime.now().addHours(4), evt.Id, 'Duplicate'
         );
         Test.stopTest();
 
@@ -679,19 +679,20 @@ private class NbaActionCreationServiceTest {
 
         NBA_Queue__c action = NbaActionCreationService.createTimeBoundAction(
             opp.Id, opp.AccountId, opp.OwnerId,
-            Datetime.now().addHours(2), evt.Id, 'Original time'
+            Datetime.now().addHours(2), Datetime.now().addHours(3), evt.Id, 'Original time'
         );
         insert action;
 
-        Datetime newTime = Datetime.now().addHours(5);
+        Datetime newStartTime = Datetime.now().addHours(5);
+        Datetime newEndTime = Datetime.now().addHours(6);
         Test.startTest();
         NBA_Queue__c updated = NbaActionCreationService.updateTimeBoundAction(
-            evt.Id, opp.Id, newTime
+            evt.Id, opp.Id, newStartTime, newEndTime
         );
         Test.stopTest();
 
         System.assertNotEquals(null, updated, 'Should find the action to update');
-        System.assertEquals(newTime, updated.DueAt__c, 'DueAt should be updated');
+        System.assertEquals(newEndTime, updated.DueAt__c, 'DueAt should be updated to new end time');
     }
 
     @isTest
@@ -714,7 +715,7 @@ private class NbaActionCreationServiceTest {
 
         NBA_Queue__c action = NbaActionCreationService.createTimeBoundAction(
             opp.Id, opp.AccountId, opp.OwnerId,
-            Datetime.now().addHours(2), evt.Id, 'Will be cancelled'
+            Datetime.now().addHours(2), Datetime.now().addHours(3), evt.Id, 'Will be cancelled'
         );
         insert action;
 
