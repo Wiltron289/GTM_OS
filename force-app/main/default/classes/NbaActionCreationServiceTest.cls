@@ -539,7 +539,8 @@ private class NbaActionCreationServiceTest {
         // Expire it so we can test the method directly.
         List<NBA_Queue__c> existing = [
             SELECT Id FROM NBA_Queue__c
-            WHERE UniqueKey__c = :('V2|' + opp.Id + '|First Touch|NewAssignment')
+            WHERE Rule_Name__c = 'NewAssignment_Interrupt'
+              AND Opportunity__c = :opp.Id
         ];
         for (NBA_Queue__c q : existing) {
             q.Status__c = 'Expired';
@@ -555,10 +556,10 @@ private class NbaActionCreationServiceTest {
 
         System.assertNotEquals(null, action, 'Should create a new-assignment interrupt');
         System.assertEquals('First Touch', action.Action_Type__c, 'Type should be First Touch');
-        System.assertEquals(false, action.Is_Time_Bound__c, 'Should NOT be time-bound');
+        System.assertEquals(true, action.Is_Time_Bound__c, 'Should be time-bound (5-min SLA)');
         System.assertEquals('Immediate', action.Source_Path__c, 'Source should be Immediate');
         System.assertEquals('Pending', action.Status__c, 'Status should be Pending');
-        System.assertEquals(null, action.DueAt__c, 'DueAt should be null for non-time-bound');
+        System.assertNotEquals(null, action.DueAt__c, 'DueAt should be set for SLA expiration');
         System.assert(action.UniqueKey__c.contains('NewAssignment'),
             'UniqueKey should contain NewAssignment');
         System.assertNotEquals(null, action.Stage_Priority__c, 'Stage priority should be set');

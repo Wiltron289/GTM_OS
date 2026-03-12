@@ -145,16 +145,20 @@ private class NbaOpportunityTriggerHandlerTest {
         // Verify a new-assignment interrupt record was created
         List<NBA_Queue__c> interrupts = [
             SELECT Id, Action_Type__c, Is_Time_Bound__c,
-                   Source_Path__c, UniqueKey__c
+                   Source_Path__c, UniqueKey__c, DueAt__c
             FROM NBA_Queue__c
             WHERE Opportunity__c = :opp.Id
               AND Source_Path__c = 'Immediate'
-              AND Is_Time_Bound__c = false
+              AND Rule_Name__c = 'NewAssignment_Interrupt'
         ];
         System.assertEquals(1, interrupts.size(),
             'Should create 1 new-assignment interrupt record');
         System.assertEquals('First Touch', interrupts[0].Action_Type__c,
             'Interrupt should be First Touch');
+        System.assertEquals(true, interrupts[0].Is_Time_Bound__c,
+            'New assignments should be time-bound');
+        System.assertNotEquals(null, interrupts[0].DueAt__c,
+            'DueAt should be set for SLA expiration');
         System.assert(interrupts[0].UniqueKey__c.contains('NewAssignment'),
             'UniqueKey should contain NewAssignment');
     }
